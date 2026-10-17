@@ -1,0 +1,110 @@
+{
+  "brevo": [
+    {
+      "key": "welcome",
+      "name": "Jovita · Welcome",
+      "audience": "creative",
+      "subject": "Welcome to Jovita, {{ params.first_name }} 👋",
+      "brevo_id": 1
+    },
+    {
+      "key": "trial_started",
+      "name": "Jovita · Pro trial started",
+      "audience": "creative",
+      "subject": "Your 7-day Pro trial has started ✨",
+      "brevo_id": 2
+    },
+    {
+      "key": "trial_ending",
+      "name": "Jovita · Trial ending",
+      "audience": "creative",
+      "subject": "Your Pro trial ends in 2 days",
+      "brevo_id": 3
+    },
+    {
+      "key": "payment_received",
+      "name": "Jovita · Client paid",
+      "audience": "creative",
+      "subject": "💸 {{ params.client_name }} paid {{ params.amount }}",
+      "brevo_id": 4
+    },
+    {
+      "key": "new_inquiry",
+      "name": "Jovita · New inquiry",
+      "audience": "creative",
+      "subject": "New inquiry from {{ params.client_name }}",
+      "brevo_id": 5
+    },
+    {
+      "key": "contract_signed",
+      "name": "Jovita · Contract signed",
+      "audience": "creative",
+      "subject": "✍️ {{ params.client_name }} signed the contract",
+      "brevo_id": 6
+    },
+    {
+      "key": "invoice",
+      "name": "Client · Invoice",
+      "audience": "client",
+      "subject": "Invoice #{{ params.invoice_number }} from {{ params.studio_name }}",
+      "brevo_id": 7
+    },
+    {
+      "key": "payment_reminder",
+      "name": "Client · Payment reminder",
+      "audience": "client",
+      "subject": "Friendly reminder: invoice #{{ params.invoice_number }}",
+      "brevo_id": 8
+    },
+    {
+      "key": "receipt",
+      "name": "Client · Receipt",
+      "audience": "client",
+      "subject": "Receipt from {{ params.studio_name }}: thank you!",
+      "brevo_id": 9
+    },
+    {
+      "key": "contract",
+      "name": "Client · Contract to sign",
+      "audience": "client",
+      "subject": "Your contract from {{ params.studio_name }} is ready",
+      "brevo_id": 10
+    },
+    {
+      "key": "gallery",
+      "name": "Client · Gallery ready",
+      "audience": "client",
+      "subject": "Your photos are ready ✨",
+      "brevo_id": 11
+    },
+    {
+      "key": "booking",
+      "name": "Client · Booking confirmed",
+      "audience": "client",
+      "subject": "You're booked with {{ params.studio_name }} 📅",
+      "brevo_id": 12
+    }
+  ],
+  "supabase": [
+    {
+      "key": "confirm_signup",
+      "subject": "Confirm your email for Jovita"
+    },
+    {
+      "key": "reset_password",
+      "subject": "Reset your Jovita password"
+    },
+    {
+      "key": "magic_link",
+      "subject": "Your Jovita sign-in link"
+    },
+    {
+      "key": "invite",
+      "subject": "You've been invited to Jovita"
+    },
+    {
+      "key": "email_change",
+      "subject": "Confirm your new email for Jovita"
+    }
+  ]
+}

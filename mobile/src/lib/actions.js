@@ -4,6 +4,7 @@ import { useToast } from "../components/ui";
 import { addDays, first, money, portalUrl } from "./format";
 import { tx } from "./i18n";
 import { celebratePaid } from "../components/PaidMoment";
+import { sendEmail } from "./email";
 
 // Quick actions shared by Today, Projects and Money.
 // Sharing opens the phone's share sheet so you can send the client's link on WhatsApp, SMS or email.
@@ -24,10 +25,19 @@ export function useActions() {
     try { await Share.share({ message }); } catch (e) { toast(e.message); }
   };
 
+  // Email the client first (Brevo). If that can't happen, open the share sheet instead.
+  const emailOrShare = async (kind, ids, p, what, clientId) => {
+    const name = first(client(clientId ?? p?.client_id)?.name);
+    const r = await sendEmail(kind, ids);
+    if (r.ok) return toast(tx("{what} emailed to {first}", { what, first: name }));
+    if (p) return shareLink(p, what);
+    return toast(r.reason);
+  };
+
   async function projectAction(p, a) {
     try {
       if (a === "quote") { await update("projects", p.id, { stage: "booked" }); await update("clients", p.client_id, { status: "client" }); return shareLink(p, tx("Quote")); }
-      if (a === "contract") return shareLink(p, tx("Contract"));
+      if (a === "contract") return emailOrShare("contract", { project_id: p.id }, p, "Contract");
       if (a === "deposit") return shareLink(p, tx("Payment"));
       if (a === "advance") {
         const next = p.stage === "booked" ? "shooting" : "editing";
@@ -37,7 +47,11 @@ export function useActions() {
       if (a === "deliver") {
         await update("projects", p.id, { stage: "delivered", gallery_delivered: true });
         const g = galleries.find((x) => x.project_id === p.id);
-        if (g) await update("galleries", g.id, { status: "delivered", expires_on: addDays(30) });
+        if (g) {
+          await update("galleries", g.id, { status: "delivered", expires_on: addDays(30) });
+          const r = await sendEmail("gallery", { gallery_id: g.id });
+          if (!r.ok) return toast(tx("Gallery delivered. {reason}", { reason: r.reason }));
+        }
         return toast(tx("Gallery delivered to {first}", {
           first: first(client(p.client_id).name)
         }));
@@ -54,9 +68,12 @@ export function useActions() {
         await update("clients", i.client_id, { status: "client" });
         return celebratePaid({ name: first(client(i.client_id).name), amount: money(i.amount, i.currency), label: i.label, clientId: i.client_id });
       }
-      if (a === "send") { await update("invoices", i.id, { status: "sent" }); return toast(tx("Invoice #{number} is ready in the client's portal", {
-        number: i.number
-      })); }
+      if (a === "send") {
+        await update("invoices", i.id, { status: "sent" });
+        const r = await sendEmail("invoice", { invoice_id: i.id });
+        if (r.ok) return toast(tx("Invoice #{number} emailed to {first}", { number: i.number, first: first(client(i.client_id).name) }));
+        return toast(tx("Invoice #{number} is ready in the client's portal", { number: i.number }) + " " + r.reason);
+      }
       if (a === "reminders") {
         const on = !(i.reminders_on ?? true);
         await update("invoices", i.id, { reminders_on: on });
@@ -64,8 +81,7 @@ export function useActions() {
       }
       if (a === "nudge") {
         const p = i.project_id && project(i.project_id);
-        if (p) return shareLink(p, tx("Payment reminder"));
-        return toast(tx("Link this invoice to a project to share a payment link."));
+        return emailOrShare("payment_reminder", { invoice_id: i.id }, p || null, "Payment reminder", i.client_id);
       }
     } catch (e) { toast(e.message); }
   }
