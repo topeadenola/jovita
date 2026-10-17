@@ -507,8 +507,8 @@ a{color:#261433}a:hover{color:#4B2E66}
 <script src="i18n.js"></script>
 <script src="config.js"></script>
 <script>
-// Where the Jovita app runs. On this laptop it's the app's local address; change it when the app goes online.
-const APP_URL = location.port === "5174" ? "http://localhost:5173" : "";
+// Where the Jovita app runs: the local address on this laptop, app.getjovita.com when live.
+const APP_URL = location.port === "5174" ? "http://localhost:5173" : "https://app.getjovita.com";
 document.querySelectorAll("[data-app]").forEach((a) => { a.href = APP_URL + a.dataset.app; });
 const state = { career: 0, cur: "NGN" };
 const $ = (id) => document.getElementById(id);
