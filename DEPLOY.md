@@ -5,7 +5,7 @@ Two Cloudflare Workers (static assets), both built from this GitHub repo. Every 
 | Project | Address | Root directory | Build command | Output directory |
 |---|---|---|---|---|
 | `jovita-site` | getjovita.com, www.getjovita.com | `public/landing` | *(leave empty)* | uses `public/landing/wrangler.jsonc` |
-| `jovita` (the app) | app.getjovita.com | *(leave empty)* | `npm run build` | uses `wrangler.jsonc` (dist/) |
+| `jovita-app` | app.getjovita.com | *(leave empty)* | `npm run build` (or empty: wrangler.jsonc builds it) | uses `wrangler.jsonc` (dist/) |
 
 Deploy command for both: `npx wrangler deploy`.
 
