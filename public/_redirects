@@ -1,3 +1,0 @@
-# Cloudflare Pages / Netlify: send app routes to the right single-page app
-/admin/*  /admin/index.html  200
-/*        /index.html        200

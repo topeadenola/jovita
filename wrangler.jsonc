@@ -1,0 +1,10 @@
+// The Jovita app on Cloudflare Workers (static assets). Built with `npm run build` into dist/.
+// Unknown paths like /p/<token>, /g/<token> and /spotlight fall back to index.html, so the app's own router handles them.
+{
+  "name": "jovita",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
