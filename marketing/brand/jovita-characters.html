@@ -1,0 +1,190 @@
+<title>Jovita Character Ideas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;700&display=swap">
+<style>
+/* Layout: short intro, then a 2-column gallery of 10 live character cards (hover or tap each), then a shortlist note. */
+:root{
+  --plum:#261433; --marigold:#FFB320; --deep:#E89A00; --lilac:#E9DDFB;
+  --bg:#FBF8FF; --fg:#261433; --muted:#5E5069; --line:#E4DCEE; --card:#FFFFFF; --stage:#F3EDFB; --label:#8F5A00; --tag:#E9DDFB;
+  --display:'Bricolage Grotesque','Trebuchet MS',sans-serif; --body:'Figtree',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1A0E24;--fg:#F4EEFB;--muted:#BBAACB;--line:#3A2A4A;--card:#22132F;--stage:#2F1C40;--label:#FFB320;--tag:#3A2550;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1A0E24;--fg:#F4EEFB;--muted:#BBAACB;--line:#3A2A4A;--card:#22132F;--stage:#2F1C40;--label:#FFB320;--tag:#3A2550;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.5;margin:0}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:40px 72px;display:flex;flex-direction:column;gap:40px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--label);margin:0}
+h1,h2{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.02em}
+h1{font-size:clamp(40px,7vw,76px);font-weight:800;line-height:.98}
+h2{font-size:26px;font-weight:800;line-height:1.1}
+p{margin:0}
+.intro{display:flex;flex-direction:column;gap:16px;max-width:66ch}
+.lede{font-size:19px;color:var(--muted)}
+.count{display:flex;gap:10px;flex-wrap:wrap}
+.count span{font-weight:700;font-size:15px;background:var(--tag);border-radius:999px;padding:6px 14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.stage{background:var(--stage);border-radius:20px;display:flex;justify-content:center;cursor:pointer;position:relative}
+.stage:focus-visible{outline:3px solid var(--marigold);outline-offset:3px}
+.stage svg{width:100%;max-width:360px;height:auto;display:block;overflow:visible}
+.num{position:absolute;top:12px;left:14px;font-family:var(--display);font-weight:800;font-size:15px;color:var(--muted)}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tag{font-size:13px;font-weight:700;background:var(--tag);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.card p{color:var(--muted);font-size:15.5px}
+.card .fit{color:var(--fg);font-size:15px}
+.card .fit b{color:var(--label)}
+.note{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:8px}
+.note p{color:var(--muted)}
+
+/* motion: plays on hover or tap (.go) */
+svg *{transform-box:fill-box;transform-origin:center}
+svg [transform]{transform-box:view-box;transform-origin:0 0}
+svg [style*="transform-origin"]{transform-box:view-box}
+.pp{transition:transform .12s ease-out}
+.blink .lid{animation:blink .18s}
+.lid{transform:scaleY(0)}
+@keyframes blink{50%{transform:scaleY(1)}}
+.go .bounce{animation:bounce .7s cubic-bezier(.3,1.6,.5,1)}
+.go .bounce2{animation:bounce .7s .18s cubic-bezier(.3,1.6,.5,1)}
+@keyframes bounce{40%{transform:translateY(-18px)}}
+.go .wave{animation:wave .8s ease-in-out 2}
+@keyframes wave{40%{transform:rotate(-30deg)}}
+.go .spin{animation:spin 1.2s ease-in-out}
+@keyframes spin{to{transform:rotate(360deg)}}
+.go .flip{animation:flip .9s ease-in-out}
+@keyframes flip{50%{transform:scaleX(-1)}}
+.go .pop{animation:pop .6s ease-out}
+@keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.25);opacity:1}}
+.go .snap{animation:snap .5s ease-in-out 2}
+.snapper{transform-origin:0% 100%}
+@keyframes snap{50%{transform:rotate(16deg)}}
+.go .shake{animation:shake .4s ease-in-out 2}
+@keyframes shake{25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+.go .dart{animation:dart 1.1s ease-in-out}
+@keyframes dart{40%{transform:translate(26px,-22px) rotate(-12deg)}70%{transform:translate(-6px,4px)}}
+.go .sway{animation:sway 1s ease-in-out}
+@keyframes sway{30%{transform:rotate(-12deg)}70%{transform:rotate(10deg)}}
+.dots circle{opacity:0}
+.go .dots circle{animation:typ 1s ease-in-out 2}
+.go .dots circle:nth-child(2){animation-delay:.15s}.go .dots circle:nth-child(3){animation-delay:.3s}
+@keyframes typ{0%,100%{opacity:1;transform:translateY(0)}40%{opacity:1;transform:translateY(-6px)}}
+.sparkle{opacity:0}
+.go .sparkle{animation:pop .7s ease-out}
+.idle{animation:float 4s ease-in-out infinite}
+.idle2{animation:float 4s 1.2s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-5px)}}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){svg *{animation:none!important;transition:none!important}}
+</style>
+
+<main class="wrap">
+  <section class="intro">
+    <p class="eyebrow">Jovita · character exploration</p>
+    <h1>16 characters, 10 ideas</h1>
+    <p class="lede">All are original and drawn only from the Jovita brand: the winking j, the speech bubble, marigold, plum and lilac. Hover over or tap each one to see it move. Their eyes follow your cursor.</p>
+    <div class="count"><span>4 solo characters</span><span>6 pairs</span><span>16 characters</span></div>
+  </section>
+  <section class="grid" id="grid"></section>
+  <section class="note">
+    <h2>How to pick</h2>
+    <p>Tell me your top 2 or 3 numbers. You can also mix: for example, use one solo character as the main face of Jovita (in Ask Jovita, onboarding, merch), and ideas 3, 8 and 9 as a career squad that appears only in that career's onboarding and templates.</p>
+  </section>
+</main>
+
+<script>
+(function(){
+const P='#261433',M='#FFB320',D='#E89A00',L='#E9DDFB',W='#FFFFFF',PK='#F7A6C0';
+// face: eyes with pupils (eye tracking) and the j-hook smile from the logo
+function face(x,y,s,ink,glint,opt){opt=opt||{};const e=14*s,r=6.5*s;
+  const eye=(cx)=>`<circle cx="${cx}" cy="${y}" r="${r}" fill="${ink}"/>`;
+  const lidc=opt.lid||'none';
+  return `<g>${eye(x-e)}${eye(x+e)}<g class="pp"><circle cx="${x-e+2*s}" cy="${y-2.2*s}" r="${2.3*s}" fill="${glint}"/><circle cx="${x+e+2*s}" cy="${y-2.2*s}" r="${2.3*s}" fill="${glint}"/></g>
+  ${lidc!=='none'?`<rect class="lid" x="${x-e-r-1}" y="${y-r-1}" width="${2*r+2}" height="${2*r+2}" rx="${r}" fill="${lidc}"/><rect class="lid" x="${x+e-r-1}" y="${y-r-1}" width="${2*r+2}" height="${2*r+2}" rx="${r}" fill="${lidc}"/>`:''}
+  ${opt.cheek?`<ellipse cx="${x-e-7*s}" cy="${y+10*s}" rx="${5*s}" ry="${3.2*s}" fill="${PK}" opacity=".8"/><ellipse cx="${x+e+7*s}" cy="${y+10*s}" rx="${5*s}" ry="${3.2*s}" fill="${PK}" opacity=".8"/>`:''}
+  <path d="M${x+11*s} ${y+9*s} v${5*s} a${11*s} ${11*s} 0 0 1 ${-22*s} 0" fill="none" stroke="${ink}" stroke-width="${4.6*s}" stroke-linecap="round"/></g>`;}
+const shadow=(cx,w)=>`<ellipse cx="${cx}" cy="186" rx="${w}" ry="6" fill="${P}" opacity=".13"/>`;
+
+const ideas=[
+{n:'Jo',tag:'Solo',idea:'The Ask Jovita speech bubble with the logo face. Waves, winks and turns into typing dots while it works.',fit:'Ask Jovita, onboarding, empty pages, merch',
+svg:()=>`${shadow(120,46)}<g class="bounce"><g class="idle">
+<path class="wave" d="M78 104 Q58 108 60 124" fill="none" stroke="${D}" stroke-width="12" stroke-linecap="round"/>
+<path d="M162 104 Q182 108 180 124" fill="none" stroke="${D}" stroke-width="12" stroke-linecap="round"/>
+<ellipse cx="106" cy="172" rx="10" ry="7" fill="${P}"/><ellipse cx="136" cy="172" rx="10" ry="7" fill="${P}"/>
+<path d="M104 40 H136 A40 40 0 0 1 176 80 V118 A40 40 0 0 1 136 158 H110 L86 178 L91 154 A40 40 0 0 1 64 118 V80 A40 40 0 0 1 104 40 Z" fill="${M}"/>
+<path d="M84 62 Q96 50 112 48" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+${face(120,92,1.35,P,W,{cheek:1,lid:M})}</g></g>`},
+
+{n:'Dot & Dash',tag:'Pair',idea:'The two dots of the logo become twins, a plum one and a marigold one, holding the smile between them like a hammock.',fit:'Logo animations, loading screens, the brand film intro',
+svg:()=>`${shadow(70,34)}${shadow(170,34)}
+<path d="M84 138 Q120 186 156 138" fill="none" stroke="${L}" stroke-width="10" stroke-linecap="round"/>
+<g class="bounce"><g class="idle"><circle cx="70" cy="112" r="40" fill="${P}"/>${face(70,106,1.15,M,P,{lid:P})}</g></g>
+<g class="bounce2"><g class="idle2"><circle cx="170" cy="112" r="40" fill="${M}"/>${face(170,106,1.15,P,W,{cheek:1,lid:M})}</g></g>`},
+
+{n:'Snap & Pip',tag:'Pair',idea:'A chunky plum camera whose lens is its face, and Pip, a little marigold flash spark that bounces around it.',fit:'Galleries, photographer onboarding, gallery delivered',
+svg:()=>`${shadow(108,58)}
+<g class="shake"><g class="idle"><rect x="72" y="58" width="44" height="26" rx="9" fill="${P}"/><rect x="48" y="72" width="124" height="96" rx="26" fill="${P}"/><circle cx="150" cy="92" r="6" fill="${M}"/>
+<circle cx="108" cy="122" r="36" fill="${L}"/><circle cx="108" cy="122" r="36" fill="none" stroke="${D}" stroke-width="5"/>${face(108,116,1.05,P,W,{lid:L})}</g></g>
+<g class="pop" style="transform-origin:198px 52px"><g class="idle2"><path d="M198 22 L206 44 L228 52 L206 60 L198 82 L190 60 L168 52 L190 44 Z" fill="${M}"/>${face(198,50,.5,P,W)}</g></g>`},
+
+{n:'Penny & Slip',tag:'Pair',idea:'Penny is a marigold coin and Slip is a lilac invoice with a zigzag hem. Slip reminds, Penny arrives. Penny spins when you get paid.',fit:'Money page, payment reminders, paid moments',
+svg:()=>`${shadow(78,40)}${shadow(172,36)}
+<g class="flip"><g class="idle"><circle cx="78" cy="118" r="46" fill="${M}"/><circle cx="78" cy="118" r="37" fill="none" stroke="${D}" stroke-width="5"/>${face(78,112,1.1,P,W,{cheek:1,lid:M})}</g></g>
+<g class="sway" style="transform-origin:172px 180px"><g class="idle2"><path d="M140 52 H204 V170 L196 162 L188 170 L180 162 L172 170 L164 162 L156 170 L148 162 L140 170 Z" fill="${L}" stroke="${P}" stroke-width="4" stroke-linejoin="round"/>
+<path d="M152 132 H192 M152 146 H180" stroke="${P}" stroke-width="5" stroke-linecap="round" opacity=".35"/>${face(172,92,1,P,W,{lid:L})}</g></g>`},
+
+{n:'Sunny',tag:'Solo',idea:'A marigold flower (the flower the colour is named after) with a plum face. Its petals spin when something good happens.',fit:'Today page, good-morning greeting, joy in the tagline',
+svg:()=>`${shadow(120,40)}<path d="M120 150 V182" stroke="${P}" stroke-width="8" stroke-linecap="round"/><path d="M120 172 Q104 160 96 166" stroke="${P}" stroke-width="7" stroke-linecap="round" fill="none"/>
+<g class="spin" style="transform-origin:120px 92px">${Array.from({length:10},(_,i)=>`<ellipse cx="120" cy="40" rx="15" ry="28" fill="${i%2?D:M}" transform="rotate(${i*36} 120 92)"/>`).join('')}</g>
+<g class="bounce"><circle cx="120" cy="92" r="40" fill="${P}"/>${face(120,86,1.15,M,P,{lid:P})}</g>`},
+
+{n:'Bloop & Blip',tag:'Pair',idea:'Two chatty speech bubbles, one plum and one lilac. Blip types back with bouncing dots. Together they are the one inbox.',fit:'Inbox, WhatsApp and email, client messages',
+svg:()=>`${shadow(80,38)}${shadow(168,34)}
+<g class="bounce"><g class="idle"><path d="M44 62 H116 A22 22 0 0 1 138 84 V128 A22 22 0 0 1 116 150 H70 L50 168 L54 148 A22 22 0 0 1 22 128 V84 A22 22 0 0 1 44 62 Z" fill="${P}"/>${face(80,100,1.1,M,P,{lid:P})}</g></g>
+<g class="bounce2"><g class="idle2"><path d="M146 92 H198 A20 20 0 0 1 218 112 V144 A20 20 0 0 1 198 164 H196 L210 180 L180 164 H146 A20 20 0 0 1 126 144 V112 A20 20 0 0 1 146 92 Z" fill="${L}"/>${face(172,118,.9,P,W,{lid:L})}
+<g class="dots"><circle cx="158" cy="80" r="5" fill="${M}"/><circle cx="172" cy="80" r="5" fill="${M}"/><circle cx="186" cy="80" r="5" fill="${M}"/></g></g></g>`},
+
+{n:'Jay',tag:'Solo',idea:'The lowercase j from the logo, standing up. A tall plum hook with a marigold dot it keeps balancing like a ball on its head.',fit:'App icon companion, loading spinner, stickers',
+svg:()=>`${shadow(116,44)}<g class="idle"><path d="M136 74 V146 A32 32 0 0 1 72 146" fill="none" stroke="${P}" stroke-width="36" stroke-linecap="round"/>
+${face(136,104,.62,M,P)}</g>
+<g class="bounce"><g class="spin" style="transform-origin:136px 36px"><circle cx="136" cy="36" r="17" fill="${M}"/><path d="M128 30 Q136 24 144 30" stroke="${D}" stroke-width="3" fill="none" stroke-linecap="round"/></g></g>`},
+
+{n:'Clap & Reel',tag:'Pair',idea:'A clapperboard that snaps its top when it gets excited, and Reel, a lilac film reel that rolls along beside it.',fit:'Videographer onboarding, film delivery, revision rounds',
+svg:()=>`${shadow(86,52)}${shadow(184,34)}
+<g class="bounce"><g class="idle"><rect x="34" y="88" width="104" height="84" rx="14" fill="${P}"/>
+<g class="snap snapper" style="transform-origin:34px 88px"><rect x="34" y="62" width="104" height="24" rx="6" fill="${M}"/><path d="M52 62 L44 86 M74 62 L66 86 M96 62 L88 86 M118 62 L110 86" stroke="${P}" stroke-width="7"/></g>
+${face(86,124,1.05,M,P,{lid:P})}</g></g>
+<g class="spin" style="transform-origin:184px 132px"><circle cx="184" cy="132" r="38" fill="${L}"/>${[0,90,180,270].map(a=>`<circle cx="184" cy="108" r="7" fill="${P}" opacity=".85" transform="rotate(${a+45} 184 132)"/>`).join('')}</g>
+<g transform="translate(0,0)">${face(184,128,.7,P,W)}</g>`},
+
+{n:'Brushie & Puff',tag:'Pair',idea:'A makeup brush with a fluffy lilac head, and Puff, a plum powder compact that sparkles when a look is booked.',fit:'Makeup artist onboarding, bridal packages, trials',
+svg:()=>`${shadow(92,30)}${shadow(176,40)}
+<g class="sway" style="transform-origin:92px 180px"><g class="idle"><rect x="80" y="116" width="24" height="64" rx="10" fill="${P}"/><rect x="76" y="100" width="32" height="20" rx="5" fill="${D}"/>
+<path d="M92 26 C122 40 124 84 112 102 H72 C60 84 62 40 92 26 Z" fill="${L}"/>${face(92,70,.95,P,W,{cheek:1,lid:L})}</g></g>
+<g class="bounce2"><g class="idle2"><ellipse cx="176" cy="148" rx="42" ry="28" fill="${P}"/><ellipse cx="176" cy="138" rx="42" ry="26" fill="${P}"/><ellipse cx="176" cy="134" rx="32" ry="17" fill="${PK}"/>${face(176,130,.8,P,W)}</g></g>
+<g class="sparkle" style="transform-origin:212px 92px"><path d="M212 80 L216 90 L226 92 L216 96 L212 106 L208 96 L198 92 L208 90 Z" fill="${M}"/></g>`},
+
+{n:'Zip',tag:'Solo',idea:'A marigold paper plane with a face. Zip carries emails, galleries and reminders, and leaves a lilac trail.',fit:'Sending emails, delivering galleries, the Send button',
+svg:()=>`<path d="M20 160 Q60 120 92 136" fill="none" stroke="${L}" stroke-width="6" stroke-dasharray="2 12" stroke-linecap="round"/>${shadow(140,40)}
+<g class="dart"><g class="idle"><path d="M80 120 L212 52 L170 166 L140 134 Z" fill="${M}"/><path d="M140 134 L212 52 L124 146 Z" fill="${D}"/><path d="M140 134 L150 166 L170 166 Z" fill="${D}"/>
+${face(160,106,.9,P,W,{cheek:1})}</g></g>`}
+];
+const grid=document.getElementById('grid');
+ideas.forEach((d,i)=>{
+  const a=document.createElement('article');a.className='card';
+  a.innerHTML=`<div class="stage" tabindex="0" role="button" aria-label="Play ${d.n}"><span class="num">${String(i+1).padStart(2,'0')}</span><svg viewBox="0 0 240 200" role="img" aria-label="${d.n}">${d.svg()}</svg></div>
+  <div class="head"><h2>${d.n}</h2><span class="tag">${d.tag}${d.tag==='Pair'?' · 2 characters':''}</span></div>
+  <p>${d.idea}</p><p class="fit"><b>Fits:</b> ${d.fit}</p>`;
+  grid.appendChild(a);
+  const st=a.querySelector('.stage'),svg=st.querySelector('svg');
+  const play=()=>{svg.classList.remove('go');void svg.getBBox();svg.classList.add('go');clearTimeout(svg._t);svg._t=setTimeout(()=>svg.classList.remove('go'),1900);};
+  st.addEventListener('pointerenter',play);st.addEventListener('click',play);
+  st.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();play();}});
+});
+const svgs=[...document.querySelectorAll('.stage svg')];
+document.addEventListener('pointermove',e=>{svgs.forEach(svg=>{const r=svg.getBoundingClientRect();
+  const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),d=Math.hypot(dx,dy)||1,k=Math.min(1,d/260);
+  svg.querySelectorAll('.pp').forEach(g=>g.style.transform=`translate(${(dx/d*3.2*k).toFixed(2)}px,${(dy/d*3.2*k).toFixed(2)}px)`);});},{passive:true});
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches){(function tick(){const s=svgs[Math.floor(Math.random()*svgs.length)];
+  s.classList.remove('blink');void s.getBBox();s.classList.add('blink');setTimeout(()=>s.classList.remove('blink'),220);setTimeout(tick,700+Math.random()*1300);})();}
+})();
+</script>

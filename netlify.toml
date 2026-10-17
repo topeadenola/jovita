@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Send every route to the app so links like /p/<token> work
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

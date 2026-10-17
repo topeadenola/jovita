@@ -1,0 +1,189 @@
+<title>Ask Jovita Icons</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Figtree:wght@400..700&display=swap">
+<style>
+/* Layout: a review board — intro, then five option cards, each with a large live icon, in-product sizes and notes. */
+:root{
+  --marigold:#FFB320; --plum:#261433; --lilac:#E9DDFB; --paper:#FBF8FF; --surface:#FFFFFF;
+  --ink:#261433; --muted:#5E5069; --line:#E4DCEE; --tile:#F3EDFB; --face-dot:#FBF8FF;
+  --pill:#FFFFFF; --on-pill:#261433; --focus:#7A4FD6;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#17101F; --surface:#21182B; --ink:#F5EFFC; --muted:#B9AEC4; --line:#3A2E46; --tile:#120C18;
+  --lilac:#3B2B52; --focus:#B79CFF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#17101F; --surface:#21182B; --ink:#F5EFFC; --muted:#B9AEC4; --line:#3A2E46; --tile:#120C18;
+  --lilac:#3B2B52; --focus:#B79CFF; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,4vw,48px);padding-block:40px 72px;display:flex;flex-direction:column;gap:32px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+p{margin:0}
+header{display:flex;flex-direction:column;gap:12px;max-width:68ch}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(32px,5vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.lead{font-size:17px;color:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 16px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--muted)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.stage{background:var(--tile);aspect-ratio:4/3;max-width:100%;display:grid;place-items:center;position:relative}
+.stage svg{width:46%;height:auto;overflow:visible}
+.num{position:absolute;left:16px;top:14px;font-family:var(--display);font-weight:800;font-size:14px;color:var(--muted)}
+.body{padding:20px;display:flex;flex-direction:column;gap:14px}
+.body h2{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.idea{color:var(--muted)}
+.sizes{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding-top:14px;border-top:1px solid var(--line)}
+.pill{border:1px solid var(--line);display:inline-flex;align-items:center;gap:8px;background:var(--pill);color:var(--on-pill);border-radius:999px;padding:6px 16px 6px 8px;font-weight:700;font-size:14px;box-shadow:0 6px 20px rgba(38,20,51,.18)}
+.pill svg{width:30px;height:30px;overflow:visible}
+.mini svg{width:20px;height:20px;display:block}
+.mini{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:14px}
+dt{font-weight:700}
+dd{margin:0;color:var(--muted)}
+.note{font-size:14px;color:var(--muted);max-width:70ch}
+
+/* ---------- shared face parts ---------- */
+.eye{transform-box:fill-box;transform-origin:center}
+.smile{stroke-dasharray:1;stroke-dashoffset:0}
+.play .anim{animation-play-state:running}
+
+/* 1 Bubble wink */
+.o1 .bubble{transform-box:fill-box;transform-origin:20% 90%;animation:pop 5s cubic-bezier(.3,1.6,.5,1) infinite}
+.o1 .smile{animation:draw 5s ease-out infinite}
+.o1 .eyeR{animation:wink 5s ease-in-out infinite}
+@keyframes pop{0%{transform:scale(.6)}10%,100%{transform:scale(1)}}
+@keyframes draw{0%,8%{stroke-dashoffset:1}30%,100%{stroke-dashoffset:0}}
+@keyframes wink{0%,52%,62%,100%{transform:scaleY(1)}57%{transform:scaleY(.12)}}
+
+/* 2 Typing to smile */
+.o2 .dots circle{transform-box:fill-box;transform-origin:center;animation:type 6s ease-in-out infinite}
+.o2 .dots circle:nth-child(2){animation-delay:.15s}
+.o2 .dots circle:nth-child(3){animation-delay:.3s}
+.o2 .dots{animation:dotsOut 6s ease-in-out infinite}
+.o2 .face{animation:faceIn 6s ease-in-out infinite}
+.o2 .smile{animation:draw2 6s ease-out infinite}
+@keyframes type{0%,6%,20%,26%{transform:translateY(0)}13%,33%{transform:translateY(-8px)}40%,100%{transform:translateY(0)}}
+@keyframes dotsOut{0%,40%{opacity:1}48%,92%{opacity:0}100%{opacity:1}}
+@keyframes faceIn{0%,42%{opacity:0;transform:scale(.8)}52%,90%{opacity:1;transform:scale(1)}100%{opacity:0}}
+@keyframes draw2{0%,48%{stroke-dashoffset:1}66%,100%{stroke-dashoffset:0}}
+.o2 .face{transform-box:fill-box;transform-origin:center}
+
+/* 3 Sunburst */
+.o3 .rays{transform-box:view-box;transform-origin:60px 60px;animation:spin 14s linear infinite}
+.o3 .face{transform-box:fill-box;transform-origin:center;animation:bob 3s ease-in-out infinite}
+.o3 .eyeL,.o3 .eyeR{animation:blink 6s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-4deg)}}
+@keyframes blink{0%,70%,76%,100%{transform:scaleY(1)}73%{transform:scaleY(.1)}}
+
+/* 4 Bounce */
+.o4 .jump{transform-box:fill-box;transform-origin:50% 100%;animation:bounce 2.8s cubic-bezier(.3,.7,.4,1) infinite}
+.o4 .shadow{transform-box:fill-box;transform-origin:center;animation:shadow 2.8s cubic-bezier(.3,.7,.4,1) infinite}
+.o4 .eyeR{animation:wink4 2.8s ease-in-out infinite}
+@keyframes bounce{0%{transform:translateY(0) scale(1.08,.9)}12%{transform:translateY(0) scale(.95,1.06)}38%{transform:translateY(-22px) scale(1,1)}62%{transform:translateY(0) scale(1.06,.93)}72%,100%{transform:translateY(0) scale(1)}}
+@keyframes shadow{0%,72%,100%{transform:scale(1);opacity:.35}38%{transform:scale(.6);opacity:.15}}
+@keyframes wink4{0%,72%,82%,100%{transform:scaleY(1)}77%{transform:scaleY(.12)}}
+
+/* 5 Aperture */
+.o5 .blades{transform-box:view-box;transform-origin:60px 60px;animation:shutter 5s cubic-bezier(.5,0,.2,1) infinite}
+.o5 .blades circle{animation:open 5s cubic-bezier(.5,0,.2,1) infinite}
+.o5 .face{transform-box:fill-box;transform-origin:center;animation:reveal 5s cubic-bezier(.3,1.5,.5,1) infinite}
+.o5 .eyeR{animation:wink5 5s ease-in-out infinite}
+@keyframes shutter{0%{transform:rotate(-60deg)}30%,100%{transform:rotate(0)}}
+@keyframes open{0%{stroke-width:38}30%,100%{stroke-width:8}}
+@keyframes reveal{0%,12%{transform:scale(0)}34%,100%{transform:scale(1)}}
+@keyframes wink5{0%,60%,70%,100%{transform:scaleY(1)}65%{transform:scaleY(.12)}}
+
+.paused *{animation-play-state:paused!important}
+@media (prefers-reduced-motion: reduce){.stage *, .pill *, .mini *{animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Jovita · Ask Jovita</p>
+    <h1>Five icons for Ask Jovita</h1>
+    <p class="lead">Each one is built from the smile mark and moves like someone who has your back: it pops, winks, nods or lights up. Pick one and it goes into the brand guidelines and the dashboard, pinned bottom-right.</p>
+    <div class="bar">
+      <button class="btn" id="replay" type="button">Replay animations</button>
+      <button class="btn" id="pause" type="button" aria-pressed="false">Pause</button>
+    </div>
+  </header>
+
+  <section class="grid" id="grid" aria-label="Icon options"></section>
+
+  <p class="note">In the product each icon plays its animation once when the dashboard opens, again on hover, and when Ask Jovita finishes a task. It never loops while you work. These previews loop so you can compare them.</p>
+</div>
+
+<script>
+const P='var(--plum)', M='var(--marigold)', L='var(--lilac)', D='#FBF8FF';
+// The smile mark: two eyes + a j whose hook is a smile (from the logo, 110x130 box).
+function face(eyes, smile, sw){ return `
+  <circle class="eye eyeL" cx="32" cy="30" r="11" fill="${eyes}"/>
+  <circle class="eye eyeR" cx="80" cy="30" r="11" fill="${eyes}"/>
+  <path class="smile" pathLength="1" d="M80 56 V86 A26 26 0 0 1 28 86" fill="none" stroke="${smile}" stroke-width="${sw||18}" stroke-linecap="round"/>`; }
+
+const icons = {
+ o1: `<svg viewBox="0 0 120 120" class="o1">
+   <g class="bubble">
+     <path d="M30 10 H90 A20 20 0 0 1 110 30 V78 A20 20 0 0 1 90 98 H46 L22 113 L27 96 A20 20 0 0 1 10 78 V30 A20 20 0 0 1 30 10 Z" fill="${P}"/>
+     <g transform="translate(33 20) scale(.5)">${face(D,M)}</g>
+   </g></svg>`,
+ o2: `<svg viewBox="0 0 120 120" class="o2">
+   <path d="M30 10 H90 A20 20 0 0 1 110 30 V78 A20 20 0 0 1 90 98 H46 L22 113 L27 96 A20 20 0 0 1 10 78 V30 A20 20 0 0 1 30 10 Z" fill="${M}"/>
+   <g class="dots"><circle cx="38" cy="54" r="8" fill="${P}"/><circle cx="60" cy="54" r="8" fill="${P}"/><circle cx="82" cy="54" r="8" fill="${P}"/></g>
+   <g class="face"><g transform="translate(33 20) scale(.5)">${face(P,P)}</g></g></svg>`,
+ o3: `<svg viewBox="0 0 120 120" class="o3">
+   <g class="rays">${Array.from({length:12},(_,i)=>`<rect x="57" y="2" width="6" height="14" rx="3" fill="${M}" transform="rotate(${i*30} 60 60)"/>`).join('')}</g>
+   <circle cx="60" cy="60" r="40" fill="${M}"/>
+   <g class="face"><g transform="translate(36.5 32) scale(.43)">${face(P,P,20)}</g></g></svg>`,
+ o4: `<svg viewBox="0 0 120 120" class="o4">
+   <ellipse class="shadow" cx="60" cy="110" rx="30" ry="5" fill="${P}" opacity=".35"/>
+   <g class="jump"><rect x="18" y="18" width="84" height="84" rx="26" fill="${L}"/>
+   <g transform="translate(33 26) scale(.5)">${face(P,M)}</g></g></svg>`,
+ o5: `<svg viewBox="0 0 120 120" class="o5">
+   <circle cx="60" cy="60" r="54" fill="${P}"/>
+   <g class="blades"><circle cx="60" cy="60" r="44" fill="none" stroke="${M}" stroke-width="8" stroke-dasharray="40 6.07" /></g>
+   <g class="face"><g transform="translate(38.5 34) scale(.39)">${face(D,M,20)}</g></g></svg>`
+};
+
+const options = [
+ {k:'o1', name:'Bubble Wink', idea:'The smile mark sits in a plum speech bubble. It pops up, the smile draws itself, then it winks.',
+  move:'Pop, smile draws left to right, one wink', feel:'Friendly and familiar: obviously a chat button', best:'The safest, clearest choice'},
+ {k:'o2', name:'Typing to Smile', idea:'Three typing dots bounce while Jovita works, then turn into the face once the answer is ready.',
+  move:'Typing dots, then the smile appears', feel:'Shows Jovita thinking, then delivering', best:'Doubles as the loading state'},
+ {k:'o3', name:'Sunny', idea:'The face on a marigold sun with slowly turning rays. Warm, upbeat, a bit of Lagos sunshine.',
+  move:'Rays turn slowly, face bobs and blinks', feel:'Joyful and optimistic', best:'Most playful; strongest brand colour'},
+ {k:'o4', name:'Bounce', idea:'The mark on a lilac tile that hops, lands with a squash and gives a confident wink.',
+  move:'Hop, squash on landing, wink', feel:'Confident and energetic', best:'Most character; feels like a mascot'},
+ {k:'o5', name:'Aperture', idea:'A camera aperture opens to reveal the smile, a nod to the photographers and videographers Jovita is built for.',
+  move:'Shutter blades open, face pops in, wink', feel:'Made for creatives', best:'Most unique to Jovita’s audience'}
+];
+
+function render(){
+  document.getElementById('grid').innerHTML = options.map((o,i)=>`
+   <article class="card">
+     <div class="stage"><span class="num">Option ${i+1}</span>${icons[o.k].replace('<svg','<svg role="img" aria-label="'+o.name+' icon"')}</div>
+     <div class="body">
+       <h2>${o.name}</h2>
+       <p class="idea">${o.idea}</p>
+       <dl><dt>Moves</dt><dd>${o.move}</dd><dt>Feels</dt><dd>${o.feel}</dd><dt>Why pick it</dt><dd>${o.best}</dd></dl>
+       <div class="sizes">
+         <span class="pill">${icons[o.k].replace('<svg','<svg aria-hidden="true"')}Ask Jovita</span>
+         <span class="mini">${icons[o.k].replace('<svg','<svg aria-hidden="true"')}20px</span>
+       </div>
+     </div>
+   </article>`).join('');
+}
+render();
+document.getElementById('replay').addEventListener('click', render);
+const pauseBtn=document.getElementById('pause');
+pauseBtn.addEventListener('click',()=>{
+  const g=document.getElementById('grid'); const on=g.classList.toggle('paused');
+  pauseBtn.textContent=on?'Play':'Pause'; pauseBtn.setAttribute('aria-pressed',String(on));
+});
+</script>

@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Jovita",
+    "slug": "jovita",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "jovita",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.jovita.mobile"
+    },
+    "android": {
+      "package": "app.jovita.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFB320",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFB320"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

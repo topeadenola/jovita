@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Jovita is the friendly business assistant for photographers, videographers, makeup artists and content creators. Clients, bookings, invoices and galleries in one place.">
+<meta name="theme-color" content="#261433">
+<title>Jovita · Run your creative business with joy</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Figtree:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#FBF8FF}
+a{color:#261433}a:hover{color:#4B2E66}
+.jv *{box-sizing:border-box}
+.jv-wrap{width:100%;max-width:1200px;margin:0 auto;padding-left:32px;padding-right:32px}
+.jv-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:56px;align-items:center}
+.jv-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.jv-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.jv-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
+.jv-nav-links{display:flex;gap:28px;align-items:center}
+.jv-btn:focus-visible,.jv-tab:focus-visible,.jv-cur:focus-visible{outline:2px solid #7A4FD6;outline-offset:2px}
+@media (max-width:1000px){.jv-g4{grid-template-columns:repeat(2,minmax(0,1fr))}.jv-hero,.jv-split{grid-template-columns:minmax(0,1fr)}.jv-g3{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.jv-nav-links{display:none}.jv-wrap{padding-left:16px;padding-right:16px}.jv-h1{font-size:44px !important;line-height:46px !important}.jv-h2{font-size:34px !important;line-height:38px !important}}
+@media (max-width:520px){.jv-g4{grid-template-columns:minmax(0,1fr)}}
+.jv-offer{margin:8px 0 0;padding:8px 12px;border-radius:12px;background:#FFB320;color:#261433;font-size:13px;line-height:1.4}
+.jv-offer b{display:block;font-size:14px}
+.jv-offer s{font-weight:600;opacity:.7}
+.jv-was{font-size:20px;font-weight:700;opacity:.55;margin-left:6px}
+</style>
+<style>html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+.swoosh{position:relative;white-space:nowrap}
+.swoosh::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:12px;background:#FFB320;border-radius:999px;z-index:-1;opacity:.9}
+.hs{position:relative;overflow:hidden}
+.hs-track{display:flex;align-items:flex-start;transition:transform .6s cubic-bezier(.2,.7,.2,1),height .4s ease}
+.hs-slide{flex:0 0 100%;min-width:0;height:clamp(560px,calc(100vh - 72px - 90px),860px);display:flex;align-items:center}
+.hs-slide>.jv-hero{width:100%}
+@media (max-width:1000px){.hs-slide{height:auto;min-height:calc(100vh - 72px - 90px);padding:40px 0}}
+.hs-ctrl{display:flex;align-items:center;gap:12px;margin-top:8px}
+.hs-dots{display:flex;gap:8px}
+.hs-dots button{width:10px;height:10px;border-radius:999px;border:0;background:#D9CCE6;cursor:pointer;padding:0;transition:width .3s}
+.hs-dots button[aria-current="true"]{width:28px;background:#261433}
+.hs-arrow{width:44px;height:44px;border-radius:999px;border:1px solid #8C7F99;background:#FFFFFF;color:#261433;font-size:22px;cursor:pointer}
+.h2-art{position:relative;aspect-ratio:1/1;width:100%;max-width:620px;justify-self:end}
+.h2-ring{position:absolute;inset:6% 2% 8% 12%;border-radius:50%;border:2px solid #E4DCEE}
+.h2-circle{position:absolute;left:16%;top:9%;width:78%;aspect-ratio:1/1;border-radius:50%;background:#F5B33E;display:grid;place-items:center}
+.h2-mark{width:46%;height:auto;margin-top:4%}
+.h2-blob{position:absolute;border-radius:50%}
+.h2-blob.b1{width:34%;height:34%;right:-2%;top:-2%;background:#C9B2F2;border-radius:48% 52% 44% 56%/52% 46% 54% 48%}
+.h2-tile{position:absolute;right:5%;top:4%;width:14%;aspect-ratio:1/1;background:#FFFFFF;border-radius:24%;display:grid;place-items:center;box-shadow:0 6px 18px rgba(38,20,51,.12)}
+.h2-tile svg{width:62%;height:auto}
+.h2-blob.b2{width:11%;height:11%;right:2%;top:36%;background:#4B2E66}
+.h2-blob.b3{width:24%;height:24%;left:4%;bottom:6%;background:#E89A2C;box-shadow:-6px 6px 0 -2px #FFFDF8,-6px 6px 0 0 #261433}
+.h2-card{position:absolute;display:flex;align-items:center;gap:14px;background:#FFFFFF;border-radius:18px;padding:16px 20px;box-shadow:0 16px 44px rgba(38,20,51,.12);font-size:15px;animation:h2f 5s ease-in-out infinite;z-index:2;white-space:nowrap}
+.h2-card b{display:block;font-size:17px;line-height:24px}.h2-card span{color:#5E5069}
+.h2-card.c1{left:8%;top:7%}.h2-card.c3{left:6%;top:63%;animation-delay:-3.2s}.h2-card.c2{right:-2%;top:74%;animation-delay:-1.6s}
+.h2-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:20px}
+.h2-ic.g{background:#E3F5EB;color:#1F7A4D}.h2-ic.m{background:#FFF1D6;color:#261433}
+.h2-day{margin:0;text-align:center;font-size:13px;font-weight:700;color:#8F5A00;line-height:16px;letter-spacing:.04em}.h2-day b{font-size:26px;line-height:30px;color:#261433;display:block}
+.cr-box{position:relative;margin-top:0;overflow:visible;min-height:340px;align-items:center;padding:40px 56px!important}
+.cr-art{position:relative;align-self:stretch;min-height:260px}
+.cr-art img{position:absolute;right:8%;bottom:-40px;height:calc(100% + 110px);filter:grayscale(1) contrast(1.05);width:auto;max-width:110%;object-fit:contain;object-position:bottom;opacity:0;transform-origin:50% 100%;scale:.86;transition:opacity .45s ease,scale .6s cubic-bezier(.2,.8,.2,1.15)}
+.cr-art img.in{opacity:1;scale:1;animation:crBreath 6s ease-in-out .6s infinite}
+@keyframes crBreath{0%,100%{scale:1}50%{scale:1.045}}
+@media (prefers-reduced-motion:reduce){.cr-art img,.cr-art img.in{transition:opacity .3s;animation:none;scale:1}}
+@media (max-width:1000px){.cr-box{margin-top:40px;padding:36px 28px 0!important}.cr-art{min-height:300px;margin:0 -28px}.cr-art img{right:50%;transform:translateX(50%);height:calc(100% + 40px);bottom:0}.cr-art img.in{transform:translateX(50%)}}
+@keyframes h2f{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.ms{position:relative;overflow:hidden}
+.ms-track{display:flex;align-items:flex-start;transition:transform .6s cubic-bezier(.2,.7,.2,1),height .4s ease}
+.ms-slide{flex:0 0 100%;min-width:0}
+.ms-video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:transparent}
+.ms-video.blend{-webkit-mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 72% 70% at 50% 50%,#000 62%,transparent 100%)}
+.ms-reels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding-top:12px;padding-bottom:12px}
+.ms-reels video{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:24px;display:block;background:#E9DDFB}
+.ms-film{position:relative;width:100%;aspect-ratio:16/9;border:0;padding:0;cursor:pointer;background:#261433 center/cover no-repeat;display:grid;place-items:center;-webkit-mask-image:radial-gradient(ellipse 75% 72% at 50% 50%,#000 64%,transparent 100%);mask-image:radial-gradient(ellipse 75% 72% at 50% 50%,#000 64%,transparent 100%)}
+.ms-play{width:96px;height:96px;border-radius:999px;background:#FFB320;color:#261433;font-size:34px;display:grid;place-items:center;box-shadow:0 12px 40px rgba(38,20,51,.3)}
+.ms-film-label{position:absolute;bottom:18%;left:50%;transform:translateX(-50%);background:rgba(38,20,51,.8);color:#FFFFFF;font-weight:700;font-size:14px;padding:8px 14px;border-radius:999px;white-space:nowrap}
+.ms-tabs{display:flex;gap:6px;background:#F3EDFB;border-radius:999px;padding:6px}
+.ms-tabs button{font:inherit;font-size:14px;font-weight:700;border:0;border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer;background:transparent;color:#261433}
+.ms-tabs button[aria-selected="true"]{background:#261433;color:#FFFFFF}
+.ms-pause{font:inherit;font-size:13px;font-weight:700;border:0;background:transparent;color:#5E5069;cursor:pointer;padding:8px}
+.ob-card{background:#FFFFFF;border:1px solid #E4DCEE;border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(38,20,51,.08)}
+.ob-steps{display:flex;gap:6px}.ob-steps i{flex:1;height:6px;border-radius:999px;background:#E4DCEE}.ob-steps i.on{background:#261433}
+.ob-jo{display:flex;align-items:flex-end;gap:12px}
+.ob-jo p{margin:0 0 14px;background:#FBF8FF;border:1px solid #E4DCEE;border-radius:18px 18px 18px 6px;padding:12px 14px;font-weight:600;font-size:15px}
+.ob-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ob-grid button{min-height:86px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px;font:inherit;font-weight:700;font-size:14px;color:#261433;text-align:left;border-radius:16px;border:2px solid #E4DCEE;background:#FFFFFF;cursor:pointer}
+.ob-grid button span{font-size:24px;line-height:28px}
+.ob-grid button[aria-pressed="true"]{border-color:#FFB320;background:#FFF1D6}
+.ft-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.ft{border:1px solid #E4DCEE;border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:8px;background:#FBF8FF}
+.ft-ic{font-size:26px;line-height:30px}
+.ft h3{margin:0;font-size:17px;line-height:22px;font-weight:700}
+.ft p{margin:0;font-size:14px;line-height:21px;color:#5E5069}
+@media (max-width:1000px){.ft-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ms-reels{grid-template-columns:repeat(2,minmax(0,1fr))}.h2-art{max-width:420px}}
+@media (max-width:640px){.jv-lang{display:none}header a{white-space:nowrap}}
+@media (max-width:560px){.h2-card{padding:8px 10px;gap:8px}.h2-ic{width:30px;height:30px;font-size:14px}.h2-day b{font-size:18px;line-height:20px}.h2-card.c2{right:0}.ft-grid{grid-template-columns:minmax(0,1fr)}.ob-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.h2-card{font-size:11px;padding:8px 10px}.h2-card b{font-size:12px}.ms-tabs button{padding:8px 10px;font-size:13px}}
+@media (prefers-reduced-motion:reduce){.hs-track,.ms-track{transition:none}.h2-card{animation:none}}
+.jv-lang select{font:inherit;font-size:13px;font-weight:700;background:#FFFFFF;border:1px solid #8C7F99;color:#261433;border-radius:999px;padding:8px 12px;cursor:pointer}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="jv" style="width: 100%; background: #FBF8FF; color: #261433; font-family: 'Figtree', 'Segoe UI', system-ui, sans-serif; font-size: 17px; line-height: 26px;">
+
+<!-- NAV -->
+<header style="position: sticky; top: 0; z-index: 10; background: rgba(251,248,255,0.92); border-bottom: 1px solid #E4DCEE; backdrop-filter: blur(8px);">
+<div class="jv-wrap" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 72px;">
+<a href="#top" style="display: flex; align-items: flex-end; gap: 8px; text-decoration: none;" aria-label="Jovita home">
+<svg viewBox="0 0 110 130" style="width: 24px; height: 28px;" aria-hidden="true"><circle cx="32" cy="30" r="11" fill="#261433"></circle><circle cx="80" cy="30" r="11" fill="#261433"></circle><path d="M80 56 V86 A26 26 0 0 1 28 86" fill="none" stroke="#FFB320" stroke-width="18" stroke-linecap="round"></path></svg>
+<span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 30px; line-height: 24px; letter-spacing: -0.04em; color: #261433;">jovita</span>
+</a>
+<nav class="jv-nav-links" aria-label="Main">
+<a href="#features" style="font-weight: 600; font-size: 15px; text-decoration: none;">Features</a>
+<a href="#how" style="font-weight: 600; font-size: 15px; text-decoration: none;">How it works</a>
+<a href="#pricing" style="font-weight: 600; font-size: 15px; text-decoration: none;">Pricing</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 12px;">
+<label class="jv-lang"><span class="sr-only">Language</span><select id="jv-lang" aria-label="Language"><option value="en">English</option><option value="fr">Français</option><option value="es">Español</option><option value="pt">Português</option><option value="sw">Kiswahili</option></select></label>
+<a href="#" data-app="/login" style="font-weight: 600; font-size: 15px; text-decoration: none;">Sign in</a>
+<a href="#" data-app="/signup" class="jv-btn" style="font-weight: 700; font-size: 15px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 12px 20px;">Start free</a>
+</div>
+</div>
+</header>
+
+<!-- HERO -->
+<section id="top" style="padding-top: 0; padding-bottom: 40px;">
+<div class="hs" id="hs" data-fit="no" aria-roledescription="carousel" aria-label="Jovita highlights">
+<div class="hs-track">
+<div class="hs-slide" role="group" aria-roledescription="slide" aria-label="1 of 2">
+<div class="jv-wrap jv-hero">
+<div style="display: flex; flex-direction: column; gap: 24px; min-width: 0;">
+<span style="align-self: flex-start; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: #E9DDFB; color: #261433; border-radius: 999px; padding: 8px 14px;">The friendly studio manager</span>
+<h1 class="jv-h1" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 72px; line-height: 72px; letter-spacing: -0.035em; text-wrap: balance;">Run your creative business <span class="swoosh">with joy.</span></h1>
+<p style="margin: 0; font-size: 20px; line-height: 30px; color: #5E5069; max-width: 520px;"><b style="color: #261433;">Clients, contracts, invoices and galleries</b> in one place, with one link your clients actually enjoy using. Made for creatives in Lagos, Accra, London, New York and everywhere in between.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+<a href="#" data-app="/signup" class="jv-btn" style="font-weight: 700; font-size: 17px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 999px; padding: 16px 30px; box-shadow: 0 5px 0 #FFB320;">Start free</a>
+<a href="#how" class="jv-btn" style="font-weight: 700; font-size: 17px; background: #FFFFFF; color: #261433; text-decoration: none; border: 2px solid #261433; border-radius: 999px; padding: 14px 26px;">How it works</a>
+</div>
+<p style="margin: 0; font-size: 14px; color: #5E5069;">Free to start. No card needed.</p>
+</div>
+<div class="h2-art" aria-hidden="true">
+<span class="h2-ring"></span>
+<span class="h2-blob b1"></span>
+<span class="h2-tile"><svg viewBox="17 17 76 106"><circle cx="32" cy="30" r="10" fill="#261433"/><circle cx="80" cy="30" r="10" fill="#261433"/><path d="M80 56 V86 A26 26 0 0 1 28 86" fill="none" stroke="#FFB320" stroke-width="18" stroke-linecap="round"/></svg></span>
+<span class="h2-blob b2"></span>
+<span class="h2-blob b3"></span>
+<div class="h2-circle"><svg viewBox="17 17 76 106" class="h2-mark"><circle cx="32" cy="30" r="11" fill="#261433"/><circle cx="80" cy="30" r="11" fill="#261433"/><path d="M80 56 V86 A26 26 0 0 1 28 86" fill="none" stroke="#261433" stroke-width="18" stroke-linecap="round"/></svg></div>
+<div class="h2-card c1"><span class="h2-ic g">✓</span><div><b>Deposit paid</b><span>₦225,000 · Invoice #1031</span></div></div>
+<div class="h2-card c3"><p class="h2-day">SAT<b>24</b></p><div><b>Maternity shoot</b><span>10:00 · Lekki Studio</span></div></div>
+<div class="h2-card c2"><span class="h2-ic m"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><div><b>Contract signed</b><span>by Adaeze Okafor</span></div></div>
+</div>
+</div>
+</div>
+<div class="hs-slide" role="group" aria-roledescription="slide" aria-label="2 of 2">
+<div class="jv-wrap jv-hero">
+<div style="display: flex; flex-direction: column; gap: 24px; min-width: 0;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">For photographers, videographers, makeup artists and content creators</p>
+<h1 class="jv-h1" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 72px; line-height: 72px; letter-spacing: -0.035em; text-wrap: balance;">No PA. No operations manager. <span style="background: #FFB320; padding: 0 10px; border-radius: 14px; box-decoration-break: clone; -webkit-box-decoration-break: clone;">Jovita’s got you.</span></h1>
+<p style="margin: 0; font-size: 20px; line-height: 30px; color: #5E5069; max-width: 520px;">Clients, bookings, contracts, invoices and galleries in one friendly app. It chases payments for you, in naira, pounds, dollars and more.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+<a href="#" data-app="/signup" class="jv-btn" style="font-weight: 700; font-size: 17px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 16px 26px;">Start free</a>
+<a href="#watch" data-film class="jv-btn" style="display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; background: #FFFFFF; color: #261433; text-decoration: none; border: 1px solid #8C7F99; border-radius: 14px; padding: 15px 22px;"><svg viewBox="0 0 24 24" style="width: 20px; height: 20px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M10 8.5 L15.5 12 L10 15.5 Z"></path></svg>Watch the 50-second film</a>
+</div>
+<p style="margin: 0; font-size: 14px; color: #5E5069;">Free to start. Paystack, Flutterwave, Stripe and bank transfer built in.</p>
+</div>
+
+<div style="position: relative; min-width: 0;">
+<div style="background: #E9DDFB; border-radius: 28px; padding: 28px; display: flex; flex-direction: column; gap: 16px;">
+<div style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 2px rgba(38,20,51,0.06), 0 6px 20px rgba(38,20,51,0.06);">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+<p style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 28px; line-height: 32px; letter-spacing: -0.02em;">Good morning, Smith</p>
+<span style="font-size: 13px; font-weight: 600; color: #5E5069; white-space: nowrap;">Tue 13 Oct</span>
+</div>
+<p style="margin: 0; font-size: 15px; color: #5E5069;">3 things need you today.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<div style="background: #261433; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; font-weight: 600; color: #D9CCE6;">Owed to you</span><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 26px; line-height: 30px; color: #FFB320; font-variant-numeric: tabular-nums;">₦4.2M</span></div>
+<div style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; font-weight: 600; color: #5E5069;">Paid this month</span><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 26px; line-height: 30px; font-variant-numeric: tabular-nums;">₦1.8M</span></div>
+<div style="background: #F3EDFB; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; font-weight: 600; color: #5E5069;">Shoots this week</span><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 26px; line-height: 30px;">3</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border: 1px solid #E4DCEE; border-radius: 14px;"><span style="font-size: 15px; font-weight: 600;">Tara’s invoice is 2 days late</span><span style="font-size: 13px; font-weight: 700; background: #FCE6E3; color: #B42F26; border-radius: 999px; padding: 3px 10px; white-space: nowrap;">Overdue</span></div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border: 1px solid #E4DCEE; border-radius: 14px;"><span style="font-size: 15px; font-weight: 600;">Evore Atelier picked 12 of 15</span><span style="font-size: 13px; font-weight: 700; background: #E5ECFF; color: #2B54C4; border-radius: 999px; padding: 3px 10px; white-space: nowrap;">Start editing</span></div>
+</div>
+</div>
+<div style="align-self: flex-end; display: flex; align-items: center; gap: 12px; background: #FFFFFF; border-radius: 16px; padding: 12px 16px; box-shadow: 0 12px 40px rgba(38,20,51,0.16); max-width: 340px;">
+<svg viewBox="0 0 24 24" style="width: 28px; height: 28px; flex: none;" fill="none" stroke="#1F7A4D" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5 L11 15.5 L16.5 9.5"></path></svg>
+<div style="display: flex; flex-direction: column;"><span style="font-size: 15px; font-weight: 700;">Tara paid ₦1,400,000</span><span style="font-size: 13px; color: #5E5069;">Jovita’s reminder did it. Just now.</span></div>
+</div>
+<div style="align-self: flex-end; display: flex; align-items: center; gap: 10px; background: #261433; color: #FFFFFF; border-radius: 999px; padding: 8px 18px 8px 8px;">
+<svg viewBox="0 0 120 120" style="width: 40px; height: 40px;" aria-hidden="true"><path d="M30 10 H90 A20 20 0 0 1 110 30 V78 A20 20 0 0 1 90 98 H46 L22 113 L27 96 A20 20 0 0 1 10 78 V30 A20 20 0 0 1 30 10 Z" fill="#FFB320"></path><circle cx="44" cy="44" r="7" fill="#261433"></circle><path d="M68 46 Q76 38 84 46" fill="none" stroke="#261433" stroke-width="5" stroke-linecap="round"></path><path d="M76 58 V64 A16 16 0 0 1 44 64" fill="none" stroke="#261433" stroke-width="8" stroke-linecap="round"></path></svg>
+<span style="font-size: 15px; font-weight: 700;">Ask Jovita</span>
+</div>
+</div>
+<svg viewBox="0 0 200 220" style="position: absolute; left: -36px; bottom: -40px; width: 120px; height: 132px;" role="img" aria-label="Jo, the Jovita character, waving"><ellipse cx="100" cy="206" rx="52" ry="7" fill="#261433" opacity="0.16"></ellipse><path d="M44 112 Q18 116 20 136" fill="none" stroke="#E89A00" stroke-width="15" stroke-linecap="round"></path><path d="M156 112 Q184 100 186 76" fill="none" stroke="#E89A00" stroke-width="15" stroke-linecap="round"></path><ellipse cx="84" cy="186" rx="12" ry="8" fill="#261433"></ellipse><ellipse cx="122" cy="186" rx="12" ry="8" fill="#261433"></ellipse><path d="M82 34 H118 A48 48 0 0 1 166 82 V124 A48 48 0 0 1 118 172 H88 L60 194 L66 166 A48 48 0 0 1 34 124 V82 A48 48 0 0 1 82 34 Z" fill="#FFB320"></path><path d="M60 60 Q74 44 96 42" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" opacity="0.55"></path><ellipse cx="62" cy="124" rx="11" ry="7" fill="#F7A6C0" opacity="0.75"></ellipse><ellipse cx="138" cy="124" rx="11" ry="7" fill="#F7A6C0" opacity="0.75"></ellipse><circle cx="76" cy="94" r="12" fill="#261433"></circle><circle cx="80" cy="90" r="4" fill="#FFFFFF"></circle><path d="M112 96 Q124 84 136 96" fill="none" stroke="#261433" stroke-width="6" stroke-linecap="round"></path><path d="M124 112 V124 A24 24 0 0 1 76 124" fill="none" stroke="#261433" stroke-width="9" stroke-linecap="round"></path></svg>
+</div>
+</div>
+</div>
+</div>
+<div class="jv-wrap hs-ctrl">
+<button type="button" class="hs-arrow" data-dir="-1" aria-label="Previous slide">‹</button>
+<span class="hs-dots"><button type="button" aria-label="Show slide 1" aria-current="true"></button><button type="button" aria-label="Show slide 2"></button></span>
+<button type="button" class="hs-arrow" data-dir="1" aria-label="Next slide">›</button>
+</div>
+</div>
+</section>
+
+<!-- PAYMENTS STRIP -->
+<section style="border-top: 1px solid #E4DCEE; border-bottom: 1px solid #E4DCEE; background: #FFFFFF;">
+<div class="jv-wrap" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 20px; padding-bottom: 20px;">
+<span style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #5E5069;">Get paid your way</span>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<span style="font-size: 15px; font-weight: 700; padding: 6px 14px; border: 1px solid #E4DCEE; border-radius: 999px;">Paystack</span>
+<span style="font-size: 15px; font-weight: 700; padding: 6px 14px; border: 1px solid #E4DCEE; border-radius: 999px;">Flutterwave</span>
+<span style="font-size: 15px; font-weight: 700; padding: 6px 14px; border: 1px solid #E4DCEE; border-radius: 999px;">Stripe</span>
+<span style="font-size: 15px; font-weight: 700; padding: 6px 14px; border: 1px solid #E4DCEE; border-radius: 999px;">Bank transfer</span>
+<span style="font-size: 15px; font-weight: 700; padding: 6px 14px; background: #E9DDFB; border-radius: 999px;">₦ · GH₵ · KSh · £ · $ · € · CFA</span>
+</div>
+</div>
+</section>
+
+<!-- WHY JOVITA -->
+<!-- MOTION -->
+<section id="watch" style="padding-top: 72px; padding-bottom: 24px;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px;">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 640px;"><p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">See it move</p><h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Your whole business, in one calm place.</h2></div>
+<div class="ms-tabs" role="tablist" aria-label="Motion"><button type="button" role="tab" aria-selected="true" data-ms="0">The app</button><button type="button" role="tab" aria-selected="false" data-ms="1">Reels</button><button type="button" role="tab" aria-selected="false" data-ms="2">The film</button></div>
+</div>
+</div>
+<div class="ms" id="ms">
+<div class="ms-track">
+<div class="ms-slide"><div class="jv-wrap"><video class="ms-video blend" src="media/jovita-web-loop.mp4" poster="media/web-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Jovita in motion: Today, Ask Jovita, galleries and getting paid"></video></div></div>
+<div class="ms-slide"><div class="jv-wrap ms-reels">
+<video src="media/reel-2.mp4" poster="media/reel-2.jpg" muted loop playsinline preload="none" aria-label="Reel: I asked my app"></video>
+<video src="media/reel-3.mp4" poster="media/reel-3.jpg" muted loop playsinline preload="none" aria-label="Reel: POV, it runs itself"></video>
+<video src="media/reel-4.mp4" poster="media/reel-4.jpg" muted loop playsinline preload="none" aria-label="Reel: DMs are a mess"></video>
+<video src="media/reel-5.mp4" poster="media/reel-5.jpg" muted loop playsinline preload="none" aria-label="Reel: Made for what you do"></video>
+</div></div>
+<div class="ms-slide"><div class="jv-wrap"><button type="button" class="ms-film" data-film style="background-image: url('media/film-poster.jpg');" aria-label="Play the 50-second film with sound"><span class="ms-play">▶</span><span class="ms-film-label">Meet Jovita · 50 seconds · sound on</span></button></div></div>
+</div>
+<div class="jv-wrap" style="display: flex; justify-content: flex-end;"><button type="button" id="jv-loop-btn" class="ms-pause" aria-label="Pause the animation">❚❚ Pause</button></div>
+</div>
+</section>
+
+<dialog id="jv-film" aria-label="Meet Jovita film" style="padding: 0; border: 0; border-radius: 20px; background: #000; width: min(1100px, 94vw); max-height: 92vh;">
+<form method="dialog" style="position: absolute; right: 10px; top: 10px; z-index: 2;"><button aria-label="Close film" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.9); color: #261433; font-size: 22px; cursor: pointer;">×</button></form>
+<video id="jv-film-video" src="media/jovita-film.mp4" poster="media/film-poster.jpg" controls playsinline preload="none" style="width: 100%; display: block;"></video>
+</dialog>
+<style>#jv-film::backdrop{background:rgba(18,12,24,0.8)}</style>
+
+<section id="why" style="padding-top: 96px; padding-bottom: 96px;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 40px;">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 720px;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">Why creatives switch</p>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Everything a PA and an ops manager would do. One app.</h2>
+</div>
+<div class="jv-g4">
+<article style="background: #261433; color: #FFFFFF; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#FFB320" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="9.5" r="1.8"></circle><path d="M21 16 L16 11 L6 20"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Galleries and studio, one app</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #D9CCE6;">No more one app for galleries, another for invoices and a spreadsheet for money.</p>
+</article>
+<article style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"></rect><path d="M3 10.5 H21 M7 15 H10"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Local payments, built in</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">Paystack, Flutterwave, Stripe and bank transfer. Bill in naira, cedis, shillings, pounds, dollars, euros or CFA.</p>
+</article>
+<article style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16 V11 A6 6 0 0 1 18 11 V16 L20 18 H4 Z M10 21 H14"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Reminders on by default</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">Jovita nudges late payers politely, before and after the due date. Switch it off for any invoice.</p>
+</article>
+<article style="background: #E9DDFB; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 120 120" style="width: 34px; height: 34px;" aria-hidden="true"><path d="M30 10 H90 A20 20 0 0 1 110 30 V78 A20 20 0 0 1 90 98 H46 L22 113 L27 96 A20 20 0 0 1 10 78 V30 A20 20 0 0 1 30 10 Z" fill="#FFB320"></path><circle cx="44" cy="44" r="7" fill="#261433"></circle><circle cx="76" cy="44" r="7" fill="#261433"></circle><path d="M76 58 V64 A16 16 0 0 1 44 64" fill="none" stroke="#261433" stroke-width="8" stroke-linecap="round"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Ask Jovita</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3A57;">“How much am I owed?” It answers, drafts the email and sets the reminder. Only when you ask.</p>
+</article>
+<article style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3 H15 L19 7 V21 H6 Z M15 3 V7 H19 M9 12 H16 M9 16 H14"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Set up for what you do</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">Tell us your career. Your packages, invoices, contracts and releases are ready on day one.</p>
+</article>
+<article style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19 V5 M4 19 H20 M8 15 L11 11 L14 13 L19 7"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Know your real profit</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">Money in, plus what you spend on Adobe, Evoto and other subscriptions, side by side.</p>
+</article>
+<article style="background: #FFFFFF; border: 1px solid #E4DCEE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5 H19 A2 2 0 0 1 21 7 V15 A2 2 0 0 1 19 17 H10 L6 20 V17 H5 A2 2 0 0 1 3 15 V7 A2 2 0 0 1 5 5 Z"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">One inbox</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">WhatsApp, email and website chat in one place. Reply, send a quote, take the deposit.</p>
+</article>
+<article style="background: #FFB320; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+<svg viewBox="0 0 24 24" style="width: 32px; height: 32px;" fill="none" stroke="#261433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12 H21 M12 3 C15 6 15 18 12 21 C9 18 9 6 12 3"></path></svg>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px; line-height: 26px;">Speaks your language</h3>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #261433;">English, Français, Kiswahili, Português and Español, for you and your clients.</p>
+</article>
+</div>
+</div>
+</section>
+
+<!-- CAREERS -->
+<section id="careers" style="padding-top: 96px; padding-bottom: 96px; background: #FFFFFF; border-top: 1px solid #E4DCEE; border-bottom: 1px solid #E4DCEE;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 32px;">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 720px;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">Made for what you do</p>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Pick your career. Jovita sets up the rest.</h2>
+</div>
+<div role="tablist" aria-label="Careers" style="display: flex; flex-wrap: wrap; gap: 10px;">
+<!-- career tabs --><span id="jv-tabs" style="display:contents"></span>
+</div>
+<div class="jv-split cr-box" style="background: #F3EDFB; border-radius: 28px; padding: 40px;">
+<div style="display: flex; flex-direction: column; gap: 16px; min-width: 0;">
+<h3 id="jv-title" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 32px; line-height: 36px; letter-spacing: -0.02em;"></h3>
+<div id="jv-points" style="display:flex;flex-direction:column;gap:16px"></div>
+</div>
+<div class="cr-art" aria-hidden="true">
+<img id="jv-cr-img" class="in" src="careers/photographer.webp" alt="" width="679" height="900">
+</div>
+</div>
+</div>
+</section>
+
+<!-- ONBOARDING -->
+<section id="onboarding" style="padding-top: 96px; padding-bottom: 96px;">
+<div class="jv-wrap jv-split">
+<div style="display: flex; flex-direction: column; gap: 16px;"><p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">Two-minute setup</p><h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Meet Jo. Tell it what you do.</h2>
+<p style="margin: 0; font-size: 18px; line-height: 28px; color: #5E5069;">Pick your career and Jovita sets up packages, contracts, model releases and invoice wording that fit. Then name your studio and you're in. No training, no spreadsheets.</p>
+<div style="display: flex; flex-direction: column; gap: 10px; font-size: 16px;"><span>✓ Packages ready for photographers, videographers, makeup artists and creators</span><span>✓ Contracts and releases written in plain English</span><span>✓ Import clients from Excel or your phone</span></div>
+<a href="#" data-app="/signup" class="jv-btn" style="align-self: flex-start; font-weight: 700; font-size: 17px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 16px 26px;">Start setting up</a>
+</div>
+<div class="ob-card">
+<div class="ob-steps"><i class="on"></i><i></i></div>
+<div class="ob-jo">
+<svg viewBox="0 0 200 220" style="width: 90px; height: 99px; flex: none;" aria-hidden="true"><path d="M40 110 Q22 104 20 84" fill="none" stroke="#E89A00" stroke-width="12" stroke-linecap="round"/><path d="M160 104 Q186 78 178 52" fill="none" stroke="#E89A00" stroke-width="12" stroke-linecap="round"/><path d="M82 34 H118 A48 48 0 0 1 166 82 V124 A48 48 0 0 1 118 172 H88 L60 194 L66 166 A48 48 0 0 1 34 124 V82 A48 48 0 0 1 82 34 Z" fill="#FFB320"/><rect x="76" y="176" width="18" height="24" rx="9" fill="#261433"/><rect x="110" y="176" width="18" height="24" rx="9" fill="#261433"/><circle cx="78" cy="86" r="8" fill="#261433"/><circle cx="122" cy="86" r="8" fill="#261433"/><circle cx="64" cy="110" r="8" fill="#F7A6C0"/><circle cx="136" cy="110" r="8" fill="#F7A6C0"/><path d="M122 102 V110 A22 22 0 0 1 78 110" fill="none" stroke="#261433" stroke-width="8" stroke-linecap="round"/></svg>
+<p id="ob-say" aria-live="polite">Hi! I'm Jo. Tap what you do and I'll set things up.</p>
+</div>
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 28px; line-height: 32px;">What do you do?</h3>
+<div class="ob-grid" id="ob-grid">
+<button type="button" aria-pressed="false" data-c="Photographer"><span>📷</span>Photographer</button>
+<button type="button" aria-pressed="false" data-c="Videographer"><span>🎬</span>Videographer</button>
+<button type="button" aria-pressed="false" data-c="Makeup artist"><span>💄</span>Makeup artist</button>
+<button type="button" aria-pressed="false" data-c="Content creator"><span>📱</span>Content creator</button>
+<button type="button" aria-pressed="false" data-c="Designer"><span>🎨</span>Designer</button>
+<button type="button" aria-pressed="false" data-c="Stylist"><span>✂️</span>Stylist</button>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ALL FEATURES -->
+<section id="features" style="padding-top: 96px; padding-bottom: 96px; background: #FFFFFF; border-top: 1px solid #E4DCEE; border-bottom: 1px solid #E4DCEE;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 32px;">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 720px;"><p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">And everything else</p><h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Everything you need, nothing you don't.</h2></div>
+<div class="ft-grid">
+<article class="ft"><span class="ft-ic" aria-hidden="true">✍️</span><h3>Contracts and model releases</h3><p>Written once, sent to every client with their name, date and fee filled in. They sign with their name on their phone.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🔗</span><h3>One link per client</h3><p>Your client signs, pays, messages you and sees their photos from one friendly page. No accounts, no app to download.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">📅</span><h3>Bookings and Google Calendar</h3><p>Session types and prices, your diary, and two-way sync with Google Calendar so you never double-book.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🧾</span><h3>Invoices with payment plans</h3><p>Line items, discounts, tax, deposits and instalments. Reminders go out on the days you choose.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🖼️</span><h3>Galleries clients love</h3><p>Photo sets, cover styles, colours, download PINs and favourites with notes. Picks start your editing clock.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">💬</span><h3>One inbox</h3><p>WhatsApp, email and website chat in one list, with replies drafted in your voice.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">📊</span><h3>Accounting that's simple</h3><p>Money in, money out and profit, with your Adobe and Evoto subscriptions and renewal reminders. Export for your accountant.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">📥</span><h3>Import your clients</h3><p>Bring clients in from Excel, CSV or your phone. Duplicates are skipped for you.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🌍</span><h3>5 languages, 5 currencies</h3><p>English, Français, Kiswahili, Português and Español. Naira, pounds, dollars, euros and CFA.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">📱</span><h3>Phone app</h3><p>Everything on your phone too: check who owes you, nudge a client, mark a payment, between shoots.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🌙</span><h3>Bright and dark mode</h3><p>Easy on the eyes at midnight edits. Your choice follows you from laptop to phone.</p></article>
+<article class="ft"><span class="ft-ic" aria-hidden="true">🎙️</span><h3>Train your Jovita</h3><p>Pick friendly or formal, short or detailed. Every reminder and reply sounds like you.</p></article>
+</div>
+</div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" style="padding-top: 96px; padding-bottom: 96px;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 40px;">
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em;">From first message to paid, in three steps</h2>
+<ol class="jv-g3" style="list-style: none; margin: 0; padding: 0;">
+<li style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid #261433; padding-top: 20px;"><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 20px; color: #8F5A00;">1</span><h3 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 700;">Tell Jovita what you create</h3><p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">Your packages, invoices and contracts are set up for your career in minutes.</p></li>
+<li style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid #261433; padding-top: 20px;"><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 20px; color: #8F5A00;">2</span><h3 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 700;">Send your client one link</h3><p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">They sign, pay the deposit and book a date. No account needed.</p></li>
+<li style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid #FFB320; padding-top: 20px;"><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 20px; color: #8F5A00;">3</span><h3 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 700;">Shoot. Jovita does the rest.</h3><p style="margin: 0; font-size: 15px; line-height: 22px; color: #5E5069;">It chases the balance, delivers the gallery and keeps your books.</p></li>
+</ol>
+</div>
+</section>
+
+<!-- GALLERIES -->
+<section id="film" style="padding-top: 96px; padding-bottom: 96px; background: #261433; color: #FFFFFF;">
+<div class="jv-wrap jv-split">
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #FFB320;">Galleries</p>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Galleries your clients love</h2>
+<p style="margin: 0; font-size: 18px; line-height: 28px; color: #D9CCE6;">Clients pick their favourites, download with a PIN and pay the balance in the same link. Sending their picks starts your editing clock.</p>
+<p style="margin: 0; font-size: 15px; color: #D9CCE6;">Your logo and your colours lead. Jovita stays out of the way.</p>
+</div>
+<div style="background: #FFFFFF; border-radius: 28px; padding: 20px; display: flex; flex-direction: column; gap: 14px; color: #261433; min-width: 0;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 22px;">Evore Atelier</span><span style="font-size: 13px; font-weight: 800; background: #FFB320; border-radius: 999px; padding: 4px 12px;">12 of 15 picked</span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+<img loading="lazy" src="img/evore-01.jpg" alt="Models in gold gowns around the Evore bottle" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block;">
+<img loading="lazy" src="img/evore-05.jpg" alt="Four models holding the bottle, picked" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block; outline: 4px solid #FFB320; outline-offset: -4px;">
+<img loading="lazy" src="img/evore-07.jpg" alt="Models in navy around the bottle, picked" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block; outline: 4px solid #FFB320; outline-offset: -4px;">
+<img loading="lazy" src="img/evore-03.jpg" alt="Bottle on a white plinth, picked" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block; outline: 4px solid #FFB320; outline-offset: -4px;">
+<img loading="lazy" src="img/evore-08.jpg" alt="Bottle on rippling water" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block;">
+<img loading="lazy" src="img/evore-10.jpg" alt="Hands cradling the bottle, picked" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; display: block; outline: 4px solid #FFB320; outline-offset: -4px;">
+</div>
+<a href="#" data-app="/signup" class="jv-btn" style="text-align: center; font-weight: 700; font-size: 15px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 14px;">Send my picks</a>
+</div>
+</div>
+</section>
+
+<!-- ASK JOVITA -->
+<section id="ask" style="padding-top: 96px; padding-bottom: 96px; background: #E9DDFB;">
+<div class="jv-wrap jv-split">
+<div style="display: flex; flex-direction: column; gap: 14px; min-width: 0; background: #FFFFFF; border-radius: 28px; padding: 28px; box-shadow: 0 12px 40px rgba(38,20,51,0.16);">
+<p style="margin: 0; align-self: flex-end; max-width: 80%; background: #261433; color: #FFFFFF; font-size: 16px; font-weight: 600; line-height: 22px; padding: 14px 18px; border-radius: 20px 20px 6px 20px;">How much am I owed?</p>
+<div style="display: flex; gap: 12px; align-items: flex-end;">
+<svg viewBox="0 0 120 120" style="width: 44px; height: 44px; flex: none;" aria-hidden="true"><path d="M30 10 H90 A20 20 0 0 1 110 30 V78 A20 20 0 0 1 90 98 H46 L22 113 L27 96 A20 20 0 0 1 10 78 V30 A20 20 0 0 1 30 10 Z" fill="#FFB320"></path><circle cx="44" cy="44" r="7" fill="#261433"></circle><circle cx="76" cy="44" r="7" fill="#261433"></circle><path d="M76 58 V64 A16 16 0 0 1 44 64" fill="none" stroke="#261433" stroke-width="8" stroke-linecap="round"></path></svg>
+<p style="margin: 0; max-width: 80%; background: #F3EDFB; font-size: 16px; font-weight: 600; line-height: 22px; padding: 14px 18px; border-radius: 20px 20px 20px 6px;">₦4.2M across 3 invoices. Tara’s is 2 days late. Want me to send friendly nudges?</p>
+</div>
+<div style="display: flex; gap: 10px; margin-left: 56px; flex-wrap: wrap;"><span style="font-size: 15px; font-weight: 700; background: #FFB320; border-radius: 999px; padding: 8px 16px;">Send nudges</span><span style="font-size: 15px; font-weight: 700; border: 1px solid #8C7F99; border-radius: 999px; padding: 7px 16px;">Show me first</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 18px; min-width: 0;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">Ask Jovita · Pro and Studio</p>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em; text-wrap: balance;">Ask anything about your business</h2>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<p style="margin: 0; font-size: 17px; line-height: 26px;"><b>Only when you ask.</b> It never acts on its own.</p>
+<p style="margin: 0; font-size: 17px; line-height: 26px;"><b>Checks with you first</b> before it sends anything or touches money.</p>
+<p style="margin: 0; font-size: 17px; line-height: 26px;"><b>Writes like you.</b> Train your Jovita on your past emails and captions.</p>
+</div>
+</div>
+</div>
+</section>
+
+
+
+<!-- PRICING -->
+<section id="pricing" style="padding-top: 96px; padding-bottom: 96px; background: #FFFFFF; border-top: 1px solid #E4DCEE;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 32px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<p style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8F5A00;">Pricing</p>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 48px; line-height: 52px; letter-spacing: -0.03em;">Start free. Grow when you’re ready.</h2>
+</div>
+<div role="group" aria-label="Currency" style="display: flex; gap: 6px; background: #F3EDFB; border-radius: 999px; padding: 6px;">
+<span id="jv-curs" style="display:contents"></span>
+</div>
+</div>
+<div class="jv-g3">
+<article style="border: 1px solid #E4DCEE; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 18px;">
+<h3 style="margin: 0; font-size: 22px; font-weight: 700;">Free</h3>
+<p style="margin: 0;"><span id="jv-free" style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 44px; line-height: 48px; font-variant-numeric: tabular-nums;"></span><span style="font-size: 15px; color: #5E5069;"> / month</span></p>
+<p id="jv-free-offer" class="jv-offer" hidden></p>
+<p style="margin: 0; font-size: 15px; color: #5E5069;">Get organised and get paid.</p>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 22px;"><span>Clients, projects and bookings</span><span>Invoices with reminders on</span><span>Contracts and releases</span><span>Ask Jovita, 10 questions to try it</span><span>Client link with a small “Made with Jovita” mark</span><span>[STORAGE LIMIT]</span></div>
+<a href="#" data-app="/signup" class="jv-btn" style="margin-top: auto; text-align: center; font-weight: 700; font-size: 15px; border: 1px solid #8C7F99; color: #261433; text-decoration: none; border-radius: 14px; padding: 14px;">Start free</a>
+</article>
+<article style="background: #261433; color: #FFFFFF; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 40px rgba(38,20,51,0.16);">
+<div style="display: flex; justify-content: space-between; align-items: center;"><h3 style="margin: 0; font-size: 22px; font-weight: 700;">Pro</h3><span style="font-size: 13px; font-weight: 800; background: #FFB320; color: #261433; border-radius: 999px; padding: 4px 12px;">Most loved</span></div>
+<p style="margin: 0;"><span id="jv-pro" style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 44px; line-height: 48px; color: #FFB320; font-variant-numeric: tabular-nums;"></span><span style="font-size: 15px; color: #D9CCE6;"> / month</span></p>
+<p id="jv-pro-offer" class="jv-offer" hidden></p>
+<p style="margin: 0; font-size: 15px; color: #D9CCE6;">Your brand, your assistant.</p>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 22px;"><span>Everything in Free</span><span>Ask Jovita, 300 questions a month</span><span>Train your Jovita in your voice</span><span>Your logo and colours, no Jovita mark</span><span>[STORAGE LIMIT]</span></div>
+<a href="#" data-app="/signup" class="jv-btn" style="margin-top: auto; text-align: center; font-weight: 700; font-size: 15px; background: #FFB320; color: #261433; text-decoration: none; border-radius: 14px; padding: 14px;">Try Pro</a>
+</article>
+<article style="border: 1px solid #E4DCEE; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 18px;">
+<h3 style="margin: 0; font-size: 22px; font-weight: 700;">Studio</h3>
+<p style="margin: 0;"><span id="jv-studio" style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 44px; line-height: 48px; font-variant-numeric: tabular-nums;"></span><span style="font-size: 15px; color: #5E5069;"> / month</span></p>
+<p id="jv-studio-offer" class="jv-offer" hidden></p>
+<p style="margin: 0; font-size: 15px; color: #5E5069;">For busy studios and teams.</p>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 22px;"><span>Everything in Pro</span><span>Ask Jovita, unlimited</span><span>Priority help from the Jovita team</span><span>[STORAGE LIMIT]</span></div>
+<a href="#" data-app="/signup" class="jv-btn" style="margin-top: auto; text-align: center; font-weight: 700; font-size: 15px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 14px;">Choose Studio</a>
+</article>
+</div>
+</div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="start" style="padding-top: 88px; padding-bottom: 88px; background: #FFB320;">
+<div class="jv-wrap" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px;">
+<div style="display: flex; align-items: center; gap: 24px; min-width: 0;">
+<div style="width: 120px; height: 120px; flex: none; background: #FBF8FF; border-radius: 999px; display: flex; align-items: center; justify-content: center;">
+<svg viewBox="0 0 200 220" style="width: 86px; height: 95px;" role="img" aria-label="Jo, the Jovita character, celebrating"><path d="M44 112 Q16 100 14 76" fill="none" stroke="#E89A00" stroke-width="15" stroke-linecap="round"></path><path d="M156 112 Q184 100 186 76" fill="none" stroke="#E89A00" stroke-width="15" stroke-linecap="round"></path><ellipse cx="84" cy="186" rx="12" ry="8" fill="#261433"></ellipse><ellipse cx="122" cy="186" rx="12" ry="8" fill="#261433"></ellipse><path d="M82 34 H118 A48 48 0 0 1 166 82 V124 A48 48 0 0 1 118 172 H88 L60 194 L66 166 A48 48 0 0 1 34 124 V82 A48 48 0 0 1 82 34 Z" fill="#FFB320"></path><path d="M64 96 Q76 82 88 96" fill="none" stroke="#261433" stroke-width="7" stroke-linecap="round"></path><path d="M112 96 Q124 82 136 96" fill="none" stroke="#261433" stroke-width="7" stroke-linecap="round"></path><path d="M74 112 H126 A26 26 0 0 1 74 112 Z" fill="#261433"></path></svg>
+</div>
+<h2 class="jv-h2" style="margin: 0; font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 56px; line-height: 58px; letter-spacing: -0.035em;">Shoot more. Chase less.</h2>
+</div>
+<a href="#" data-app="/signup" class="jv-btn" style="font-weight: 700; font-size: 18px; background: #261433; color: #FFFFFF; text-decoration: none; border-radius: 14px; padding: 18px 30px;">Start free</a>
+</div>
+</section>
+
+<!-- FOOTER -->
+<footer style="background: #261433; color: #D9CCE6; padding-top: 56px; padding-bottom: 40px;">
+<div class="jv-wrap" style="display: flex; flex-direction: column; gap: 32px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px;">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 320px;">
+<div style="display: flex; align-items: flex-end; gap: 8px;"><svg viewBox="0 0 110 130" style="width: 24px; height: 28px;" aria-hidden="true"><circle cx="32" cy="30" r="11" fill="#FBF8FF"></circle><circle cx="80" cy="30" r="11" fill="#FBF8FF"></circle><path d="M80 56 V86 A26 26 0 0 1 28 86" fill="none" stroke="#FFB320" stroke-width="18" stroke-linecap="round"></path></svg><span style="font-family: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif; font-weight: 800; font-size: 30px; line-height: 24px; letter-spacing: -0.04em; color: #FBF8FF;">jovita</span></div>
+<p style="margin: 0; font-size: 15px; line-height: 22px;">Run your creative business with joy.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 48px;">
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px;"><b style="color: #FFFFFF;">Product</b><a href="#why" style="color: #D9CCE6;">Why creatives switch</a><a href="#features" style="color: #D9CCE6;">All features</a><a href="#ask" style="color: #D9CCE6;">Ask Jovita</a><a href="#pricing" style="color: #D9CCE6;">Pricing</a><a href="/spotlight" data-app="/spotlight" style="color: #FFB320; font-weight: 700;">Spotlight ★</a></div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px;"><b style="color: #FFFFFF;">For creatives</b><a href="#careers" style="color: #D9CCE6;">Photographers</a><a href="#careers" style="color: #D9CCE6;">Videographers</a><a href="#careers" style="color: #D9CCE6;">Makeup artists</a><a href="#careers" style="color: #D9CCE6;">Content creators</a></div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px;"><b style="color: #FFFFFF;">Company</b><a href="#top" style="color: #D9CCE6;">About</a><a href="#top" style="color: #D9CCE6;">Help centre</a><a href="#top" style="color: #D9CCE6;">Privacy</a></div>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; border-top: 1px solid #4B2E66; padding-top: 20px; font-size: 13px;"><span>© 2026 Jovita</span><span>English · Français · Kiswahili · Português · Español</span></div>
+</div>
+</footer>
+
+</div>
+<script src="i18n.js"></script>
+<script src="config.js"></script>
+<script>
+// Where the Jovita app runs. On this laptop it's the app's local address; change it when the app goes online.
+const APP_URL = location.port === "5174" ? "http://localhost:5173" : "";
+document.querySelectorAll("[data-app]").forEach((a) => { a.href = APP_URL + a.dataset.app; });
+const state = { career: 0, cur: "NGN" };
+const $ = (id) => document.getElementById(id);
+function render() {
+  const self = { state, setState: (p) => { Object.assign(state, p); render(); } };
+  (function () {
+    const C_ = null;
+  })();
+  const r = (function () { 
+    const C = [
+      { name: 'Photographers', title: 'For photographers', pkg: 'Portrait session', pkgSub: '1 hour · 15 edited photos · online gallery', points: ['Portrait, wedding and event packages', 'Model releases ready to sign', 'Galleries with a selection limit', 'Client picks start your editing clock'] },
+      { name: 'Videographers', title: 'For videographers', pkg: 'Brand film', pkgSub: '60 seconds · 2 revision rounds · 4K delivery', points: ['Day-rate and per-film packages', 'Revision rounds tracked for you', 'Video delivery in the client link', 'Deposit before the shoot, balance on delivery'] },
+      { name: 'Makeup artists', title: 'For makeup artists', pkg: 'Bridal glam', pkgSub: 'Trial + wedding day · 3 looks · travel fee', points: ['Bridal and per-face pricing', 'Travel fees and trials built in', 'Consent and allergy form', 'Deposits that lock in the date'] },
+      { name: 'Content creators', title: 'For content creators', pkg: 'Brand deal', pkgSub: '3 Reels + 5 Stories · 90-day usage rights', points: ['Brand-deal invoices', 'Usage rights and licence periods', 'Deliverables per platform', 'Payment reminders to brands and agencies'] }
+    ];
+    const careers = C.map((c, i) => {
+      const sel = i === self.state.career;
+      return { name: c.name, sel: sel ? 'true' : 'false', pick: () => self.setState({ career: i }),
+        tabStyle: 'font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; border-radius: 999px; padding: 12px 20px; min-height: 44px; ' + (sel ? 'background: #261433; color: #FFFFFF; border: 1px solid #261433;' : 'background: #FFFFFF; color: #261433; border: 1px solid #8C7F99;') };
+    });
+    const P = { NGN: { free: '₦0', pro: '₦19,500', studio: '₦39,000' }, GBP: { free: '£0', pro: '£15', studio: '£32' }, USD: { free: '$0', pro: '$19', studio: '$39' }, EUR: { free: '0 €', pro: '18 €', studio: '36 €' }, XOF: { free: '0 F CFA', pro: '11 500 F CFA', studio: '23 000 F CFA' } };
+    const currencies = [['NGN', '₦ Naira'], ['GBP', '£ Pound'], ['USD', '$ Dollar'], ['EUR', '€ Euro'], ['XOF', 'CFA']].map(([k, label]) => {
+      const sel = k === self.state.cur;
+      return { label, sel: sel ? 'true' : 'false', pick: () => self.setState({ cur: k }),
+        style: 'font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border: 0; border-radius: 999px; padding: 10px 16px; min-height: 44px; ' + (sel ? 'background: #261433; color: #FFFFFF;' : 'background: transparent; color: #261433;') };
+    });
+     return { careers, cur: C[self.state.career], currencies, price: P[self.state.cur] }; })();
+  const tabs = $("jv-tabs"); tabs.innerHTML = "";
+  r.careers.forEach((c) => { const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.className = "jv-tab"; b.setAttribute("aria-selected", c.sel); b.style.cssText = c.tabStyle; b.textContent = c.name; b.onclick = c.pick; tabs.append(b); });
+  $("jv-title").textContent = r.cur.title;
+  const crImg = $("jv-cr-img"), crSrc = "careers/" + ["photographer", "videographer", "makeup", "creator"][state.career] + ".webp";
+  if (!crImg.src.endsWith(crSrc)) { crImg.classList.remove("in"); void crImg.offsetWidth; crImg.onload = () => requestAnimationFrame(() => crImg.classList.add("in")); crImg.src = crSrc; }
+  const pts = $("jv-points"); pts.innerHTML = "";
+  r.cur.points.forEach((p) => { const d = document.createElement("div"); d.style.cssText = "display:flex;gap:12px;align-items:flex-start"; d.innerHTML = '<svg viewBox="0 0 24 24" style="width:22px;height:22px;flex:none;margin-top:2px" fill="none" stroke="#1F7A4D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 L10 17 L19 7"></path></svg>'; const s = document.createElement("span"); s.textContent = p; d.append(s); pts.append(d); });
+  const cs = $("jv-curs"); cs.innerHTML = "";
+  r.currencies.forEach((k) => { const b = document.createElement("button"); b.type = "button"; b.className = "jv-cur"; b.setAttribute("aria-pressed", k.sel); b.style.cssText = k.style; b.textContent = k.label; b.onclick = k.pick; cs.append(b); });
+  $("jv-free").textContent = r.price.free; $("jv-pro").textContent = r.price.pro; $("jv-studio").textContent = r.price.studio;
+  applyLive();
+}
+// Live prices and offers from Jovita HQ. Offers are for new subscribers; people already paying keep their price.
+let LIVE = null;
+function fmtMoney(cur, v) {
+  const g = (x, sep) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  return { NGN: "₦" + g(v, ","), GBP: "£" + g(v, ","), USD: "$" + g(v, ","), EUR: g(v, " ") + " €", XOF: g(v, " ") + " F CFA" }[cur] || g(v, ",") + " " + cur;
+}
+function offerAmount(v, pct) { const x = v * (100 - pct) / 100; return x >= 1000 ? Math.round(x / 100) * 100 : Math.round(x); }
+function applyLive() {
+  if (!LIVE) return;
+  ["free", "pro", "studio"].forEach((plan) => {
+    const row = LIVE.prices.find((x) => x.plan === plan && x.currency === state.cur);
+    const el = $("jv-" + plan), note = $("jv-" + plan + "-offer");
+    if (!row || !el) return;
+    const off = plan !== "free" && LIVE.offers.find((o) => o.plan === plan);
+    if (off) {
+      el.textContent = fmtMoney(state.cur, offerAmount(Number(row.monthly_amount), off.percent_off));
+      const ends = off.ends_at ? " Offer ends " + new Date(off.ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) + "." : "";
+      const long = off.months ? (off.months === 1 ? "First month" : "First " + off.months + " months") + ", then " + fmtMoney(state.cur, Number(row.monthly_amount)) + "." : "For as long as you stay.";
+      note.innerHTML = ""; const b = document.createElement("b"); b.textContent = "★ " + off.percent_off + "% off" + (off.label ? " · " + off.label : "") + " "; const was = document.createElement("s"); was.textContent = fmtMoney(state.cur, Number(row.monthly_amount)); b.append(was); note.append(b, document.createTextNode(long + ends)); note.hidden = false;
+    } else { el.textContent = fmtMoney(state.cur, Number(row.monthly_amount)); note.hidden = true; }
+  });
+}
+(async () => {
+  const c = window.JV_CONFIG; if (!c?.supabaseUrl) return;
+  try {
+    const res = await fetch(c.supabaseUrl + "/rest/v1/rpc/public_pricing", { method: "POST", headers: { apikey: c.supabaseKey, "Content-Type": "application/json" }, body: "{}" });
+    if (!res.ok) return;
+    const d = await res.json(); if (d && Array.isArray(d.prices) && d.prices.length) { LIVE = { prices: d.prices, offers: d.offers || [] }; applyLive(); }
+  } catch { /* offline: the built-in prices stay */ }
+})();
+render();
+addEventListener("load", () => dispatchEvent(new Event("resize")));
+// Hero slider: two heroes, changes every 7 seconds, pauses on hover or focus
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function slider(root, track, onGo) {
+  let i = 0, n = track.children.length;
+  const fit = () => { if (root.dataset.fit !== "no") track.style.height = track.children[i].offsetHeight + "px"; };
+  addEventListener("resize", fit);
+  const go = (k) => { i = (k + n) % n; track.style.transform = `translateX(-${i * 100}%)`; fit(); [...track.children].forEach((sl, j) => sl.setAttribute("aria-hidden", j !== i)); onGo && onGo(i); };
+  go(0);
+  return { go, get i() { return i; }, n };
+}
+const hs = $("hs"), hsDots = hs.querySelectorAll(".hs-dots button");
+const hero = slider(hs, hs.querySelector(".hs-track"), (i) => hsDots.forEach((d, j) => d.setAttribute("aria-current", j === i)));
+hsDots.forEach((d, j) => d.onclick = () => hero.go(j));
+hs.querySelectorAll(".hs-arrow").forEach((a) => a.onclick = () => hero.go(hero.i + Number(a.dataset.dir)));
+let hold = false; hs.addEventListener("mouseenter", () => hold = true); hs.addEventListener("mouseleave", () => hold = false);
+hs.addEventListener("focusin", () => hold = true); hs.addEventListener("focusout", () => hold = false);
+if (!reduce) setInterval(() => { if (!hold && !document.hidden) hero.go(hero.i + 1); }, 7000);
+
+// Motion slider: the app loop, the reels, the film
+const ms = $("ms"), msTabs = document.querySelectorAll("[data-ms]"), loopBtn = $("jv-loop-btn");
+let paused = reduce;
+const vids = (i) => [...ms.querySelectorAll(".ms-slide")[i].querySelectorAll("video")];
+const motion = slider(ms, ms.querySelector(".ms-track"), (i) => {
+  msTabs.forEach((t, j) => t.setAttribute("aria-selected", j === i));
+  ms.querySelectorAll("video").forEach((v) => v.pause());
+  if (!paused) vids(i).forEach((v) => v.play().catch(() => {}));
+});
+msTabs.forEach((t) => t.onclick = () => motion.go(Number(t.dataset.ms)));
+loopBtn.onclick = () => { paused = !paused; loopBtn.textContent = paused ? "▶ Play" : "❚❚ Pause"; loopBtn.setAttribute("aria-label", paused ? "Play the animation" : "Pause the animation"); vids(motion.i).forEach((v) => (paused ? v.pause() : v.play().catch(() => {}))); };
+if (reduce) { loopBtn.textContent = "▶ Play"; ms.querySelectorAll("video").forEach((v) => { v.removeAttribute("autoplay"); v.pause(); }); }
+
+// The full film with sound
+const film = $("jv-film"), filmVideo = $("jv-film-video");
+document.querySelectorAll("[data-film]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); film.showModal(); filmVideo.play().catch(() => {}); }));
+film.addEventListener("close", () => filmVideo.pause());
+
+// Onboarding demo: Jo reacts as you pick
+const say = $("ob-say"), picked = new Set();
+document.querySelectorAll("#ob-grid button").forEach((b) => b.onclick = () => {
+  const c = b.dataset.c; picked.has(c) ? picked.delete(c) : picked.add(c); b.setAttribute("aria-pressed", picked.has(c));
+  say.textContent = picked.size === 0 ? "Hi! I'm Jo. Tap what you do and I'll set things up." : picked.size === 1 ? `Nice, a ${[...picked][0].toLowerCase()}! I'll get your packages ready.` : `Ooh, ${picked.size} hats! I'll set up packages for each.`;
+});
+
+// ---- Language: translates the whole page and moves prices to that language's currency ----
+(() => {
+  const D = window.JV_I18N || {};
+  const sel = $("jv-lang");
+  const orig = new WeakMap(), mine = new WeakMap();
+  const ATTRS = ["aria-label", "placeholder", "alt", "title"];
+  const CUR = { en: null, fr: "XOF", es: "EUR", pt: "EUR", sw: "USD" };
+  const NICE = { fr: (w) => `Super, ${w} ! Je prépare vos forfaits.`, es: (w) => `¡Genial, ${w}! Preparo tus paquetes.`, pt: (w) => `Boa, ${w}! Vou preparar os seus pacotes.`, sw: (w) => `Safi, ${w}! Nitaandaa vifurushi vyako.` };
+  const HATS = { fr: (n) => `Oh, ${n} casquettes ! Je prépare des forfaits pour chacune.`, es: (n) => `¡Vaya, ${n} oficios! Preparo paquetes para cada uno.`, pt: (n) => `Uau, ${n} profissões! Vou preparar pacotes para cada uma.`, sw: (n) => `Lo, kazi ${n}! Nitaandaa vifurushi kwa kila moja.` };
+  let lang = "en", busy = false;
+  const tr = (t) => {
+    if (lang === "en") return null;
+    const d = D[lang] || {};
+    if (d[t]) return d[t];
+    let m = t.match(/^Nice, an? (.+)! I'll get your packages ready\.$/);
+    if (m) { const k = Object.keys(d).find((x) => x.toLowerCase() === m[1]); return NICE[lang]((k ? d[k] : m[1]).toLowerCase()); }
+    m = t.match(/^Ooh, (\d+) hats! I'll set up packages for each\.$/);
+    if (m) return HATS[lang](m[1]);
+    return null;
+  };
+  function doNode(n) {
+    if (n.nodeType === 3) {
+      const pe = n.parentElement; if (!pe || /^(SCRIPT|STYLE)$/.test(pe.tagName)) return;
+      if (!orig.has(n)) orig.set(n, n.nodeValue);
+      const o = orig.get(n), t = o.replace(/\s+/g, " ").trim(); if (!t) return;
+      const x = tr(t);
+      const v = x ? (/^\s/.test(o) ? " " : "") + x + (/\s$/.test(o) ? " " : "") : o;
+      if (n.nodeValue !== v) n.nodeValue = v;
+      mine.set(n, v);
+    } else if (n.nodeType === 1) {
+      ATTRS.forEach((a) => { if (!n.hasAttribute(a)) return; const k = "data-en-" + a; if (!n.hasAttribute(k)) n.setAttribute(k, n.getAttribute(a)); const o = n.getAttribute(k); n.setAttribute(a, tr(o.trim()) || o); });
+      n.childNodes.forEach(doNode);
+    }
+  }
+  function apply(l, save) {
+    lang = D[l] || l === "en" ? l : "en";
+    busy = true;
+    document.documentElement.lang = lang;
+    doNode(document.body);
+    if (!orig.has(document)) orig.set(document, document.title);
+    document.title = tr(orig.get(document)) || orig.get(document);
+    // Prices follow the language (English keeps naira)
+    const cur = CUR[lang] || "NGN";
+    if (typeof state !== "undefined" && state.cur !== cur) { state.cur = cur; render(); doNode(document.body); }
+    // The app opens in the same language
+    document.querySelectorAll("[data-app]").forEach((a) => { a.href = APP_URL + a.dataset.app + (lang !== "en" ? "?lang=" + lang : ""); });
+    sel.value = lang;
+    if (save) try { localStorage.setItem("jovita-lang", lang); } catch {}
+    busy = false;
+  }
+  new MutationObserver((ms) => { if (busy) return; busy = true; ms.forEach((m) => { if (m.type === "characterData") { if (mine.get(m.target) === m.target.nodeValue) return; orig.delete(m.target); doNode(m.target); } else m.addedNodes.forEach(doNode); }); busy = false; })
+    .observe(document.body, { childList: true, subtree: true, characterData: true });
+  sel.addEventListener("change", () => apply(sel.value, true));
+  let start = "en";
+  try { start = localStorage.getItem("jovita-lang") || ""; } catch {}
+  if (!start) start = (navigator.languages || [navigator.language]).map((x) => String(x).slice(0, 2)).find((x) => D[x]) || "en";
+  apply(start, false);
+})();
+</script>
+</body>
+</html>

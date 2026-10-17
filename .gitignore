@@ -1,0 +1,32 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+# copies Claude used to deliver updates
+.update/
+.jovita-update*.tgz
+.update2/
+
+# untouched copy of v1 before the redesign
+jovita-v1-backup-2026-10-13/
+
+# never commit secrets or local builds
+**/.env
+**/.env.local
+.repo-export.tgz
+mobile/.expo/
+mobile/node_modules/
+
+# large files kept only on the Mac
+tope/
+design/
+ref/
+marketing/footage/
+marketing/motion/
+marketing/renders/
+marketing/sounds/
+marketing/voice/
+deploy-*.zip
