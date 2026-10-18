@@ -146,7 +146,6 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
       {el}
       <button type="button" className="gp-heart" aria-pressed={!!favs?.has(p.id)} onClick={() => onFav(p)} aria-label={favs?.has(p.id) ? tx("Remove from favourites") : tx("Add to favourites")}><Icon name="heart" /></button>
       {notes?.[p.id] ? <span className="gp-notecount"><Icon name="chat" />{notes[p.id]}</span> : null}
-      {p.name && <span className="gp-cap">{p.name}</span>}
     </span>
   );
   const gap = g.spacing === "large" ? 14 : 4;
@@ -189,6 +188,7 @@ export default function GalleryEditor({ id, onClose }) {
   const [sub, setSub] = useState({ photos: "highlights", design: "cover", settings: "general", share: "invite", activity: "downloads" });
   const [photos, setPhotos] = useState([]);
   const [favs, setFavs] = useState([]);          // clients' picks
+  const [downloads, setDownloads] = useState([]); // who downloaded what
   const [comments, setComments] = useState([]);  // notes on photos, both ways
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [dupes, setDupes] = useState(null);      // { files, names } when some file names are already in the gallery
@@ -242,11 +242,12 @@ export default function GalleryEditor({ id, onClose }) {
     })();
   }, [photos, loadPhotos]);
   const loadFeedback = useCallback(async () => {
-    const [f, c] = await Promise.all([
+    const [f, c, dls] = await Promise.all([
       supabase.from("gallery_favorites").select("*").eq("gallery_id", id),
       supabase.from("gallery_comments").select("*").eq("gallery_id", id).order("created_at", { ascending: true }),
+      supabase.from("gallery_downloads").select("*").eq("gallery_id", id).order("created_at", { ascending: false }),
     ]);
-    setFavs(f.data || []); setComments(c.data || []);
+    setFavs(f.data || []); setComments(c.data || []); setDownloads(dls.data || []);
   }, [id]);
   useEffect(() => { loadFeedback(); }, [loadFeedback]);
   const favCount = useMemo(() => favs.reduce((m, f) => ({ ...m, [f.photo_id]: (m[f.photo_id] || 0) + 1 }), {}), [favs]);
@@ -513,7 +514,6 @@ export default function GalleryEditor({ id, onClose }) {
                               {x.url ? <img src={x.url} alt="" /> : <span className="ge-up-file"><Icon name="image" /></span>}
                               <span className="ge-up-state">{x.state === "done" ? <Icon name="check" /> : x.state === "fail" ? <Icon name="x" /> : <i className="ge-spin" />}</span>
                             </figure>
-                            <span className="ge-name">{x.name}</span>
                           </div>
                         ))}
                         {setPhotosInSet.map((p, i) => {
@@ -521,7 +521,7 @@ export default function GalleryEditor({ id, onClose }) {
                           return (
                             <div className="ge-cell" key={p.id}>
                             <figure className={`ge-photo ${on ? "on" : ""} ${d.cover_path === p.path ? "is-cover" : ""}`}>
-                              <button type="button" className="ge-hit" onClick={() => (picked.size ? togglePick(p.id) : setViewer(i))} aria-label={picked.size ? tx("Select {name}", { name: p.name }) : tx("Open {name}", { name: p.name })}>
+                              <button type="button" className="ge-hit" title={p.name} onClick={() => (picked.size ? togglePick(p.id) : setViewer(i))} aria-label={picked.size ? tx("Select {name}", { name: p.name }) : tx("Open {name}", { name: p.name })}>
                                 <Thumb path={p.path} alt={p.name} thumb={p.has_thumb} />
                               </button>
                               <button type="button" className="ge-check" aria-pressed={on} onClick={() => togglePick(p.id)} aria-label={on ? tx("Unselect photo") : tx("Select photo")}><Icon name="check" /></button>
@@ -539,7 +539,6 @@ export default function GalleryEditor({ id, onClose }) {
                                 </div>
                               )}
                             </figure>
-                            <span className="ge-name" title={p.name}>{p.name}</span>
                             </div>
                           );
                         })}
@@ -641,7 +640,16 @@ export default function GalleryEditor({ id, onClose }) {
               {/* ACTIVITY */}
               {tab === "activity" && (
                 <><h2 className="h-m">{sub.activity === "downloads" ? tx("Download activity") : tx("Favourite activity")}</h2>
-                  {sub.activity === "favorites" && favs.length > 0 ? (
+                  {sub.activity === "downloads" && downloads.length > 0 ? (
+                    <div className="ge-picks">
+                      <p className="sub">{txn(downloads.reduce((n, x) => n + (x.files || 1), 0), "{n} file downloaded so far", "{n} files downloaded so far")}</p>
+                      {downloads.map((x) => (
+                        <div key={x.id} className="switch"><div><b>{x.viewer_name || (x.viewer.includes("@") ? x.viewer : tx("A visitor"))}</b>
+                          <span>{x.kind === "zip" ? tx("Downloaded {label} as a zip ({n} files)", { label: x.label || tx("all photos"), n: x.files }) : tx("Downloaded {label}", { label: x.label })} · {fdate(x.created_at)} {new Date(x.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
+                          <Icon name="download" /></div>
+                      ))}
+                    </div>
+                  ) : sub.activity === "favorites" && favs.length > 0 ? (
                     <div className="ge-picks">
                       {Object.entries(favs.reduce((m, f) => { (m[f.viewer_name || f.viewer] ||= []).push(f); return m; }, {})).map(([who, list]) => {
                         const ps = list.map((f) => photos.find((p) => p.id === f.photo_id)).filter(Boolean);
@@ -744,7 +752,7 @@ export default function GalleryEditor({ id, onClose }) {
                 <button type="button" aria-pressed={!d.settings.download.on} onClick={() => setDl("on", false)}>{tx("Pick favourites only")}</button>
                 <button type="button" aria-pressed={!!d.settings.download.on} onClick={() => setDl("on", true)}>{tx("Pick and download")}</button>
               </div>
-              <span className="help">{d.settings.download.on ? tx("They can download photos with the original file names.") : tx("They can view, heart their picks and leave notes. No downloads, ideal for selecting photos to edit.")}</span></div>
+              <span className="help">{d.settings.download.on ? tx("They can download one by one or everything as a zip, with the original file names.") + (d.settings.download.pin_on ? " " + tx("Download PIN: {pin}", { pin: d.settings.download.pin }) : "") : tx("They can view, heart their picks and leave notes. No downloads, ideal for selecting photos to edit.")}</span></div>
             <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password ? " " + tx("Remember to send them the password: {pw}", { pw: d.settings.password }) : ""}</p>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-ghost" onClick={copyLink}><Icon name="link" />{tx("Copy link to share")}</button>

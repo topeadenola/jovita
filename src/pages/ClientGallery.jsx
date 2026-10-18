@@ -4,7 +4,7 @@ import { supabase } from "../supabase";
 import { GalleryPreview, downloadUrl, isRaw, isVideo, publicUrl, thumbUrl } from "../components/GalleryEditor";
 import StudioLogo from "../components/StudioLogo";
 import Icon from "../components/Icon";
-import { tx } from "../lib/i18n";
+import { tx, txn } from "../lib/i18n";
 import { fdate } from "../lib/format";
 import { LangSwitch } from "../components/Lang";
 
@@ -37,6 +37,9 @@ export default function ClientGallery() {
   const [ask, setAsk] = useState(null);          // waiting for a name before saving a heart or note
   const [note, setNote] = useState("");
   const [panel, setPanel] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinAsk, setPinAsk] = useState(null);     // waiting for the download PIN
+  const [zipping, setZipping] = useState(null);   // { done, total }
 
   const load = useCallback(async (password) => {
     setState((s) => ({ ...s, loading: true }));
@@ -56,6 +59,7 @@ export default function ClientGallery() {
     design: { ...DEF_DESIGN, ...(g.design || {}), grid: { ...DEF_DESIGN.grid, ...(g.design?.grid || {}) } },
   }), [g]);
   const vid = useMemo(() => (g ? viewerId(g) : ""), [g]);
+  const dl0 = g?.download || {};
   const favOn = g && g.favorite?.on !== false;
   const loadFeedback = useCallback(async () => {
     if (!g) return;
@@ -72,6 +76,51 @@ export default function ClientGallery() {
     setMine((m) => { const n = new Set(m); was ? n.delete(p.id) : n.add(p.id); return n; });
     const { error } = await supabase.rpc("gallery_toggle_favorite", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: vid, p_name: nm });
     if (error) { setMine((m) => { const n = new Set(m); was ? n.add(p.id) : n.delete(p.id); return n; }); window.alert?.(error.message); }
+  });
+  // Downloads: check they're allowed (and the PIN), record who downloaded what, then save the file(s)
+  const clearance = async (args, pinTry, nm) => {
+    const { data, error } = await supabase.rpc("gallery_log_download", { p_token: token, p_password: pass || null, p_pin: pinTry ?? pin ?? null, p_viewer: vid, p_name: nm || who || "", ...args });
+    if (error) return "ok"; // before the update is run, don't block downloads
+    return data;
+  };
+  const withPin = (args, go) => needName(async (nm) => {
+    const res = await clearance(args, undefined, nm);
+    if (res === "ok") return go();
+    if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm); if (r2 === "ok") { setPin(p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
+    window.alert?.(tx("Downloads are switched off for this gallery."));
+  });
+  const saveOne = (p) => withPin({ p_photo: p.id, p_kind: "photo", p_files: 1, p_label: p.name || "" }, () => {
+    const a = document.createElement("a"); a.href = downloadUrl(p.path, p.name || undefined); a.download = p.name || ""; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  const saveZip = (list, label) => withPin({ p_photo: null, p_kind: "zip", p_files: list.length, p_label: label }, async () => {
+    const { downloadZip } = await import("client-zip");
+    const base = (d.title || "Gallery").replace(/[^\w\- ]+/g, "").trim() || "Gallery";
+    const used = new Map();
+    const uniq = (n) => { const k = n.toLowerCase(); const c = used.get(k) || 0; used.set(k, c + 1); return c ? n.replace(/(\.[^.]+)?$/, ` (${c})$1`) : n; };
+    setZipping({ done: 0, total: list.length });
+    async function* files() {
+      let i = 0;
+      for (const p of list) {
+        const res = await fetch(publicUrl(p.path));
+        if (res.ok) yield { name: uniq(p.name || `photo-${i + 1}.${String(p.path).split(".").pop()}`), input: res };
+        setZipping({ done: ++i, total: list.length });
+      }
+    }
+    try {
+      const name = `${base}${label && label !== tx("All photos") ? " - " + label : ""}.zip`;
+      if (window.showSaveFilePicker) {
+        // Chrome/Edge: write straight to disk, so even very big galleries work
+        let handle;
+        try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: "Zip", accept: { "application/zip": [".zip"] } }] }); } catch { setZipping(null); return; }
+        await downloadZip(files()).body.pipeTo(await handle.createWritable());
+      } else {
+        const blob = await downloadZip(files()).blob();
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      }
+    } catch (e) { window.alert?.(tx("The download stopped: {err}", { err: e.message })); }
+    setZipping(null);
   });
   const addNote = (p) => needName(async (nm) => {
     const body = note.trim(); if (!body) return;
@@ -117,7 +166,7 @@ export default function ClientGallery() {
     </div></div>
   );
 
-  const dl = g.download || {};
+  const dl = dl0;
   const cur = photos[open];
   return (
     <div className="cg">
@@ -133,10 +182,13 @@ export default function ClientGallery() {
           {d.sets.map((s) => <button key={s.id} type="button" aria-pressed={setId === s.id} onClick={() => setSetId(s.id)}>{s.name}</button>)}
         </nav>
       )}
-      {favOn && (
+      {(favOn || dl0.on) && (
         <div className="cg-tools">
-          <button type="button" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all photos") : tx("My favourites ({n})", { n: mine.size })}</button>
-          <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>
+          {dl0.on && <button type="button" disabled={!!zipping} onClick={() => saveZip(g.photos || [], tx("All photos"))}><Icon name="download" />{zipping ? tx("Preparing {a} of {b}…", { a: zipping.done, b: zipping.total }) : tx("Download all ({n})", { n: (g.photos || []).length })}</button>}
+          {dl0.on && setId !== "all" && !zipping && <button type="button" onClick={() => saveZip(photos, d.sets.find((x) => x.id === setId)?.name || "")}><Icon name="download" />{tx("Download this set")}</button>}
+          {dl0.on && onlyFavs && mine.size > 0 && !zipping && <button type="button" onClick={() => saveZip((g.photos || []).filter((p) => mine.has(p.id)), tx("My favourites"))}><Icon name="download" />{tx("Download my favourites")}</button>}
+          {favOn && <button type="button" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all photos") : tx("My favourites ({n})", { n: mine.size })}</button>}
+          {favOn && <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>}
         </div>
       )}
       <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen}
@@ -166,10 +218,11 @@ export default function ClientGallery() {
             <span>{cur.name || ""} · {open + 1} / {photos.length}</span>
             {favOn && <button type="button" className="btn btn-secondary btn-sm" aria-pressed={mine.has(cur.id)} onClick={() => toggleFav(cur)}><Icon name="heart" />{mine.has(cur.id) ? tx("Favourite") : tx("Add to favourites")}</button>}
             <button type="button" className="btn btn-secondary btn-sm" aria-pressed={panel} onClick={() => setPanel(!panel)}><Icon name="chat" />{noteCount[cur.id] ? tx("Notes ({n})", { n: noteCount[cur.id] }) : tx("Leave a note")}</button>
-            {dl.on && <a className="btn btn-secondary btn-sm" href={downloadUrl(cur.path, cur.name)} download={cur.name || true}><Icon name="download" />{tx("Download")}</a>}
+            {dl.on && <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveOne(cur)}><Icon name="download" />{tx("Download")}</button>}
           </div>
         </div>
       )}
+      {pinAsk && <PinAsk studio={g.studio?.name} onClose={() => setPinAsk(null)} onTry={pinAsk} />}
       {ask && (
         <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
           <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Your name")} onSubmit={(e) => { e.preventDefault(); const n = name.trim(); if (!n) return; writeLS("jv-viewer-name", n); const fn = ask; setAsk(null); fn(n); }}>
@@ -180,6 +233,22 @@ export default function ClientGallery() {
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+function PinAsk({ studio, onClose, onTry }) {
+  const [v, setV] = useState("");
+  const [err, setErr] = useState("");
+  return (
+    <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Download PIN")} onSubmit={async (e) => { e.preventDefault(); const m = await onTry(v.trim()); if (m) setErr(m); }}>
+        <h2 className="h-m">{tx("Enter the download PIN")}</h2>
+        <p className="sub" style={{ fontSize: 14 }}>{tx("{studio} sent you a 4-digit PIN for downloads.", { studio: studio || tx("Your photographer") })}</p>
+        <div className="field"><label htmlFor="cg-pin">{tx("PIN")}</label><input id="cg-pin" inputMode="numeric" autoFocus maxLength={8} value={v} onChange={(e) => setV(e.target.value)} /></div>
+        {err && <p className="err">{err}</p>}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={onClose}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Download")}</button></div>
+      </form>
     </div>
   );
 }

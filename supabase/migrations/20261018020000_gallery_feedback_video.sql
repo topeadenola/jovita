@@ -173,3 +173,44 @@ create unique index if not exists studios_inbox_code_idx on public.studios (inbo
 alter table public.studios add column if not exists forward_inbox boolean not null default true; -- also send a copy to the creative's own email
 alter table public.messages add column if not exists subject text;
 alter table public.messages add column if not exists email_id text;
+
+-- ---------- Download activity (who downloaded what) and the download PIN ----------
+create table if not exists public.gallery_downloads (
+  id uuid primary key default gen_random_uuid(),
+  studio_id uuid not null references public.studios(id) on delete cascade,
+  gallery_id uuid not null references public.galleries(id) on delete cascade,
+  photo_id uuid references public.gallery_photos(id) on delete set null, -- null for a zip of many
+  kind text not null default 'photo' check (kind in ('photo', 'zip')),
+  files integer not null default 1,
+  label text not null default '',          -- the file name, or "All photos" / a set name for a zip
+  viewer text not null default '',
+  viewer_name text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists gallery_downloads_gallery_idx on public.gallery_downloads (gallery_id);
+create index if not exists gallery_downloads_studio_idx on public.gallery_downloads (studio_id);
+alter table public.gallery_downloads enable row level security;
+drop policy if exists "studio rows" on public.gallery_downloads;
+create policy "studio rows" on public.gallery_downloads for all to authenticated
+  using (studio_id = (select public.my_studio_id())) with check (studio_id = (select public.my_studio_id()));
+
+-- Called just before a client downloads. Checks downloads are on and the PIN (if any), then records it.
+-- Returns 'ok', 'pin' (PIN needed or wrong) or 'off' (downloads switched off).
+create or replace function public.gallery_log_download(p_token uuid, p_password text, p_pin text, p_photo uuid, p_kind text, p_files integer, p_label text, p_viewer text, p_name text)
+returns text language plpgsql security definer set search_path = '' as $$
+declare g public.galleries; dl jsonb;
+begin
+  g := public.gallery_check(p_token, p_password);
+  if g.id is null then return 'off'; end if;
+  dl := coalesce(g.settings->'download', '{}'::jsonb);
+  if coalesce((dl->>'on')::boolean, true) = false then return 'off'; end if;
+  if coalesce((dl->>'pin_on')::boolean, false) and coalesce(dl->>'pin', '') <> '' and coalesce(p_pin, '') <> dl->>'pin' then return 'pin'; end if;
+  if p_photo is not null and not exists (select 1 from public.gallery_photos p where p.id = p_photo and p.gallery_id = g.id) then return 'off'; end if;
+  insert into public.gallery_downloads (studio_id, gallery_id, photo_id, kind, files, label, viewer, viewer_name)
+  values (g.studio_id, g.id, p_photo, case when p_kind = 'zip' then 'zip' else 'photo' end, greatest(1, least(coalesce(p_files, 1), 100000)),
+          left(coalesce(p_label, ''), 200), left(coalesce(p_viewer, ''), 200), left(coalesce(p_name, ''), 80));
+  update public.galleries set downloads = downloads + greatest(1, least(coalesce(p_files, 1), 100000)) where id = g.id;
+  return 'ok';
+end $$;
+revoke all on function public.gallery_log_download(uuid, text, text, uuid, text, integer, text, text, text) from public;
+grant execute on function public.gallery_log_download(uuid, text, text, uuid, text, integer, text, text, text) to anon, authenticated;
