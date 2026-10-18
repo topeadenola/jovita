@@ -166,7 +166,9 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
     classic: <div className="gp-cover gp-classic" style={{ background: pal[1] }}><div className="gp-img" style={bg} /><div className="gp-ttl" style={{ color: pal[3] }}><h3 style={titleStyle}>{title}</h3><small>{date}</small></div></div>,
     none: <div className="gp-cover gp-none" style={{ background: pal[1] }}><div className="gp-ttl" style={{ color: pal[3] }}><h3 style={titleStyle}>{title}</h3><small>{date}</small></div></div>,
   }[cover] || null;
-  const cols = device === "phone" ? (g.size === "large" ? 1 : 2) : g.size === "large" ? 2 : 3;
+  // The client's page fits more photos per row on wide screens (4 to 5), the small previews keep 2 to 3
+  const wide = full && device !== "phone" ? (window.innerWidth >= 1500 ? 5 : window.innerWidth >= 1100 ? 4 : 3) : 3;
+  const cols = device === "phone" ? (g.size === "large" ? 1 : 2) : g.size === "large" ? Math.max(2, wide - 2) : wide;
   // On the client's page each photo gets a heart, and shows how many notes it has
   const item = (p, i, el) => !onFav ? <span key={p.id || p.path} style={{ display: "contents" }}>{el}</span> : (
     <span key={p.id || p.path} className="gp-item">

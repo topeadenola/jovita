@@ -25,6 +25,8 @@ const DEF_DESIGN = { cover: "center", font: "sans", palette: "light", grid: { st
 export default function ClientGallery() {
   const { token } = useParams();
   const [state, setState] = useState({ loading: true });
+  const [, setW] = useState(0);
+  useEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [setId, setSetId] = useState("all");
