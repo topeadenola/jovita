@@ -112,6 +112,7 @@ function OfferNote({ offer, full }) {
 }
 
 function sheetText(plan) {
+  if (plan.status === "gift") return [tx("You have {plan} free", { plan: plan.plan === "studio" ? "Studio" : "Pro" }), plan.until ? tx("A gift from the Jovita team, until {date}. Enjoy!", { date: longDate(new Date(new Date(plan.until).getTime() - 864e5).toISOString()) }) : tx("A gift from the Jovita team. Enjoy!")];
   if (plan.status === "trialing") return [tx("You're trying Pro"), tx("Your trial ends on {date}. Upgrade any time to keep Pro.", { date: longDate(plan.trial_ends_at) })];
   if (plan.plan === "studio") return [tx("You're on Studio, our top plan"), tx("You have everything Jovita offers. Need less? You can downgrade to Pro or Free any time.")];
   if (plan.plan === "pro") return [tx("You're on Pro"), tx("Want unlimited Jovita and priority help? Studio has it. Need less? You can downgrade any time.")];

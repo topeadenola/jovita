@@ -22,6 +22,10 @@ export const api = {
     if (sample) return [{ kind: "upgrade", at: new Date(Date.now() - 3 * 864e5).toISOString(), meta: { from: "free", to: "pro" } }, { kind: "invoice_paid", at: new Date(Date.now() - 6 * 864e5).toISOString(), meta: { amount: 450000, currency: "NGN" } }, { kind: "gallery_published", at: new Date(Date.now() - 9 * 864e5).toISOString(), meta: {} }, { kind: "onboarded", at: new Date(Date.now() - 40 * 864e5).toISOString(), meta: {} }, { kind: "signup", at: new Date(Date.now() - 40 * 864e5).toISOString(), meta: {} }];
     return must(await supabase.rpc("admin_studio_events", { p_studio: id }));
   },
+  async gifts(sample) { return sample ? [] : must(await supabase.rpc("admin_gifts")); },
+  async giftPlan(emails, plan, until, note) { return must(await supabase.rpc("admin_gift_plan", { p_emails: emails, p_plan: plan, p_until: until, p_note: note })); },
+  async cancelGift(id) { must(await supabase.rpc("admin_cancel_gift", { p_gift: id })); },
+  async expireGifts() { try { await supabase.rpc("admin_expire_gifts"); } catch { /* before update 10 */ } },
   async updateStudio(id, patch, sample) { if (sample) return; must(await supabase.rpc("admin_update_studio", { p_studio: id, p_patch: patch })); },
   async notifications(sample) { return sample ? sampleNotifications() : must(await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(60)); },
   async markRead(ids, sample) { if (sample || !ids.length) return; must(await supabase.from("admin_notifications").update({ read: true }).in("id", ids)); },

@@ -6,11 +6,11 @@ import Icon from "./Icon";
 import Celebrate, { SmileMark } from "./Celebrate";
 import Overview from "./Overview";
 import Spotlight from "./Spotlight";
-import { Activity, Announcements, Milestones, Revenue, Settings, Studios } from "./pages";
+import { Activity, Announcements, Gifts, Milestones, Revenue, Settings, Studios } from "./pages";
 import { ago } from "./util";
 import "./admin.css";
 
-const NAV = [["overview", "Overview", "home"], ["studios", "Studios", "users"], ["revenue", "Revenue", "wallet"], ["activity", "Activity", "pulse"], ["announcements", "Announcements", "mega"], ["spotlight", "Spotlight", "image"], ["milestones", "Milestones", "trophy"], ["settings", "Settings", "settings"]];
+const NAV = [["overview", "Overview", "home"], ["studios", "Studios", "users"], ["revenue", "Revenue", "wallet"], ["gifts", "Gift access", "gift"], ["activity", "Activity", "pulse"], ["announcements", "Announcements", "mega"], ["spotlight", "Spotlight", "image"], ["milestones", "Milestones", "trophy"], ["settings", "Settings", "settings"]];
 const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } } };
 const NOTE_ICON = { trial: "trophy", upgrade_request: "up", downgrade_request: "down", signup: "users", upgrade: "up", downgrade: "down", cancel: "down", payment_failed: "alert", milestone: "trophy" };
 
@@ -95,6 +95,7 @@ function HQ({ session }) {
   const devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || !!window.__HQ_PREVIEW;
   const [sample, setSample] = useState(() => devHost && store.get("jhq-sample", !!window.__HQ_PREVIEW));
   const [days, setDays] = useState(() => store.get("jhq-days", 30));
+  useEffect(() => { if (!sample) api.expireGifts(); }, [sample]); // gifts whose time is up go back to Free
   const [notes, setNotes] = useState([]);
   const [celebrate, setCelebrate] = useState(null);
   const [openStudio, setOpenStudio] = useState(null);
@@ -157,6 +158,7 @@ function HQ({ session }) {
           {page === "overview" && <Overview ctx={ctx} />}
           {page === "studios" && <Studios ctx={ctx} />}
           {page === "revenue" && <Revenue ctx={ctx} />}
+          {page === "gifts" && <Gifts ctx={ctx} />}
           {page === "activity" && <Activity ctx={ctx} />}
           {page === "announcements" && <Announcements ctx={ctx} />}
           {page === "spotlight" && <Spotlight />}

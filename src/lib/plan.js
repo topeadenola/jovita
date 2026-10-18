@@ -11,7 +11,7 @@ export const rank = (p) => ["free", "pro", "studio"].indexOf(p);
 export const daysLeft = (iso) => (iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 864e5)) : 0);
 
 export function planFromStudio(s = {}) {
-  return { plan: s.plan || "free", status: s.plan_status || "active", trial_ends_at: s.trial_ends_at || null, trial_used: !!s.trial_used };
+  return { plan: s.plan || "free", status: s.plan_status || "active", trial_ends_at: s.trial_ends_at || null, trial_used: !!s.trial_used, until: s.plan_until || null };
 }
 
 // my_plan also ends an expired trial on the server

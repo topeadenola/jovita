@@ -12,10 +12,73 @@ function Status({ s }) {
   if (s.suspended) return <span className="pill p-bad">Suspended</span>;
   if (s.plan_status === "past_due") return <span className="pill p-warn">Payment due</span>;
   if (s.plan_status === "cancelled") return <span className="pill p-bad">Cancelled</span>;
+  if (s.plan_status === "gift") return <span className="pill p-info" title="Free access you gave">Gift{s.plan_until ? ` · until ${date(new Date(new Date(s.plan_until).getTime() - 864e5))}` : ""}</span>;
   if (!s.onboarded) return <span className="pill p-info">Setting up</span>;
   return <span className="pill p-good">Active</span>;
 }
 const Toggle = ({ on, onChange, label }) => <button type="button" role="switch" className="toggle" aria-checked={!!on} aria-label={label} onClick={() => onChange(!on)} />;
+
+/* ---------------- Gift access: give Pro or Studio free for a while ---------------- */
+const addMonths = (m) => { const d = new Date(); d.setMonth(d.getMonth() + m); return d.toISOString().slice(0, 10); };
+export function Gifts({ ctx }) {
+  const { sample } = ctx;
+  const [f, setF] = useState({ emails: "", plan: "pro", len: "1", until: addMonths(1), note: "" });
+  const [list, setList] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => api.gifts(sample).then(setList).catch((e) => { setList([]); setMsg({ bad: true, text: /admin_gifts/.test(e.message) ? "Run update 10 in Supabase first (RUN-UPDATE-10.sql)." : e.message }); }), [sample]);
+  useEffect(() => { load(); }, [load]);
+  const emails = [...new Set(f.emails.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))];
+  const bad = emails.filter((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const setLen = (len) => setF({ ...f, len, until: len === "custom" ? f.until : len.endsWith("w") ? new Date(Date.now() + Number(len.slice(0, -1)) * 7 * 864e5).toISOString().slice(0, 10) : addMonths(Number(len)) });
+  const give = async (e) => {
+    e.preventDefault(); setMsg(null);
+    if (sample) return setMsg({ bad: true, text: "Turn off sample data to give real access." });
+    if (!emails.length) return setMsg({ bad: true, text: "Add at least one email." });
+    if (bad.length) return setMsg({ bad: true, text: `Check these: ${bad.join(", ")}` });
+    setBusy(true);
+    try {
+      const r = await api.giftPlan(emails, f.plan, f.until, f.note.trim());
+      setMsg({ text: `${PLAN_LABEL[f.plan]} until ${date(f.until)}: ${r.now ? `${r.now} on Jovita already have it now` : ""}${r.now && r.waiting ? ", " : ""}${r.waiting ? `${r.waiting} will get it when they sign up with that email` : ""}.` });
+      setF({ ...f, emails: "", note: "" }); load();
+    } catch (x) { setMsg({ bad: true, text: x.message }); }
+    setBusy(false);
+  };
+  const STATE = { on: ["p-good", "Using it"], waiting: ["p-warn", "Not signed up yet"], ended: ["p-bad", "Ended"] };
+  const signup = "https://app.getjovita.com/signup";
+  return (
+    <>
+      <div className="page-head"><div><p className="eyebrow">Gift access</p><h1 className="h-l" style={{ marginTop: 6 }}>Let people try Pro or Studio</h1><p className="sub">Free access for a set time, for testers, friends and partners. They don't count as paying, and go back to Free on the end date.</p></div></div>
+      <div className="grid g-2">
+        <form className="card" onSubmit={give} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <h2 className="h-m">Give access</h2>
+          <div className="field"><label htmlFor="gf-e">Emails</label><textarea id="gf-e" className="a-textarea" rows={4} value={f.emails} onChange={(e) => setF({ ...f, emails: e.target.value })} placeholder={"ada@mail.com\nbayo@mail.com, kemi@mail.com"} />
+            <small className="sub" style={{ fontSize: 12 }}>{emails.length ? `${emails.length} ${emails.length === 1 ? "person" : "people"}${bad.length ? ` · ${bad.length} to fix` : ""}` : "One per line, or separated by commas. Use the email they sign up with."}</small></div>
+          <div className="field"><label>Plan</label><div className="seg" role="group" aria-label="Plan"><button type="button" aria-pressed={f.plan === "pro"} onClick={() => setF({ ...f, plan: "pro" })}>Pro</button><button type="button" aria-pressed={f.plan === "studio"} onClick={() => setF({ ...f, plan: "studio" })}>Studio</button></div></div>
+          <div className="field"><label>For how long</label>
+            <div className="seg" role="group" aria-label="For how long" style={{ flexWrap: "wrap" }}>{[["2w", "2 weeks"], ["1", "1 month"], ["3", "3 months"], ["6", "6 months"], ["12", "1 year"], ["custom", "Pick a date"]].map(([k, l]) => <button key={k} type="button" aria-pressed={f.len === k} onClick={() => setLen(k)}>{l}</button>)}</div>
+            {f.len === "custom" ? <input type="date" className="a-input" style={{ marginTop: 8, maxWidth: 220 }} min={new Date().toISOString().slice(0, 10)} value={f.until} onChange={(e) => setF({ ...f, until: e.target.value })} />
+              : <small className="sub" style={{ fontSize: 12 }}>Until {date(f.until)}</small>}</div>
+          <div className="field"><label htmlFor="gf-n">Note for you (optional)</label><input id="gf-n" className="a-input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Beta testers, October" /></div>
+          {msg && <p className={msg.bad ? "err" : "sub"} style={msg.bad ? {} : { color: "var(--good, #2E8B57)", fontWeight: 600 }}>{msg.text}</p>}
+          <button className="a-btn a-btn-primary" disabled={busy} style={{ alignSelf: "flex-start" }}><Icon name="gift" />{busy ? "Giving…" : `Give ${PLAN_LABEL[f.plan]}${emails.length > 1 ? ` to ${emails.length} people` : ""}`}</button>
+          <p className="sub" style={{ fontSize: 12 }}>Tell them to sign up at <a href={signup} target="_blank" rel="noreferrer">app.getjovita.com/signup</a> with that email. People already on Jovita get it the next time they open the app.</p>
+        </form>
+        <section className="card">
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}><h2 className="h-m">Given</h2>{list?.length ? <span className="sub" style={{ fontSize: 13 }}>{list.filter((g) => g.state === "on").length} using · {list.filter((g) => g.state === "waiting").length} not signed up</span> : null}</div>
+          {list === null ? <p className="sub">Loading…</p> : list.length ? list.map((g) => (
+            <div key={g.id} className="switch" style={{ marginBottom: 10 }}>
+              <div style={{ minWidth: 0 }}><b style={{ overflowWrap: "anywhere" }}>{g.studio || g.email}</b>
+                <p className="sub" style={{ fontSize: 13 }}>{g.studio ? `${g.email} · ` : ""}<Pill plan={g.plan} /> until {date(g.until)}</p>
+                <small className="sub" style={{ fontSize: 12 }}><span className={`pill ${STATE[g.state][0]}`}>{STATE[g.state][1]}</span>{g.note ? ` · ${g.note}` : ""}</small></div>
+              <button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={async () => { if (!window.confirm(g.state === "on" ? `Take ${PLAN_LABEL[g.plan]} back from ${g.email}? Their studio goes back to Free now.` : `Remove the gift for ${g.email}?`)) return; await api.cancelGift(g.id); load(); }}>{g.state === "on" ? "Take back" : "Remove"}</button>
+            </div>
+          )) : <div className="empty"><b>No gifts yet</b><span>Give someone Pro or Studio to try, and they'll show here.</span></div>}
+        </section>
+      </div>
+    </>
+  );
+}
 
 /* ---------------- Studios ---------------- */
 export function Studios({ ctx }) {
