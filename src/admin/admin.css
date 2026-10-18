@@ -282,3 +282,15 @@ table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sp-ph { display: flex; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
 .sp-ph-img { width: 64px; height: 80px; border-radius: 8px; background: #ddd center/cover no-repeat; flex: none; }
 .sp-ph-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* Subscription in the studio drawer */
+.sub-card { padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.sub-bar { height: 8px; border-radius: 99px; background: var(--line-2, #eee); overflow: hidden; margin-top: 10px; }
+.sub-bar i { display: block; height: 100%; border-radius: 99px; background: #2E8B57; }
+.sub-bar i.p-warn { background: #E89A00; } .sub-bar i.p-bad { background: #C0392B; }
+.sub-add { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-2, #eee); }
+.sub-periods { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sub-periods li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--bg-2, rgba(127,127,127,.06)); }
+.sub-periods li > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sub-periods small { color: var(--muted); font-size: 12px; }
+.dot-k { width: 9px; height: 9px; border-radius: 50%; background: #2E8B57; flex: none; }
+.dot-k.gift { background: #E89A00; } .dot-k.manual { background: #7A4FD6; }

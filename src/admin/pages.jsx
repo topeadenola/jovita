@@ -4,7 +4,7 @@ import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
 import { BarList } from "./charts";
 import { useOverview, RangePicker, RANGES } from "./Overview";
-import { COUNTRY, EVENT, LANG, PLANS, PLAN_LABEL, SYM, ago, byValue, date, download, eventText, initials, money, n, toCSV } from "./util";
+import { COUNTRY, EVENT, LANG, PLANS, PLAN_LABEL, SYM, ago, byValue, date, download, eventText, initials, money, n, timeLeft, toCSV } from "./util";
 
 const PAGE = 50;
 const Pill = ({ plan }) => <span className={`pill p-${plan}`}><i />{PLAN_LABEL[plan] || plan}</span>;
@@ -98,7 +98,7 @@ export function Studios({ ctx }) {
   useEffect(() => { api.overview(0, sample).then((d) => setCounts(d.plans)).catch(() => {}); }, [sample]);
   const exportCSV = async () => {
     const rows = await api.allStudios(sample);
-    download(`jovita-studios-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(rows, [["name", "Studio"], ["owner_first_name", "Owner"], ["email", "Email"], ["plan", "Plan"], ["plan_status", "Plan status"], [(r) => (r.suspended ? "yes" : "no"), "Suspended"], ["country", "Country"], ["home_currency", "Currency"], ["language", "Language"], [(r) => (r.careers || []).join("; "), "Careers"], ["created_at", "Joined"], ["last_sign_in_at", "Last signed in"], ["clients", "Clients"], ["projects", "Projects"], ["invoices", "Invoices"], ["galleries", "Galleries"], [(r) => byValue(r.processed).map(([c, v]) => `${c} ${v}`).join("; "), "Paid by clients"]]));
+    download(`jovita-studios-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(rows, [["name", "Studio"], ["owner_first_name", "Owner"], ["email", "Email"], ["plan", "Plan"], ["plan_status", "Plan status"], [(r) => (r.suspended ? "yes" : "no"), "Suspended"], ["country", "Country"], ["home_currency", "Currency"], ["language", "Language"], [(r) => (r.careers || []).join("; "), "Careers"], ["created_at", "Joined"], ["last_sign_in_at", "Last signed in"], ["clients", "Clients"], ["projects", "Projects"], ["invoices", "Invoices"], ["galleries", "Galleries"], ["months_paid", "Months paid"], [(r) => (r.plan_until ? new Date(r.plan_until).toISOString().slice(0, 10) : ""), "Plan ends"], ["actions_30d", "Actions (30 days)"]]));
   };
   const total = counts ? counts.free + counts.pro + counts.studio : null;
   const selected = res.rows.find((r) => r.id === openStudio);
@@ -119,17 +119,19 @@ export function Studios({ ctx }) {
         <div className="card table-card" style={{ opacity: loading ? 0.6 : 1 }}>
           <div className="tscroll">
             <table className="t">
-              <thead><tr><th>Studio</th><th>Plan</th><th>Status</th><th>Where</th><th>Joined</th><th>Last seen</th><th className="r">Clients</th><th className="r">Invoices</th><th className="r">Paid by clients</th></tr></thead>
+              <thead><tr><th>Studio</th><th>Plan</th><th>Status</th><th>Where</th><th>Joined</th><th>Last seen</th><th className="r">Months paid</th><th>Time left</th><th className="r">Actions (30d)</th></tr></thead>
               <tbody>
                 {res.rows.map((s) => {
-                  const top = byValue(s.processed)[0];
+                  const left = timeLeft(s.plan_until);
                   return (
                     <tr key={s.id} onClick={() => setOpenStudio(s.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpenStudio(s.id)}>
                       <td><div className="st"><span className="lg">{initials(s.name)}</span><div><b>{s.name}</b><small>{s.email}</small></div></div></td>
                       <td><Pill plan={s.plan} /></td><td><Status s={s} /></td>
                       <td>{COUNTRY[s.country] || s.country || "—"} <span className="sub">· {s.home_currency}</span></td>
                       <td>{date(s.created_at)}</td><td>{ago(s.last_sign_in_at)}</td>
-                      <td className="r num">{n(s.clients)}</td><td className="r num">{n(s.invoices)}</td><td className="r num">{top ? money(top[1], top[0]) : "—"}</td>
+                      <td className="r num">{s.months_paid ? n(s.months_paid) : "—"}</td>
+                      <td>{s.plan === "free" ? <span className="sub">—</span> : left ? <span className={`pill ${left.tone}`}>{left.text}</span> : <span className="sub">No end date</span>}</td>
+                      <td className="r num">{s.actions_30d != null ? n(s.actions_30d) : "—"}</td>
                     </tr>
                   );
                 })}
@@ -145,6 +147,72 @@ export function Studios({ ctx }) {
       )}
       {openStudio && <StudioDrawer key={openStudio} studio={selected} id={openStudio} sample={sample} onClose={() => setOpenStudio(null)} onSaved={load} />}
     </>
+  );
+}
+
+/* A studio's subscription: months paid, time left, and record more time */
+function Subscription({ s, sample, onChanged }) {
+  const [periods, setPeriods] = useState(null);
+  const [f, setF] = useState({ plan: s.plan === "free" ? "pro" : s.plan, months: 1 });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const load = useCallback(() => api.periods(s.id, sample).then(setPeriods).catch(() => setPeriods([])), [s.id, sample]);
+  useEffect(() => { load(); }, [load]);
+  const left = timeLeft(s.plan_until);
+  const paid = (periods || []).filter((p) => p.source !== "gift").reduce((a, p) => a + p.months, 0);
+  const first = (periods || []).length ? periods[periods.length - 1].starts_at : null;
+  const total = left && s.plan_until && first ? Math.max(1, (new Date(s.plan_until) - new Date(first)) / 864e5) : 0;
+  const pct = left && total ? Math.max(0, Math.min(100, (left.days / total) * 100)) : 0;
+  const add = async () => {
+    if (sample) return setMsg("Turn off sample data first.");
+    setBusy(true); setMsg("");
+    try { const r = await api.addPeriod(s.id, f.plan, f.months); setMsg(`Added. ${PLAN_LABEL[f.plan]} until ${date(r.until)}.`); load(); onChanged(); }
+    catch (e) { setMsg(/admin_add_period/.test(e.message) ? "Run update 12 in Supabase first." : e.message); }
+    setBusy(false);
+  };
+  return (
+    <div className="card sub-card">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <div><small className="sub" style={{ fontSize: 12, fontWeight: 700 }}>SUBSCRIPTION</small>
+          <h3 className="h-m" style={{ margin: "4px 0 0" }}>{s.plan === "free" ? "Free plan" : `${PLAN_LABEL[s.plan]}${s.plan_status === "gift" ? " (gift)" : s.plan_status === "trialing" ? " (trial)" : ""}`}</h3></div>
+        {s.plan !== "free" && (left ? <span className={`pill ${left.tone}`}>{left.text}</span> : <span className="pill p-info">No end date</span>)}
+      </div>
+      {left && <div className="sub-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} className={left.tone} /></div>}
+      <div className="stat-grid" style={{ marginTop: 12 }}>
+        <div><small>Months paid</small><b className="num">{paid}</b></div>
+        <div><small>Paid until</small><b style={{ fontSize: 15 }}>{s.plan_until ? date(s.plan_until) : "—"}</b></div>
+        <div><small>Customer since</small><b style={{ fontSize: 15 }}>{first ? date(first) : "—"}</b></div>
+        <div><small>Actions (30 days)</small><b className="num">{s.actions_30d != null ? n(s.actions_30d) : "—"}</b></div>
+      </div>
+      <div className="sub-add">
+        <b style={{ fontSize: 14 }}>Record a payment</b>
+        <div className="row">
+          <div className="seg" role="group" aria-label="Plan"><button type="button" aria-pressed={f.plan === "pro"} onClick={() => setF({ ...f, plan: "pro" })}>Pro</button><button type="button" aria-pressed={f.plan === "studio"} onClick={() => setF({ ...f, plan: "studio" })}>Studio</button></div>
+          <div className="seg" role="group" aria-label="Months">{[1, 3, 6, 12].map((m) => <button key={m} type="button" aria-pressed={f.months === m} onClick={() => setF({ ...f, months: m })}>{m === 12 ? "1 year" : `${m} mo`}</button>)}</div>
+          <button type="button" className="a-btn a-btn-primary a-btn-sm" disabled={busy} onClick={add}>{busy ? "Adding…" : "Add"}</button>
+        </div>
+        <span className="sub" style={{ fontSize: 12 }}>Adds on top of any time they still have. They get reminder emails 7 days, 3 days and 1 day before it ends.</span>
+        {msg && <span className="sub" style={{ fontSize: 13, fontWeight: 600 }}>{msg}</span>}
+      </div>
+      {periods?.length > 0 && <ul className="sub-periods">{periods.map((p) => (
+        <li key={p.id}><span className={`dot-k ${p.source}`} /><span><b>{PLAN_LABEL[p.plan]} · {p.source === "gift" ? "gift" : `${p.months} ${p.months === 1 ? "month" : "months"}`}</b><small>{date(p.starts_at)} → {date(p.ends_at)}</small></span>
+          {p.source !== "gift" && <button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={async () => { if (!window.confirm("Remove this payment record? Their end date moves back.")) return; await api.removePeriod(p.id); load(); onChanged(); }}>Remove</button>}</li>
+      ))}</ul>}
+    </div>
+  );
+}
+
+/* Revenue: plans that end in the next 14 days (to follow up) */
+function EndingSoon({ sample }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { api.allStudios(sample).then((all) => setRows(all.filter((s) => s.plan !== "free" && s.plan_until && new Date(s.plan_until) - Date.now() < 14 * 864e5).sort((a, b) => new Date(a.plan_until) - new Date(b.plan_until)))).catch(() => setRows([])); }, [sample]);
+  return (
+    <section className="card">
+      <div className="card-head"><div><h2 className="h-m">Ending soon</h2><p className="sub">Plans that end in the next 14 days. Reminder emails go out on their own.</p></div></div>
+      {rows === null ? <p className="sub">Loading…</p> : rows.length ? rows.map((s) => { const left = timeLeft(s.plan_until); return (
+        <div key={s.id} className="switch" style={{ marginBottom: 8 }}><div style={{ minWidth: 0 }}><b>{s.name}</b><p className="sub" style={{ fontSize: 13 }}>{PLAN_LABEL[s.plan]}{s.plan_status === "gift" ? " gift" : ""} · ends {date(s.plan_until)}</p></div><span className={`pill ${left.tone}`}>{left.text}</span></div>
+      ); }) : <div className="empty"><b>Nothing ending soon</b><span>Studios whose plan ends in the next 14 days show here.</span></div>}
+    </section>
   );
 }
 
@@ -178,10 +246,7 @@ function StudioDrawer({ studio: given, id, sample, onClose, onSaved }) {
                 <div><small>Clients</small><b className="num">{n(s.clients)}</b></div><div><small>Projects</small><b className="num">{n(s.projects)}</b></div>
                 <div><small>Invoices</small><b className="num">{n(s.invoices)}</b></div><div><small>Galleries</small><b className="num">{n(s.galleries)}</b></div>
               </div>
-              <div className="card" style={{ padding: 16 }}>
-                <small className="sub" style={{ fontSize: 12, fontWeight: 600 }}>Paid to this studio by its clients</small>
-                <div className="row" style={{ marginTop: 6 }}>{byValue(s.processed).length ? byValue(s.processed).map(([c, v]) => <b key={c} style={{ font: "700 20px var(--display)" }}>{money(v, c)}</b>) : <span className="sub">Nothing yet</span>}</div>
-              </div>
+              <Subscription s={s} sample={sample} onChanged={() => { onSaved(); api.allStudios(sample).then((all) => setS(all.find((x) => x.id === id) || s)); }} />
               <div className="stat-grid">
                 <div><small>Joined</small><b style={{ fontSize: 15 }}>{date(s.created_at)}</b></div><div><small>Last signed in</small><b style={{ fontSize: 15 }}>{ago(s.last_sign_in_at)}</b></div>
                 <div><small>Where</small><b style={{ fontSize: 15 }}>{COUNTRY[s.country] || s.country || "—"} · {s.home_currency}</b></div><div><small>Language</small><b style={{ fontSize: 15 }}>{LANG[s.language || "auto"] || s.language}</b></div>
@@ -279,7 +344,7 @@ export function Revenue({ ctx }) {
   return (
     <>
       <div className="page-head">
-        <div><p className="eyebrow">Revenue</p><h1 className="h-l" style={{ marginTop: 6 }}>Money made</h1><p className="sub">Jovita's subscription revenue, and the money studios collect through Jovita.</p></div>
+        <div><p className="eyebrow">Revenue</p><h1 className="h-l" style={{ marginTop: 6 }}>Money made</h1><p className="sub">Jovita's subscription revenue, and whose plan ends soon.</p></div>
         <RangePicker days={days} setDays={setDays} />
       </div>
       <div className="grid g-kpi">
@@ -297,7 +362,8 @@ export function Revenue({ ctx }) {
               <tbody>{curs.map((c) => <tr key={c}><td><b>{c}</b> <span className="sub">{SYM[c]}</span></td>{["pro", "studio"].map((p) => <td key={p} className="r"><input type="number" min="0" defaultValue={price(p, c)} key={price(p, c)} aria-label={`${PLAN_LABEL[p]} price in ${c}`} onBlur={(e) => String(price(p, c)) !== e.target.value && setPrice(p, c, e.target.value)} /></td>)}</tr>)}</tbody></table></div>
           )}
         </section>
-        <section className="card">
+        <EndingSoon sample={sample} />
+        <section className="card" hidden>
           <div className="card-head"><div><h2 className="h-m">Paid to studios by their clients</h2><p className="sub">Last {RANGES.find((r) => r[0] === days)?.[1].toLowerCase()}, by currency</p></div></div>
           {processed.length ? <BarList rows={processed.map(([c, v]) => ({ k: c, n: v }))} labels={{ NGN: "Naira", GBP: "Pounds", USD: "Dollars", EUR: "Euros", XOF: "CFA francs" }} format={(r) => money(r.n, r.k)} /> : <div className="empty">No paid invoices in this period yet.</div>}
         </section>

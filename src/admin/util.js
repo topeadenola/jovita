@@ -36,15 +36,32 @@ export const EVENT = {
   signup: ["New studio", "users", ""], onboarded: ["Finished setup", "check", "good"], upgrade: ["Upgraded", "up", "gold"], downgrade: ["Downgraded", "down", "bad"],
   cancel: ["Cancelled paid plan", "down", "bad"], client_added: ["Added a client", "users", ""], project_created: ["Started a project", "folder", ""],
   invoice_sent: ["Sent an invoice", "send", ""], invoice_paid: ["Got paid", "wallet", "good"], gallery_published: ["Published a gallery", "image", ""], payment_failed: ["Payment failed", "alert", "bad"],
+  renewed: ["Paid for more time", "wallet", "good"], renewal_reminder: ["Sent a renewal reminder", "send", ""], plan_ended: ["Plan ended", "down", "bad"],
+  gift: ["Got gift access", "trophy", "gold"], gift_ended: ["Gift access ended", "down", ""],
   trial_started: ["Started a Pro trial", "trophy", "gold"], trial_ended: ["Pro trial ended", "down", ""], upgrade_request: ["Asked to upgrade", "up", "gold"], downgrade_request: ["Asked to downgrade", "down", "bad"],
 };
 export function eventText(e) {
   const m = e.meta || {};
   if (e.kind === "upgrade" || e.kind === "downgrade" || e.kind === "cancel") return `${PLAN_LABEL[m.from] || m.from} → ${PLAN_LABEL[m.to] || m.to}`;
   if (e.kind === "upgrade_request" || e.kind === "downgrade_request") return `wants ${PLAN_LABEL[m.plan] || m.plan}`;
-  if (e.kind === "invoice_paid" || e.kind === "invoice_sent") return m.amount ? money(Number(m.amount), m.currency) : "";
+  // HQ shows what studios do, never their money
+  if (e.kind === "renewed") return `${PLAN_LABEL[m.plan] || m.plan} · ${m.months} ${m.months === 1 ? "month" : "months"}`;
+  if (e.kind === "renewal_reminder") return m.days ? `${m.days} ${m.days === 1 ? "day" : "days"} left` : "plan ended";
+  if (e.kind === "gift") return `${PLAN_LABEL[m.plan] || m.plan}${m.until ? " until " + new Date(m.until).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}`;
   if (e.kind === "signup" && m.email) return m.email;
   return "";
+}
+
+// Time left on a plan with an end date: { text, tone, days }
+export function timeLeft(until) {
+  if (!until) return null;
+  const days = Math.ceil((new Date(until).getTime() - Date.now()) / 864e5);
+  if (days < 0) return { days, text: `Ended ${-days} ${days === -1 ? "day" : "days"} ago`, tone: "p-bad" };
+  if (days === 0) return { days, text: "Ends today", tone: "p-bad" };
+  if (days <= 7) return { days, text: `${days} ${days === 1 ? "day" : "days"} left`, tone: "p-warn" };
+  if (days < 62) return { days, text: `${days} days left`, tone: "p-good" };
+  const m = Math.floor(days / 30.4);
+  return { days, text: `${m} months left`, tone: "p-good" };
 }
 
 export function toCSV(rows, cols) {

@@ -128,8 +128,7 @@ export default function Overview({ ctx }) {
         <Kpi icon="trophy" label="Paying subscribers" value={n(d.paying)} d={delta(d.paying, d.paying_prev)} foot={`${conv}% of studios pay`} />
         <Kpi hero icon="wallet" label="Monthly revenue (estimated)" value={mrr.length ? money(mrr[0][1], mrr[0][0]) : money(0)} extra={mrr.slice(1).map(([c, v]) => money(v, c))}
           foot={Object.keys(d.billing || {}).length ? `${money(byValue(d.billing)[0][1], byValue(d.billing)[0][0])} collected` : "From plan prices · billing connects later"} />
-        <Kpi icon="globe" label="Money through Jovita" value={processed.length ? money(processed[0][1], processed[0][0]) : money(0)} extra={processed.slice(1, 4).map(([c, v]) => money(v, c))}
-          d={processed.length ? delta(processed[0][1], prevProcessed[processed[0][0]]) : null} foot="paid to studios by their clients" />
+        <Kpi icon="send" label="Invoices sent" value={n(d.invoices_sent || 0)} foot={`by studios, last ${rangeText}`} />
       </div>
 
       <div className="grid g-2-1">

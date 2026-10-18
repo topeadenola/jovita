@@ -114,6 +114,7 @@ function OfferNote({ offer, full }) {
 function sheetText(plan) {
   if (plan.status === "gift") return [tx("You have {plan} free", { plan: plan.plan === "studio" ? "Studio" : "Pro" }), plan.until ? tx("A gift from the Jovita team, until {date}. Enjoy!", { date: longDate(new Date(new Date(plan.until).getTime() - 864e5).toISOString()) }) : tx("A gift from the Jovita team. Enjoy!")];
   if (plan.status === "trialing") return [tx("You're trying Pro"), tx("Your trial ends on {date}. Upgrade any time to keep Pro.", { date: longDate(plan.trial_ends_at) })];
+  if (plan.until && plan.plan !== "free") { const d = longDate(plan.until); const left = Math.ceil((new Date(plan.until) - Date.now()) / 864e5); return [plan.plan === "studio" ? tx("You're on Studio, our top plan") : tx("You're on Pro"), left <= 7 ? tx("Your plan ends on {date}, in {n} days. Renew to keep everything.", { date: d, n: Math.max(0, left) }) : tx("Paid until {date}. We'll remind you by email a week before.", { date: d })]; }
   if (plan.plan === "studio") return [tx("You're on Studio, our top plan"), tx("You have everything Jovita offers. Need less? You can downgrade to Pro or Free any time.")];
   if (plan.plan === "pro") return [tx("You're on Pro"), tx("Want unlimited Jovita and priority help? Studio has it. Need less? You can downgrade any time.")];
   return [tx("Do more with Pro"), tx("Your brand on every client page, and Jovita doing more of the work.")];
