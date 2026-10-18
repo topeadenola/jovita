@@ -325,6 +325,9 @@ export default function GalleryEditor({ id, onClose }) {
       ui?.openUpgrade?.("studio");
     }
     const list = all.filter((f) => /^image\//.test(f.type) || /^video\//.test(f.type) || isVideo(f.name) || (plan === "studio" && isRaw(f.name)));
+    // In file-name order, numbers counted properly: IMG_2, IMG_10, IMG_123, IMG_124 (not in the order the computer happened to hand them over)
+    const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    list.sort((a, b) => byName.compare(a.name, b.name));
     if (!list.length) { if (!raws.length) toast(tx("Add photos (JPG, PNG, WebP, HEIC) or videos (MP4, MOV).")); return; }
     // Storage limit for the plan (Free 500 MB, Pro 1000 GB, Studio unlimited)
     const batch = list.reduce((n, f) => n + f.size, 0);
