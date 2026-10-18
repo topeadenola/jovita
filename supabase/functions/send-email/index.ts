@@ -85,7 +85,7 @@ function galleryEmail(p: Record<string, string>) {
 ${pw}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px"><tr><td style="border-radius:12px;background:#261433"><a href="${escH(p.link)}" target="_blank" style="display:inline-block;padding:15px 28px;font:700 16px/1 ${F};color:#ffffff;text-decoration:none;border-radius:12px">Open my gallery</a></td></tr></table>
 <p style="margin:8px 0 16px;font:400 16px/1.6 ${F};color:#261433">Thank you,<br><strong>${escH(p.studio_name)}</strong></p></td></tr>
-<tr><td style="padding:22px 8px 0;font:400 13px/1.6 ${F};color:#5E5069">Sent by ${escH(p.studio_name)} with <a href="https://getjovita.com" style="color:#5E5069">Jovita</a>. Reply to this email to reach ${escH(p.studio_name)} directly.</td></tr>
+<tr><td style="padding:22px 8px 0;font:400 13px/1.6 ${F};color:#5E5069">Sent by ${escH(p.studio_name)}${p.branded ? "" : ` with <a href="https://getjovita.com" style="color:#5E5069">Jovita</a>`}. Reply to this email to reach ${escH(p.studio_name)} directly.</td></tr>
 </table></td></tr></table></body></html>`;
   return { subject: "Your photos are ready ✨", html };
 }
@@ -126,7 +126,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
   const owner = ur.ok ? await ur.json() : null;
   const ownerEmail = studio.reply_email || owner?.email || "";
   const inbox = env("INBOX_DOMAIN") && studio.inbox_code ? `inbox+${studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
-  const logo = studio.logo_path ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
+  const logo = studio.logo_path && studio.plan !== "free" ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
   const link = `${APP_URL}/p/${token}`;
   const sent: string[] = [];
   if (c?.email) {
@@ -162,7 +162,8 @@ Deno.serve(async (req) => {
     const studio = await one(get(`studios?owner_id=eq.${user.id}&select=*`), "Studio");
     if (studio.suspended) return json({ error: "This studio is paused." }, 403);
 
-    const logo = studio.logo_path ? `${env("SUPABASE_URL")}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
+    // Your logo on client emails is a Pro and Studio feature
+    const logo = studio.logo_path && studio.plan !== "free" ? `${env("SUPABASE_URL")}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
     const studioParams = { studio_name: studio.name || "Your photographer", studio_logo: logo };
     // Client emails go out in the studio's name; replies go straight to the creative.
     const asStudio = { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` };
@@ -211,7 +212,7 @@ Deno.serve(async (req) => {
       }
       const gp = {
         ...studioParams, client_first_name: firstName(to.name || ""), gallery_name: g.title || "Your gallery", photo_count: String(g.photo_count ?? ""),
-        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link, password: String(g.settings?.password || "").trim(),
+        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link, password: String(g.settings?.password || "").trim(), branded: studio.plan !== "free" ? "1" : "",
       } as Record<string, string>;
       id = await brevo(galleryEmail(gp), to, gp, asStudio, replyToStudio, copy);
     } else if (kind === "booking") {

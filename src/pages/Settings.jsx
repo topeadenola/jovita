@@ -34,6 +34,7 @@ const TABS = [
 
 function StudioTab() {
   const { studio, updateStudio } = useData();
+  const ui = useUi();
   const { change } = useLang();
   const toast = useToast();
   const [f, setF, status] = useAutosave(
@@ -45,7 +46,7 @@ function StudioTab() {
     <section className="card set-card">
       <div className="set-head"><h2 className="h-m">{tx("Your studio")}</h2><SaveState status={status} /></div>
       <p className="sub">{tx("Your brand shows on every client link, invoice, contract and email. Changes save as you type.")}</p>
-      <LogoUploader />
+      <LogoUploader onUpgrade={() => ui?.openUpgrade?.("pro")} />
       <div className="form-grid">
         <div className="field"><label htmlFor="st-name">{tx("Studio name")}</label><input id="st-name" value={f.name} onChange={set("name")} /></div>
         <div className="field"><label htmlFor="st-owner">{tx("Your full name")}</label><input id="st-owner" value={f.owner_first_name} onChange={set("owner_first_name")} /></div>

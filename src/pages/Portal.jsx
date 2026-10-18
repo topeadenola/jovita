@@ -206,7 +206,7 @@ export default function Portal() {
               setMsg(""); toast(tx("Message sent"));
             }}><Icon name="send" />{tx("Send")}</button>
           </section>
-          <p className="sub" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>{tx("Powered by")}{" "}<Mark dot="currentColor" style={{ width: 10, height: 14 }} />{" "}{tx("jovita")}</p>
+          {!s.branded && <p className="sub" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>{tx("Powered by")}{" "}<Mark dot="currentColor" style={{ width: 10, height: 14 }} />{" "}{tx("jovita")}</p>}
         </aside>
       </div>
     </div>

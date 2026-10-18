@@ -10,13 +10,14 @@ export const logoUrl = (path) => (path ? supabase.storage.from("studio-assets").
 // The studio's logo, or its initials when there's no logo yet
 export default function StudioLogo({ studio, className = "studio-mark", style }) {
   const [broken, setBroken] = useState(false);
-  const url = logoUrl(studio?.logo_path);
+  // Your own logo is a Pro and Studio feature; Free shows initials
+  const url = studio?.plan === "free" ? "" : logoUrl(studio?.logo_path);
   if (url && !broken) return <span className={`${className} has-logo`} style={style}><img src={url} alt={studio?.name || ""} onError={() => setBroken(true)} /></span>;
   return <span className={className} style={style}>{(studio?.name || "S").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}</span>;
 }
 
 // Settings › Your studio: upload, replace or remove the logo
-export function LogoUploader() {
+export function LogoUploader({ onUpgrade }) {
   const { studio, updateStudio } = useData();
   const toast = useToast();
   const input = useRef(null);
@@ -43,6 +44,16 @@ export function LogoUploader() {
     if (old) supabase.storage.from("studio-assets").remove([old]).catch(() => {});
     toast(tx("Logo removed"));
   };
+  if ((studio.plan || "free") === "free") return (
+    <div className="logo-up locked">
+      <StudioLogo studio={studio} className="logo-preview" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+        <b>{tx("Studio logo")} <span className="pro-tag">Pro</span></b>
+        <span className="sub" style={{ fontSize: 13 }}>{tx("Put your logo on invoices, contracts, galleries and client links, and remove the Jovita mark. Included in Pro and Studio.")}</span>
+        <div><button type="button" className="btn btn-primary btn-sm" onClick={onUpgrade}><Icon name="star" />{tx("Upgrade to add your logo")}</button></div>
+      </div>
+    </div>
+  );
   return (
     <div className="logo-up">
       <StudioLogo studio={studio} className="logo-preview" />

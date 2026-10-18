@@ -65,7 +65,7 @@ function Preview({ d, t, inv }) {
         </div>
       )}
       {d.notes && <div className="doc-text" style={{ fontSize: 13 }}>{d.notes}</div>}
-      <div className="doc-sign"><span>{tx("Pay by")}: {d.methods.map((m) => tx((METHODS.find((x) => x[0] === m) || [m, m])[1])).join(", ") || "—"}</span><Mark dot="#261433" style={{ width: 14, height: 20 }} /></div>
+      <div className="doc-sign"><span>{tx("Pay by")}: {d.methods.map((m) => tx((METHODS.find((x) => x[0] === m) || [m, m])[1])).join(", ") || "—"}</span>{studio.plan === "free" && <Mark dot="#261433" style={{ width: 14, height: 20 }} />}</div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import { GalleryPreview, downloadUrl, isRaw, isVideo, publicUrl, thumbUrl } from "../components/GalleryEditor";
 import StudioLogo from "../components/StudioLogo";
-import Icon from "../components/Icon";
+import Icon, { Mark } from "../components/Icon";
 import { tx, txn } from "../lib/i18n";
 import { fdate } from "../lib/format";
 import { LangSwitch } from "../components/Lang";
@@ -200,6 +200,7 @@ export default function ClientGallery() {
       <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen}
         favs={mine} onFav={favOn ? toggleFav : undefined} notes={noteCount} />
       {onlyFavs && !photos.length && <p className="gp-empty">{tx("No favourites yet. Tap the heart on the photos you love.")}</p>}
+      {g.studio && g.studio.branded === false && <p className="cg-made"><a href="https://getjovita.com" target="_blank" rel="noreferrer">{tx("Made with")} <Mark dot="currentColor" style={{ width: 9, height: 13 }} /> jovita</a></p>}
       {cur && (
         <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
           {isVideo(cur.path) ? <video key={cur.path} src={publicUrl(cur.path)} controls autoPlay playsInline poster={thumbUrl(cur.path)} />
