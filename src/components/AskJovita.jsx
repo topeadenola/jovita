@@ -18,7 +18,12 @@ const LANG_NAME = { en: "English", fr: "French", es: "Spanish", pt: "Portuguese"
 // so it only ends when you press End chat.
 const KEY = (id) => `jovita.chat.${id}`;
 let memory = null; // { studioId, log, pending } — keeps action buttons alive while the panel is closed
-const strip = (log) => log.map(({ buttons, ...m }) => (buttons ? { ...m, buttons: buttons.map((b) => ({ label: b.label, stale: true })) } : m));
+// Saved on the device: buttons can't be stored, so untapped ones from Jovita are rebuilt from her actions after a refresh
+const strip = (log) => log.map(({ buttons, ...m }) => {
+  if (!buttons) return m;
+  const open = m.actions && !buttons.some((b) => b.stale || b.chosen);
+  return { ...m, buttons: buttons.map((b) => (open ? { label: b.label, primary: b.primary, revive: true } : { label: b.label, stale: true, chosen: b.chosen })) };
+});
 function loadLog(studioId) {
   if (memory?.studioId === studioId) return memory;
   try { const s = JSON.parse(localStorage.getItem(KEY(studioId)) || "null"); if (s?.log?.length) return { studioId, log: s.log, pending: s.pending || null }; } catch { /* private window */ }
@@ -93,6 +98,14 @@ export default function AskJovita({ onClose }) {
     sendInvoice: (i) => invoiceAction(i, "send"),
   };
   const say = (m) => setLog((l) => [...l, { who: "jo", at: Date.now(), ...m }]);
+  // After a refresh, bring back the buttons that weren't tapped yet
+  useEffect(() => {
+    setLog((l) => l.some((m) => m.buttons?.some((b) => b.revive)) ? l.map((m) => {
+      if (!m.buttons?.some((b) => b.revive) || !m.actions) return m;
+      try { const { buttons } = fromBrain(m.actions, { data, ui: tools }); return { ...m, buttons: buttons.length ? buttons : m.buttons.map((b) => ({ label: b.label, stale: true })) }; }
+      catch { return { ...m, buttons: m.buttons.map((b) => ({ label: b.label, stale: true })) }; }
+    }) : l);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const runReply = async (r) => {
     if (r.pending !== undefined) setPending(r.pending || null); else setPending(null);
     const { run, ...shown } = r;
@@ -132,7 +145,7 @@ export default function AskJovita({ onClose }) {
       if (!r.ok) return rules(["slow_down", "suspended"].includes(r.error) ? r.message + " " + tx("Here's what I can do without it:") : "");
       setPending(null);
       const { drafts, buttons } = fromBrain(r.actions, { data, ui: tools });
-      say({ text: r.text + leftNote(r.quota), drafts: drafts.length ? drafts : undefined, buttons: buttons.length ? buttons : undefined, ai: true });
+      say({ text: r.text + leftNote(r.quota), drafts: drafts.length ? drafts : undefined, buttons: buttons.length ? buttons : undefined, actions: buttons.length ? r.actions : undefined, ai: true });
     });
   };
   const press = async (i, b) => {
