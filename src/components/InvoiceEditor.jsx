@@ -173,6 +173,23 @@ export default function InvoiceEditor({ id, onClose }) {
   const title = quote ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number });
   const send = async () => { await flush(); await invoiceAction({ ...inv, ...d, amount: t.total }, "send", { copy_me: copyMe }); onClose(); };
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const canPay = !quote && (inv.status === "sent" || inv.status === "draft");
+  // Back to unpaid: payments you recorded stay (remove any below); the rest is owed again
+  const markUnpaid = async () => {
+    const kept = payments.reduce((a, p) => a + Number(p.amount || 0), 0);
+    if (!window.confirm(kept > 0 ? tx("Mark invoice #{number} as unpaid? The {paid} you recorded stays, so {left} will be owed again.", { number: inv.number, paid: money(kept, d.currency), left: money(Math.max(0, t.total - kept), d.currency) }) : tx("Mark invoice #{number} as unpaid? The full {total} will be owed again.", { number: inv.number, total: money(t.total, d.currency) }))) return;
+    await update("invoices", id, { status: "sent", paid_at: null, amount_paid: Math.round(kept * 100) / 100 });
+    toast(tx("Invoice #{number} is unpaid again", { number: inv.number }));
+  };
+  const removePayment = async (pm) => {
+    if (!window.confirm(tx("Remove this {amount} payment?", { amount: money(pm.amount, d.currency) }))) return;
+    const rest = payments.filter((x) => x !== pm);
+    const paid = Math.round(rest.reduce((a, p) => a + Number(p.amount || 0), 0) * 100) / 100;
+    const patch = { payments: rest, amount_paid: paid };
+    if (inv.status === "paid" && paid < t.total - 0.001) Object.assign(patch, { status: "sent", paid_at: null });
+    await update("invoices", id, patch);
+    toast(tx("Payment removed"));
+  };
   const owed = Math.max(0, t.total - Number(inv.amount_paid || 0));
 
   return (
@@ -188,7 +205,8 @@ export default function InvoiceEditor({ id, onClose }) {
             <button type="button" className="btn btn-ghost btn-sm" aria-expanded={menu} onClick={() => setMenu(!menu)}>{tx("Actions")} ▾</button>
             {menu && (
               <div className="menu" role="menu" onMouseLeave={() => setMenu(false)}>
-                {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a payment")}</button>}
+                {canPay && <button type="button" onClick={async () => { setMenu(false); await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a part payment")}</button>}
+                {inv.status === "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await markUnpaid(); }}><Icon name="x" />{tx("Mark as unpaid")}</button>}
                 {inv.status !== "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction({ ...inv, amount: t.total }, "markpaid"); onClose(); }}><Icon name="check" />{tx("Mark as paid")}</button>}
                 {inv.status === "draft" && <button type="button" onClick={() => { setMenu(false); update("invoices", id, { kind: quote ? "invoice" : "quote" }); toast(quote ? tx("Changed to an invoice") : tx("Changed to a quote")); }}><Icon name="file" />{quote ? tx("Change to an invoice") : tx("Change to a quote")}</button>}
                 {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); invoiceAction(inv, "nudge", { copy_me: copyMe }); }}><Icon name="send" />{tx("Send a nudge")}</button>}
@@ -202,6 +220,7 @@ export default function InvoiceEditor({ id, onClose }) {
             <label className="check copyme" title={tx("Get a copy of this email in your inbox")}><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>
             <button type="button" className="btn btn-primary btn-sm" onClick={send}><Icon name="send" />{quote ? tx("Send quote") : tx("Send invoice")}</button></>
             : inv.status === "sent" && !quote ? <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a payment")}</button>
+            : inv.status === "paid" && !quote ? <><span className="sub" style={{ fontSize: 13 }}>{tx("Paid {fdate}", { fdate: fdate(inv.paid_at) })}</span><button type="button" className="btn btn-ghost btn-sm" onClick={markUnpaid}>{tx("Mark as unpaid")}</button></>
             : <span className="sub" style={{ fontSize: 13 }}>{inv.status === "paid" ? tx("Paid {fdate}", { fdate: fdate(inv.paid_at) }) : quote && inv.status === "sent" ? (inv.viewed_at ? tx("Viewed, waiting for a yes") : tx("Waiting for {name}", { name: c.name.split(" ")[0] })) : tx("Sent")}</span>}
         </header>
 
@@ -269,12 +288,17 @@ export default function InvoiceEditor({ id, onClose }) {
                 </div>
               </section>
 
-              {payments.length > 0 && (
+              {!quote && inv.status !== "cancelled" && (
                 <section className="inv-sec">
-                  <div className="set-head"><h2 className="h-m">{tx("Payments received")}</h2>{inv.status === "sent" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPaying(true)}><Icon name="plus" />{tx("Record a payment")}</button>}</div>
-                  {payments.map((pm, ix) => (
-                    <div className="switch" key={pm.id || ix}><div><b className="num">{money(pm.amount, d.currency)}</b><span>{fdate(pm.date)} · {tx(pm.method || "")}{pm.note ? " · " + pm.note : ""}</span></div></div>
-                  ))}
+                  <div className="set-head"><h2 className="h-m">{tx("Payments received")}</h2>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {canPay && <button type="button" className="btn btn-secondary btn-sm" onClick={async () => { await flush(); setPaying(true); }}><Icon name="plus" />{tx("Record a part payment")}</button>}
+                      {inv.status === "paid" && <button type="button" className="btn btn-ghost btn-sm" onClick={markUnpaid}><Icon name="x" />{tx("Mark as unpaid")}</button>}
+                    </div></div>
+                  {payments.length ? payments.map((pm, ix) => (
+                    <div className="switch" key={pm.id || ix}><div><b className="num">{money(pm.amount, d.currency)}</b><span>{fdate(pm.date)} · {tx(pm.method || "")}{pm.note ? " · " + pm.note : ""}</span></div>
+                      <button type="button" className="icon-btn" onClick={() => removePayment(pm)} aria-label={tx("Remove this payment")} title={tx("Remove this payment")}><Icon name="x" /></button></div>
+                  )) : <p className="sub" style={{ fontSize: 13 }}>{inv.status === "paid" ? tx("Marked as paid in full. No part payments were recorded.") : tx("No payments yet. When your client pays a deposit or part of it, record it here and the balance updates on their invoice.")}</p>}
                   <div className="inv-totals"><div className="inv-total"><span>{inv.status === "paid" ? tx("Paid in full") : tx("Balance due")}</span><b className="num">{money(inv.status === "paid" ? 0 : owed, d.currency)}</b></div></div>
                 </section>
               )}
