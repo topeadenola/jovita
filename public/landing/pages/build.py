@@ -64,10 +64,10 @@ def page(slug, title, desc, body, current):
 <title>{title} · Jovita</title>
 <meta name="description" content="{desc}">
 <meta name="theme-color" content="#261433">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&amp;family=Figtree:wght@400;600;700;800&amp;display=swap">
-<link rel="stylesheet" href="/pages/pages.css">
+<link rel="stylesheet" href="../pages/pages.css">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -114,8 +114,9 @@ HELP = [
 <li>You can also tick <b>Send me a copy</b> on any single invoice or quote before you send it.</li>
 </ul>
 <div class="tip">Tip: no client email yet? Jovita copies the client's link instead, so you can paste it into any message.</div>
-<h3>Bringing client emails into your Jovita inbox</h3>
-<p>To keep an important email in a client's history, open <b>Inbox › Log a message</b> and paste it in. Automatic syncing of your Gmail or Outlook inbox is coming in a later update.</p>"""),
+<h3>Client emails in your Jovita inbox</h3>
+<p>When a client replies to an email Jovita sent, their reply lands in <b>Inbox</b> like a chat, and a copy goes to your own email. Reply from Inbox and it's emailed to them in your studio's name.</p>
+<p>Want other client emails in Inbox too? Your private address is in <b>Settings › Connections</b> (it looks like <i>inbox+abc123@getjovita.com</i>). In Gmail, go to <b>Settings › Forwarding</b> and forward to it, or set up a filter that forwards only client emails. New people who email it are added as leads automatically.</p>"""),
  ("connect-calendar", "Connect Google Calendar", """
 <ol>
 <li>Go to <b>Settings › Connections</b> (or the <b>Bookings</b> page).</li>

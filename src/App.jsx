@@ -52,10 +52,19 @@ function Studio() {
   );
 }
 
+// The website lives at getjovita.com (public/landing). Website pages opened on the app address go there, signed in or not.
+const onLive = () => /getjovita\.com$/.test(location.hostname);
+export const siteUrl = (path = "/") => (onLive() ? "https://getjovita.com" + path : "/landing" + path + (path.endsWith("/") ? "index.html" : ""));
+function ToSite() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.location.replace(pathname.startsWith("/pricing") ? siteUrl("/") + "#pricing" : siteUrl(pathname.replace(/\/?$/, "/"))); }, [pathname]);
+  return <div className="loading">{tx("Loading…")}</div>;
+}
+
 // Signed out: the home page is the Jovita landing page (public/landing), with Sign in and Start free
 function SignedOut() {
   const { pathname } = useLocation();
-  useEffect(() => { if (pathname === "/") window.location.replace("/landing/index.html"); if (pathname.startsWith("/admin")) window.location.replace("/admin/"); }, [pathname]);
+  useEffect(() => { if (pathname === "/") window.location.replace(siteUrl("/")); if (pathname.startsWith("/admin")) window.location.replace("/admin/"); }, [pathname]);
   return pathname === "/" ? <div className="loading">{tx("Loading…")}</div> : <Navigate to="/login" replace />;
 }
 
@@ -74,6 +83,7 @@ export default function App() {
     <Routes>
       <Route path="/p/:token" element={<Portal />} />
       <Route path="/g/:token" element={<ClientGallery />} />
+      {["/about", "/help", "/privacy", "/pricing"].map((p) => <Route key={p} path={p} element={<ToSite />} />)}
       <Route path="/spotlight" element={<SpotlightList />} />
       <Route path="/spotlight/:slug" element={<SpotlightPost />} />
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Auth initial="signin" />} />

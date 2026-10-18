@@ -6,7 +6,8 @@ import { addDays, fdate } from "../lib/format";
 import { tx, txn } from "../lib/i18n";
 import { Toggle, useToast } from "./ui";
 import Icon from "./Icon";
-import GalleryShare from "./GalleryShare";
+import GalleryShare, { galleryLink } from "./GalleryShare";
+import { sendEmail } from "../lib/email";
 import { useUi } from "./Shell";
 
 const BUCKET = "gallery-photos";
@@ -15,14 +16,49 @@ export const publicUrl = (path) => (path ? supabase.storage.from(BUCKET).getPubl
 // Every upload also gets a light 1200px copy (name.thumb.jpg) so grids load fast; originals are kept for downloads
 export const RAW_EXT = ["cr2", "cr3", "nef", "arw", "dng", "raf", "rw2", "orf", "srw", "pef"];
 export const isRaw = (path) => RAW_EXT.includes(String(path || "").split(".").pop().toLowerCase());
+export const VIDEO_EXT = ["mp4", "mov", "m4v", "webm"];
+export const isVideo = (path) => VIDEO_EXT.includes(String(path || "").split(".").pop().toLowerCase());
+// Download with the original file name (IMG_0123.jpg), not the storage name
+export const downloadUrl = (path, name) => (path ? publicUrl(path) + (name ? "?download=" + encodeURIComponent(name) : "") : "");
 export const thumbPath = (path) => String(path || "").replace(/\.[^./]+$/, ".thumb.jpg");
 export const thumbUrl = (path) => (path ? publicUrl(thumbPath(path)) : "");
 // <Thumb> shows the light copy, and falls back to the original for photos uploaded before thumbnails existed
-export function Thumb({ path, alt = "", ...rest }) {
-  const [src, setSrc] = useState(() => thumbUrl(path));
-  useEffect(() => { setSrc(thumbUrl(path)); }, [path]);
+export function Thumb({ path, alt = "", thumb, ...rest }) {
+  // thumb === false: no preview copy yet, so go straight to the original instead of waiting for a miss
+  const first = thumb === false && !isRaw(path) && !isVideo(path) ? publicUrl(path) : thumbUrl(path);
+  const [src, setSrc] = useState(first);
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setSrc(first); setBroken(false); }, [path, first]);
   if (isRaw(path) && src === publicUrl(path)) return <span className="raw-tile" aria-label={alt}>RAW<small>.{String(path).split(".").pop().toUpperCase()}</small></span>;
-  return <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => { if (src !== publicUrl(path)) setSrc(publicUrl(path)); }} {...rest} />;
+  if (isVideo(path)) {
+    // Videos show their first frame (saved at upload) with a play mark
+    const { style, onClick, className = "" } = rest;
+    return (
+      <span className={`thumb-vid ${className}`} style={style} onClick={onClick} role={onClick ? "button" : undefined} aria-label={alt}>
+        {!broken ? <img src={thumbUrl(path)} alt={alt} loading="lazy" decoding="async" onLoad={(e) => e.currentTarget.classList.add("in")} onError={() => setBroken(true)} /> : <span className="vid-blank" />}
+        <i className="vid-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg></i>
+      </span>
+    );
+  }
+  return <img src={src} alt={alt} loading="lazy" decoding="async" onLoad={(e) => e.currentTarget.classList.add("in")} onError={() => { if (src !== publicUrl(path)) setSrc(publicUrl(path)); }} {...rest} />;
+}
+// First frame of a video, as a small JPG for grids
+async function makeVideoThumb(file, max = 1200) {
+  const url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = bad; setTimeout(bad, 15000); });
+    v.currentTime = Math.min(1, (v.duration || 2) / 4);
+    await new Promise((ok) => { v.onseeked = ok; setTimeout(ok, 4000); });
+    const scale = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight));
+    const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+    if (!w || !h) return {};
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(v, 0, 0, w, h);
+    const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.82));
+    return { blob, width: v.videoWidth, height: v.videoHeight };
+  } catch { return {}; } finally { URL.revokeObjectURL(url); }
 }
 async function makeThumb(file, max = 1200) {
   try {
@@ -80,7 +116,7 @@ function toDraft(g) {
 }
 
 /* ---------- Live preview of the client gallery ---------- */
-export function GalleryPreview({ d, photos, studioName, device, full = false, onPhoto }) {
+export function GalleryPreview({ d, photos, studioName, device, full = false, onPhoto, favs, onFav, notes }) {
   const pal = PALETTES[d.design.palette] || PALETTES.light;
   const f = FONTS[d.design.font] || FONTS.sans;
   const coverUrl = publicUrl(d.cover_path) || (photos[0] && publicUrl(photos[0].path));
@@ -104,6 +140,15 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
     none: <div className="gp-cover gp-none" style={{ background: pal[1] }}><div className="gp-ttl" style={{ color: pal[3] }}><h3 style={titleStyle}>{title}</h3><small>{date}</small></div></div>,
   }[cover] || null;
   const cols = device === "phone" ? (g.size === "large" ? 1 : 2) : g.size === "large" ? 2 : 3;
+  // On the client's page each photo gets a heart, and shows how many notes it has
+  const item = (p, i, el) => !onFav ? <span key={p.id || p.path} style={{ display: "contents" }}>{el}</span> : (
+    <span key={p.id || p.path} className="gp-item">
+      {el}
+      <button type="button" className="gp-heart" aria-pressed={!!favs?.has(p.id)} onClick={() => onFav(p)} aria-label={favs?.has(p.id) ? tx("Remove from favourites") : tx("Add to favourites")}><Icon name="heart" /></button>
+      {notes?.[p.id] ? <span className="gp-notecount"><Icon name="chat" />{notes[p.id]}</span> : null}
+      {p.name && <span className="gp-cap">{p.name}</span>}
+    </span>
+  );
   const gap = g.spacing === "large" ? 14 : 4;
   return (
     <div className={`gp gp-${device}`} style={{ background: pal[1], color: pal[3] }}>
@@ -111,8 +156,8 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
       <div className="gp-nav" style={{ borderColor: pal[2] }}><b style={titleStyle}>{title}</b><span>{studioName}</span><span className="gp-sets">{d.sets.map((s) => <i key={s.id}>{s.name}</i>)}</span></div>
       {photos.length ? (
         g.style === "horizontal"
-          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => <Thumb key={p.id || p.path} path={p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />)}</div>
-          : <div className="gp-masonry" style={{ columnCount: cols, columnGap: gap, padding: gap }}>{(full ? photos : photos.slice(0, 24)).map((p, i) => <Thumb key={p.id || p.path} path={p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />)}</div>
+          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />))}</div>
+          : <div className="gp-masonry" style={{ columnCount: cols, columnGap: gap, padding: gap }}>{(full ? photos : photos.slice(0, 24)).map((p, i) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />))}</div>
       ) : <p className="gp-empty">{tx("There are no photos here yet.")}</p>}
     </div>
   );
@@ -137,12 +182,19 @@ function CoverArt({ k, url }) {
 
 /* ---------- The editor ---------- */
 export default function GalleryEditor({ id, onClose }) {
-  const { galleries, studio, client, update, remove, reload } = useData();
+  const { galleries, studio, client, clients, insert, update, remove, reload } = useData();
   const toast = useToast();
   const g = galleries.find((x) => x.id === id);
   const [tab, setTab] = useState("photos");
   const [sub, setSub] = useState({ photos: "highlights", design: "cover", settings: "general", share: "invite", activity: "downloads" });
   const [photos, setPhotos] = useState([]);
+  const [favs, setFavs] = useState([]);          // clients' picks
+  const [comments, setComments] = useState([]);  // notes on photos, both ways
+  const [onlyFavs, setOnlyFavs] = useState(false);
+  const [dupes, setDupes] = useState(null);      // { files, names } when some file names are already in the gallery
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(null);  // the Send / Share window
+  const [previews, setPreviews] = useState([]);  // files uploading right now, shown straight away
   const [uploading, setUploading] = useState(null);
   const [over, setOver] = useState(false);
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
@@ -163,6 +215,42 @@ export default function GalleryEditor({ id, onClose }) {
     setPhotos(data || []);
   }, [id]);
   useEffect(() => { loadPhotos(); }, [loadPhotos]);
+  // Older photos have no light preview copy: make them in the background so the client's gallery opens fast
+  const [fixing, setFixing] = useState(null);
+  const fixingRef = useRef(false);
+  useEffect(() => {
+    const todo = photos.filter((p) => p.has_thumb === false && !isRaw(p.path) && !isVideo(p.path));
+    if (!todo.length || fixingRef.current) return;
+    fixingRef.current = true;
+    (async () => {
+      let done = 0;
+      setFixing({ done, total: todo.length });
+      for (const p of todo) {
+        try {
+          const head = await fetch(thumbUrl(p.path), { method: "HEAD" }).catch(() => null);
+          if (!head?.ok) {
+            const blob = await (await fetch(publicUrl(p.path))).blob();
+            const t = await makeThumb(blob);
+            if (t.blob) await supabase.storage.from(BUCKET).upload(thumbPath(p.path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000", upsert: true });
+            await supabase.from("gallery_photos").update({ has_thumb: !!t.blob, ...(t.width && !p.width ? { width: t.width, height: t.height } : {}) }).eq("id", p.id);
+          } else await supabase.from("gallery_photos").update({ has_thumb: true }).eq("id", p.id);
+        } catch { /* try again next time */ }
+        setFixing({ done: ++done, total: todo.length });
+      }
+      setFixing(null); fixingRef.current = false;
+      loadPhotos();
+    })();
+  }, [photos, loadPhotos]);
+  const loadFeedback = useCallback(async () => {
+    const [f, c] = await Promise.all([
+      supabase.from("gallery_favorites").select("*").eq("gallery_id", id),
+      supabase.from("gallery_comments").select("*").eq("gallery_id", id).order("created_at", { ascending: true }),
+    ]);
+    setFavs(f.data || []); setComments(c.data || []);
+  }, [id]);
+  useEffect(() => { loadFeedback(); }, [loadFeedback]);
+  const favCount = useMemo(() => favs.reduce((m, f) => ({ ...m, [f.photo_id]: (m[f.photo_id] || 0) + 1 }), {}), [favs]);
+  const noteCount = useMemo(() => comments.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [comments]);
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape" && !setModal && !preview && viewer < 0) { flush(); onClose(); } };
     document.addEventListener("keydown", h);
@@ -170,7 +258,7 @@ export default function GalleryEditor({ id, onClose }) {
     return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
   }, [flush, onClose, setModal, preview, viewer]);
 
-  const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos), [photos, sub.photos]);
+  const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos && (!onlyFavs || favCount[p.id])), [photos, sub.photos, onlyFavs, favCount]);
   if (!g || !d) return null;
   const c = client(g.client_id);
   const published = g.status === "delivered";
@@ -184,15 +272,21 @@ export default function GalleryEditor({ id, onClose }) {
   const setFav = (k, v) => setD((x) => ({ ...x, settings: { ...x.settings, favorite: { ...x.settings.favorite, [k]: v } } }));
   const close = async () => { await flush(); onClose(); };
 
-  async function upload(files) {
+  async function upload(files, force = false) {
     const all = [...files];
+    // Same file name already in this gallery? Ask first, so nothing is uploaded twice
+    if (!force) {
+      const have = new Set(photos.map((p) => String(p.name || "").toLowerCase()));
+      const names = all.filter((f) => have.has(f.name.toLowerCase())).map((f) => f.name);
+      if (names.length) { setDupes({ files: all, names }); return; }
+    }
     const raws = all.filter((f) => isRaw(f.name));
     if (raws.length && plan !== "studio") {
       toast(tx("RAW files are part of the Studio plan. Upload JPGs, or upgrade to Studio."));
       ui?.openUpgrade?.("studio");
     }
-    const list = all.filter((f) => /^image\//.test(f.type) || (plan === "studio" && isRaw(f.name)));
-    if (!list.length) { if (!raws.length) toast(tx("Add JPG, PNG, WebP or HEIC photos.")); return; }
+    const list = all.filter((f) => /^image\//.test(f.type) || /^video\//.test(f.type) || isVideo(f.name) || (plan === "studio" && isRaw(f.name)));
+    if (!list.length) { if (!raws.length) toast(tx("Add photos (JPG, PNG, WebP, HEIC) or videos (MP4, MOV).")); return; }
     // Storage limit for the plan (Free 500 MB, Pro 1000 GB, Studio unlimited)
     const batch = list.reduce((n, f) => n + f.size, 0);
     try {
@@ -204,6 +298,9 @@ export default function GalleryEditor({ id, onClose }) {
       }
     } catch { /* limits not switched on yet */ }
     setUploading({ done: 0, total: list.length, failed: 0 });
+    // Show every file straight away while it uploads
+    const pv = list.map((f) => ({ key: f.name + f.size + Math.random(), name: f.name, url: /^image\/(jpeg|png|webp|gif)/.test(f.type) ? URL.createObjectURL(f) : "", state: "wait" }));
+    setPreviews(pv);
     const start = photos.length;
     const setId = currentSet.id;
     const added = [];
@@ -213,22 +310,26 @@ export default function GalleryEditor({ id, onClose }) {
       while (next < list.length) {
         const i = next++;
         const file = list[i];
+        setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "up" } : x)));
         try {
           const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
           const path = `${studio.id}/${id}/${crypto.randomUUID ? crypto.randomUUID() : uid() + uid()}.${ext}`;
           const raw = isRaw(file.name);
-          const t = raw ? { blob: null } : await makeThumb(file);
+          const vid = isVideo(file.name) || /^video\//.test(file.type);
+          const t = raw ? { blob: null } : vid ? await makeVideoThumb(file) : await makeThumb(file);
           const ups = [supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream", cacheControl: "31536000" })];
           if (t.blob) ups.push(supabase.storage.from(BUCKET).upload(thumbPath(path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000" }));
           const [r1] = await Promise.all(ups);
           if (r1.error) throw r1.error;
-          const row = { studio_id: studio.id, gallery_id: id, set_id: setId, path, name: file.name, width: t.width || null, height: t.height || null, position: start + i, bytes: file.size + (t.blob?.size || 0) };
+          const row = { studio_id: studio.id, gallery_id: id, set_id: setId, path, name: file.name, width: t.width || null, height: t.height || null, position: start + i, bytes: file.size + (t.blob?.size || 0), has_thumb: !!t.blob };
           let { error: e2 } = await supabase.from("gallery_photos").insert(row);
-          if (e2 && /bytes/.test(e2.message || "")) { delete row.bytes; ({ error: e2 } = await supabase.from("gallery_photos").insert(row)); }
+          if (e2 && /bytes|has_thumb/.test(e2.message || "")) { delete row.bytes; delete row.has_thumb; ({ error: e2 } = await supabase.from("gallery_photos").insert(row)); }
           if (e2) throw e2;
           added.push(path);
+          setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "done" } : x)));
           setUploading((u) => ({ ...u, done: u.done + 1 }));
         } catch (e) {
+          setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "fail" } : x)));
           setUploading((u) => ({ ...u, done: u.done + 1, failed: u.failed + 1 }));
           toast(tx("Couldn't upload {name}: {err}", { name: file.name, err: e.message }));
         }
@@ -236,14 +337,26 @@ export default function GalleryEditor({ id, onClose }) {
     };
     await Promise.all(Array.from({ length: Math.min(4, list.length) }, worker));
     await loadPhotos();
+    setPreviews((v) => { v.forEach((x) => x.url && URL.revokeObjectURL(x.url)); return []; });
     const { count } = await supabase.from("gallery_photos").select("id", { count: "exact", head: true }).eq("gallery_id", id);
     const patch = { photo_count: count ?? start + added.length };
     // First photos in an empty gallery become its cover
     if (!d.cover_path && added[0]) { set("cover_path", added[0]); patch.cover_path = added[0]; }
     await update("galleries", id, patch);
     setUploading(null);
-    if (added.length) toast(txn(added.length, "{n} photo added", "{n} photos added"), true);
+    if (added.length) toast(txn(added.length, "{n} file added", "{n} files added"), true);
   }
+  const copyNames = async (list) => {
+    const text = list.map((p) => p.name).join(", ");
+    try { await navigator.clipboard.writeText(text); toast(txn(list.length, "{n} file name copied. Paste it into Lightroom's search.", "{n} file names copied. Paste them into Lightroom's search."), true); }
+    catch { window.prompt(tx("Copy these file names"), text); }
+  };
+  const sendReply = async (p) => {
+    const body = reply.trim(); if (!body) return;
+    const { data, error } = await supabase.from("gallery_comments").insert({ studio_id: studio.id, gallery_id: id, photo_id: p.id, from_client: false, author: studio.name || "", body: body.slice(0, 2000) }).select().single();
+    if (error) return toast(error.message);
+    setComments((c) => [...c, data]); setReply("");
+  };
   async function removePhotos(list) {
     if (!list.length) return;
     if (!window.confirm(list.length === 1 ? tx("Remove this photo from the gallery?") : tx("Remove {n} photos from the gallery?", { n: list.length }))) return;
@@ -269,6 +382,42 @@ export default function GalleryEditor({ id, onClose }) {
     if (next && !d.expires_on) set("expires_on", addDays(60));
     toast(next ? tx("Gallery published") : tx("Gallery moved back to draft"), next);
   }
+  // Send the gallery to an existing client or a new contact, by email from Jovita (publishes it first)
+  async function sendGallery() {
+    const s0 = sending;
+    let to = null;
+    if (s0.who === "new") {
+      const email = s0.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast(tx("Add a valid email address."));
+      to = { email, name: s0.name.trim() };
+    } else {
+      const cl = client(s0.who);
+      if (!cl?.email) return toast(tx("Add an email for {name} in Clients first.", { name: cl?.name || tx("this client") }));
+      to = { email: cl.email.toLowerCase(), name: cl.name };
+    }
+    setSending({ ...s0, busy: true });
+    try {
+      await flush();
+      if (s0.who === "new" && s0.save) {
+        const exists = clients.find((x) => (x.email || "").toLowerCase() === to.email);
+        if (!exists) await insert("clients", { name: to.name || to.email.split("@")[0], email: to.email, phone: "", city: "", status: "client" });
+      }
+      if (!published) await publish(true);
+      const { data: inv, error } = await supabase.from("gallery_invites").upsert([{ studio_id: studio.id, gallery_id: id, email: to.email, name: to.name }], { onConflict: "gallery_id,email", ignoreDuplicates: false }).select().single();
+      if (error) throw error;
+      const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id });
+      if (!r.ok) {
+        try { await navigator.clipboard.writeText(galleryLink(inv.token)); } catch { /* fine */ }
+        toast(tx("{reason} The gallery link is copied so you can send it yourself.", { reason: r.reason }));
+      } else toast(tx("Gallery sent to {name}", { name: to.name || to.email }), true);
+      setSending(null);
+    } catch (e) { toast(e.message); setSending((x) => x && { ...x, busy: false }); }
+  }
+  const copyLink = async () => {
+    if (!published) await publish(true);
+    const link = galleryLink(g.share_token);
+    try { await navigator.clipboard.writeText(link); toast(tx("Link copied. Paste it anywhere."), true); } catch { window.prompt(tx("Copy this link"), link); }
+  };
   function saveSet() {
     const name = setModal.name.trim();
     if (!name) return toast(tx("Give the set a name."));
@@ -307,8 +456,8 @@ export default function GalleryEditor({ id, onClose }) {
           <SaveState status={status} />
           <span className="spacer" />
           <button type="button" className="btn btn-secondary btn-sm" onClick={async () => { await flush(); setPreview(true); }}><Icon name="eye" />{tx("Preview")}</button>
-          {!published ? <button type="button" className="btn btn-primary btn-sm" onClick={() => publish(true)}><Icon name="send" />{tx("Publish")}</button>
-            : <span className="pill p-success">{tx("Live")}</span>}
+          {published && <span className="pill p-success">{tx("Live")}</span>}
+          <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); setSending({ who: g.client_id || clients[0]?.id || "new", name: "", email: "", save: true, busy: false }); }}><Icon name="send" />{tx("Send or share")}</button>
         </header>
 
         <div className="ge">
@@ -346,45 +495,62 @@ export default function GalleryEditor({ id, onClose }) {
               {tab === "photos" && (
                 <>
                   <div className="set-head"><div><h2 className="h-m">{currentSet.name}</h2>{currentSet.description && <p className="sub" style={{ fontSize: 13 }}>{currentSet.description}</p>}</div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {favs.length > 0 && <button type="button" className="btn btn-ghost btn-sm" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all") : tx("Client picks ({n})", { n: Object.keys(favCount).length })}</button>}
+                      {onlyFavs && setPhotosInSet.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyNames(setPhotosInSet)}><Icon name="file" />{tx("Copy file names")}</button>}
                       {setPhotosInSet.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicked(picked.size === setPhotosInSet.length ? new Set() : new Set(setPhotosInSet.map((p) => p.id)))}>{picked.size === setPhotosInSet.length ? tx("Clear selection") : tx("Select all")}</button>}
-                      <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos")}</button>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos or videos")}</button>
                     </div>
-                    <input ref={fileRef} type="file" accept={plan === "studio" ? "image/*," + RAW_EXT.map((e) => "." + e).join(",") : "image/*"} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
+                    <input ref={fileRef} type="file" accept={"image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v" + (plan === "studio" ? "," + RAW_EXT.map((e) => "." + e).join(",") : "")} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
+                  {fixing && !uploading && <p className="sub" style={{ fontSize: 13 }}>{tx("Making fast previews for your client… {a} of {b}", { a: fixing.done, b: fixing.total })}</p>}
                   {uploading && <div className="ge-progress" role="status"><span style={{ width: `${(uploading.done / uploading.total) * 100}%` }} /><b>{tx("Uploading {a} of {b}…", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })}</b></div>}
-                  <div className={`ge-drop ${over ? "on" : ""} ${setPhotosInSet.length ? "has" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
-                    {setPhotosInSet.length ? (
+                  <div className={`ge-drop ${over ? "on" : ""} ${setPhotosInSet.length || previews.length ? "has" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
+                    {setPhotosInSet.length || previews.length ? (
                       <div className={`ge-grid ${picked.size ? "picking" : ""}`}>
+                        {previews.map((x) => (
+                          <div className="ge-cell" key={x.key}>
+                            <figure className={`ge-photo ge-up ${x.state}`}>
+                              {x.url ? <img src={x.url} alt="" /> : <span className="ge-up-file"><Icon name="image" /></span>}
+                              <span className="ge-up-state">{x.state === "done" ? <Icon name="check" /> : x.state === "fail" ? <Icon name="x" /> : <i className="ge-spin" />}</span>
+                            </figure>
+                            <span className="ge-name">{x.name}</span>
+                          </div>
+                        ))}
                         {setPhotosInSet.map((p, i) => {
                           const on = picked.has(p.id);
                           return (
-                            <figure key={p.id} className={`ge-photo ${on ? "on" : ""} ${d.cover_path === p.path ? "is-cover" : ""}`}>
+                            <div className="ge-cell" key={p.id}>
+                            <figure className={`ge-photo ${on ? "on" : ""} ${d.cover_path === p.path ? "is-cover" : ""}`}>
                               <button type="button" className="ge-hit" onClick={() => (picked.size ? togglePick(p.id) : setViewer(i))} aria-label={picked.size ? tx("Select {name}", { name: p.name }) : tx("Open {name}", { name: p.name })}>
-                                <Thumb path={p.path} alt={p.name} />
+                                <Thumb path={p.path} alt={p.name} thumb={p.has_thumb} />
                               </button>
                               <button type="button" className="ge-check" aria-pressed={on} onClick={() => togglePick(p.id)} aria-label={on ? tx("Unselect photo") : tx("Select photo")}><Icon name="check" /></button>
                               {d.cover_path === p.path && <span className="ge-badge">{tx("Cover")}</span>}
+                              {(favCount[p.id] || noteCount[p.id]) && <span className="ge-marks">{favCount[p.id] ? <span title={tx("Client favourite")}><Icon name="heart" />{favCount[p.id] > 1 ? favCount[p.id] : ""}</span> : null}{noteCount[p.id] ? <span title={tx("Comments")}><Icon name="chat" />{noteCount[p.id]}</span> : null}</span>}
                               <button type="button" className="ge-more" onClick={() => setMenuFor(menuFor === p.id ? null : p.id)} aria-label={tx("More options")} aria-expanded={menuFor === p.id}>•••</button>
                               {menuFor === p.id && (
                                 <div className="ge-menu" role="menu" onMouseLeave={() => setMenuFor(null)}>
                                   <button type="button" role="menuitem" onClick={() => { setMenuFor(null); setViewer(i); }}><Icon name="eye" />{tx("Open")}</button>
                                   <button type="button" role="menuitem" onClick={() => { setMenuFor(null); set("cover_path", p.path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
-                                  <a role="menuitem" href={publicUrl(p.path)} target="_blank" rel="noreferrer" download onClick={() => setMenuFor(null)}><Icon name="download" />{tx("Download")}</a>
+                                  <a role="menuitem" href={downloadUrl(p.path, p.name)} download={p.name} onClick={() => setMenuFor(null)}><Icon name="download" />{tx("Download")}</a>
+                                  <button type="button" role="menuitem" onClick={() => { setMenuFor(null); copyNames([p]); }}><Icon name="file" />{tx("Copy file name")}</button>
                                   {d.sets.length > 1 && d.sets.filter((x) => x.id !== p.set_id).map((x) => <button key={x.id} type="button" role="menuitem" onClick={() => { setMenuFor(null); movePhotos([p], x.id); }}><Icon name="folder" />{tx("Move to {name}", { name: x.name })}</button>)}
                                   <button type="button" role="menuitem" className="danger" onClick={() => { setMenuFor(null); removePhotos([p]); }}><Icon name="x" />{tx("Delete")}</button>
                                 </div>
                               )}
                             </figure>
+                            <span className="ge-name" title={p.name}>{p.name}</span>
+                            </div>
                           );
                         })}
                       </div>
                     ) : (
                       <div className="ge-empty">
                         <Icon name="image" />
-                        <b>{tx("Drag photos here to upload")}</b>
+                        <b>{tx("Drag photos or videos here to upload")}</b>
                         <span className="sub">{tx("or")}</span>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>{tx("Choose from your computer")}</button>
-                        <span className="sub" style={{ fontSize: 12 }}>{plan === "studio" ? tx("JPG, PNG, WebP, HEIC or RAW") : tx("JPG, PNG, WebP or HEIC · up to 50 MB each")}</span>
+                        <span className="sub" style={{ fontSize: 12 }}>{plan === "studio" ? tx("Photos (JPG, PNG, WebP, HEIC, RAW) and videos (MP4, MOV)") : tx("Photos (JPG, PNG, WebP, HEIC) and videos (MP4, MOV)")}</span>
                       </div>
                     )}
                   </div>
@@ -475,11 +641,24 @@ export default function GalleryEditor({ id, onClose }) {
               {/* ACTIVITY */}
               {tab === "activity" && (
                 <><h2 className="h-m">{sub.activity === "downloads" ? tx("Download activity") : tx("Favourite activity")}</h2>
+                  {sub.activity === "favorites" && favs.length > 0 ? (
+                    <div className="ge-picks">
+                      {Object.entries(favs.reduce((m, f) => { (m[f.viewer_name || f.viewer] ||= []).push(f); return m; }, {})).map(([who, list]) => {
+                        const ps = list.map((f) => photos.find((p) => p.id === f.photo_id)).filter(Boolean);
+                        return (
+                          <section key={who} className="card ge-pick-card">
+                            <div className="set-head"><b>{tx("{name} picked {n}", { name: who, n: ps.length })}</b><button type="button" className="btn btn-secondary btn-sm" onClick={() => copyNames(ps)}><Icon name="file" />{tx("Copy file names")}</button></div>
+                            <p className="ge-pick-names">{ps.map((p) => p.name).join(", ")}</p>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  ) :
                   <div className="ge-empty ge-activity">
                     <Icon name={sub.activity === "downloads" ? "download" : "heart"} />
                     <b>{sub.activity === "downloads" ? txn(g.downloads || 0, "{n} download so far", "{n} downloads so far") : txn(g.favourites || 0, "{n} favourite so far", "{n} favourites so far")}</b>
                     <span className="sub">{sub.activity === "downloads" ? tx("Who downloaded what shows here once your client opens the gallery.") : tx("Your client's hearts and notes show here as they pick.")}</span>
-                  </div></>
+                  </div>}</>
               )}
             </div>
 
@@ -510,14 +689,82 @@ export default function GalleryEditor({ id, onClose }) {
       {viewer >= 0 && setPhotosInSet[viewer] && (
         <div className="cg-light" role="dialog" aria-modal="true" aria-label={setPhotosInSet[viewer].name} onClick={(e) => e.target === e.currentTarget && setViewer(-1)}
           onKeyDown={(e) => { if (e.key === "ArrowRight") setViewer((v) => Math.min(setPhotosInSet.length - 1, v + 1)); if (e.key === "ArrowLeft") setViewer((v) => Math.max(0, v - 1)); if (e.key === "Escape") { e.stopPropagation(); setViewer(-1); } }} tabIndex={-1} ref={(el) => el?.focus()}>
-          {isRaw(setPhotosInSet[viewer].path) ? <span className="raw-tile big">RAW</span> : <img src={publicUrl(setPhotosInSet[viewer].path)} alt={setPhotosInSet[viewer].name} />}
+          {isRaw(setPhotosInSet[viewer].path) ? <span className="raw-tile big">RAW</span>
+            : isVideo(setPhotosInSet[viewer].path) ? <video key={setPhotosInSet[viewer].id} src={publicUrl(setPhotosInSet[viewer].path)} controls autoPlay playsInline poster={thumbUrl(setPhotosInSet[viewer].path)} />
+            : <img src={publicUrl(setPhotosInSet[viewer].path)} alt={setPhotosInSet[viewer].name} />}
+          {(() => {
+            const p = setPhotosInSet[viewer];
+            const notes = comments.filter((c) => c.photo_id === p.id);
+            const lovers = favs.filter((f) => f.photo_id === p.id);
+            return (
+              <aside className="lb-notes" onClick={(e) => e.stopPropagation()}>
+                <b className="lb-file">{p.name}</b>
+                {lovers.length > 0 && <p className="lb-love"><Icon name="heart" />{tx("Favourite of {names}", { names: lovers.map((f) => f.viewer_name || tx("your client")).join(", ") })}</p>}
+                <div className="lb-thread">
+                  {notes.length ? notes.map((c) => <div key={c.id} className={`lb-note ${c.from_client ? "" : "me"}`}><small>{c.from_client ? c.author || tx("Client") : tx("You")}</small>{c.body}</div>)
+                    : <p className="sub" style={{ fontSize: 13 }}>{tx("No comments on this one yet. Your client can leave notes like \"remove the sign in the back\".")}</p>}
+                </div>
+                <form className="lb-reply" onSubmit={(e) => { e.preventDefault(); sendReply(p); }}>
+                  <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={tx("Reply to your client…")} aria-label={tx("Reply")} onKeyDown={(e) => e.stopPropagation()} />
+                  <button className="btn btn-primary btn-sm" disabled={!reply.trim()}><Icon name="send" /></button>
+                </form>
+              </aside>
+            );
+          })()}
           <button type="button" className="cg-x" onClick={() => setViewer(-1)} aria-label={tx("Close")}><Icon name="x" /></button>
           {viewer > 0 && <button type="button" className="cg-prev" onClick={() => setViewer(viewer - 1)} aria-label={tx("Previous photo")}>‹</button>}
           {viewer < setPhotosInSet.length - 1 && <button type="button" className="cg-next" onClick={() => setViewer(viewer + 1)} aria-label={tx("Next photo")}>›</button>}
           <div className="ge-lb-bar">
-            <span>{setPhotosInSet[viewer].name} · {viewer + 1} / {setPhotosInSet.length}</span>
+            <span>{viewer + 1} / {setPhotosInSet.length}</span>
+            <a className="btn btn-secondary btn-sm" href={downloadUrl(setPhotosInSet[viewer].path, setPhotosInSet[viewer].name)} download={setPhotosInSet[viewer].name}><Icon name="download" />{tx("Download")}</a>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", setPhotosInSet[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="x" />{tx("Delete")}</button>
+          </div>
+        </div>
+      )}
+
+      {sending && (
+        <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setSending(null)}>
+          <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); sendGallery(); }}>
+            <div className="set-head"><h2 className="h-m">{tx("Send \"{title}\"", { title: d.title || tx("this gallery") })}</h2><button type="button" className="x" onClick={() => setSending(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
+            <div className="field"><label htmlFor="gs-who">{tx("Send to")}</label>
+              <select id="gs-who" value={sending.who} onChange={(e) => setSending({ ...sending, who: e.target.value })}>
+                {clients.map((cl) => <option key={cl.id} value={cl.id}>{cl.name}{cl.email ? ` (${cl.email})` : ` · ${tx("no email")}`}</option>)}
+                <option value="new">{tx("+ Someone new")}</option>
+              </select></div>
+            {sending.who === "new" && (<>
+              <div className="form-grid">
+                <div className="field"><label htmlFor="gs-name">{tx("Name")}</label><input id="gs-name" value={sending.name} onChange={(e) => setSending({ ...sending, name: e.target.value })} autoFocus /></div>
+                <div className="field"><label htmlFor="gs-email">{tx("Email")}</label><input id="gs-email" type="email" value={sending.email} onChange={(e) => setSending({ ...sending, email: e.target.value })} /></div>
+              </div>
+              <label className="check"><input type="checkbox" checked={sending.save} onChange={(e) => setSending({ ...sending, save: e.target.checked })} />{tx("Save them to my clients")}</label>
+            </>)}
+            <div className="field"><label>{tx("What can they do?")}</label>
+              <div className="seg" role="group" aria-label={tx("What can they do?")}>
+                <button type="button" aria-pressed={!d.settings.download.on} onClick={() => setDl("on", false)}>{tx("Pick favourites only")}</button>
+                <button type="button" aria-pressed={!!d.settings.download.on} onClick={() => setDl("on", true)}>{tx("Pick and download")}</button>
+              </div>
+              <span className="help">{d.settings.download.on ? tx("They can download photos with the original file names.") : tx("They can view, heart their picks and leave notes. No downloads, ideal for selecting photos to edit.")}</span></div>
+            <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password ? " " + tx("Remember to send them the password: {pw}", { pw: d.settings.password }) : ""}</p>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" className="btn btn-ghost" onClick={copyLink}><Icon name="link" />{tx("Copy link to share")}</button>
+              <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending…") : tx("Send")}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {dupes && (
+        <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setDupes(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Some files are already here")}>
+            <h2 className="h-m">{txn(dupes.names.length, "{n} file is already in this gallery", "{n} files are already in this gallery")}</h2>
+            <p className="ge-pick-names">{dupes.names.slice(0, 30).join(", ")}{dupes.names.length > 30 ? "…" : ""}</p>
+            <p className="sub" style={{ fontSize: 13 }}>{tx("Files are matched by name, so your client's picks always line up with the files on your computer.")}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setDupes(null)}>{tx("Cancel")}</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { const f = dupes.files; setDupes(null); upload(f, true); }}>{tx("Upload anyway")}</button>
+              <button type="button" className="btn btn-primary" disabled={dupes.names.length === dupes.files.length} onClick={() => { const skip = new Set(dupes.names.map((n) => n.toLowerCase())); const f = dupes.files.filter((x) => !skip.has(x.name.toLowerCase())); setDupes(null); upload(f, true); }}>{tx("Skip them, upload the rest")}</button>
+            </div>
           </div>
         </div>
       )}

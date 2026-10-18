@@ -1,7 +1,7 @@
 // The Jovita website (getjovita.com) on Cloudflare Workers. Plain static files, no build step.
 // In Cloudflare: root directory public/landing, build command empty, deploy command `npx wrangler deploy`.
 {
-  "name": "jovita-site",
+  "name": "jovita",
   "compatibility_date": "2025-09-01",
   "assets": {
     "directory": ".",

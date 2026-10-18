@@ -5,6 +5,7 @@ import Icon from "../components/Icon";
 import { Avatar, Modal, useToast } from "../components/ui";
 import { ago, first } from "../lib/format";
 import { mailLink } from "../lib/voice";
+import { sendEmail } from "../lib/email";
 import { useNavigate } from "react-router-dom";
 import { useUnsaved } from "../lib/unsaved";
 import { tx } from "../lib/i18n";
@@ -122,12 +123,24 @@ export default function Inbox() {
   const send = async () => {
     const body = text.trim();
     if (!body || !t) return;
-    // Email replies open your email app with the message ready, and keep a copy here
-    const out = channel === "email" ? mailLink(c.email, tx("Re: your message"), body) : null;
     if (channel === "email" && !c.email) { toast(tx("Add {name}'s email in Clients first.", { name: first(c.name) })); throw new Error("contact"); }
+    // Email replies are sent from Jovita in your studio's name; their answer comes back here
+    if (channel === "email") {
+      const lastSubject = [...t.msgs].reverse().find((m) => m.subject)?.subject;
+      const r = await sendEmail("message", { client_id: t.cid, body, subject: lastSubject ? (/^re:/i.test(lastSubject) ? lastSubject : "Re: " + lastSubject) : undefined });
+      if (!r.ok) {
+        // Email isn't set up: open their email app with the message ready instead
+        window.open(mailLink(c.email, tx("Re: your message"), body), "_self", "noopener");
+        await insert("messages", { client_id: t.cid, channel, from_client: false, read: true, body: body.slice(0, 4000) });
+        setText("");
+        return toast(tx("Your email app opened with your reply. Press send there."));
+      }
+      await insert("messages", { client_id: t.cid, channel, from_client: false, read: true, body: body.slice(0, 4000) });
+      setText("");
+      return toast(tx("Emailed to {name}", { name: first(c.name) }), true);
+    }
     await insert("messages", { client_id: t.cid, channel, from_client: false, read: true, body: body.slice(0, 4000) });
     setText("");
-    if (out) window.open(out, "_self", "noopener");
     toast(channel === "portal" ? tx("Sent to {name}'s client page", { name: first(c.name) }) : tx("Your email app opened with your reply. Press send there."));
   };
   useUnsaved(!!text.trim(), send);
@@ -182,7 +195,8 @@ export default function Inbox() {
           <div className="msgs" ref={box}>
             {t.msgs.map((m) => (
               <div className={`msg ${m.from_client ? "" : "me"}`} key={m.id}>
-                {m.body}
+                {m.subject && <b style={{ display: "block", fontSize: 13, marginBottom: 4 }}>{m.subject}</b>}
+                <span style={{ whiteSpace: "pre-wrap" }}>{m.body}</span>
                 <small><ChannelBadge ch={m.channel} small /> {tx(CH[m.channel]?.label || "")} · {m.from_client ? first(c.name) : tx("You")} · {ago(m.created_at)}</small>
               </div>
             ))}
@@ -193,7 +207,8 @@ export default function Inbox() {
                 {LIVE.map((k) => <option key={k} value={k}>{tx(CH[k].label)}</option>)}
               </select></label>
             <label htmlFor="replybox" className="sr">{tx("Reply")}</label>
-            <input id="replybox" value={text} onChange={(e) => setText(e.target.value)} placeholder={tx("Reply to {first}…", { first: first(c.name) })} autoComplete="off" />
+            <textarea id="replybox" rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder={tx("Reply to {first}…", { first: first(c.name) })}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} style={{ resize: "none", minHeight: 42, maxHeight: 160 }} />
             <button className="btn btn-primary"><Icon name="send" />{tx("Send")}</button>
           </form>
         </div>

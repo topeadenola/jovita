@@ -1,0 +1,6 @@
+{
+  "name": "jovita-mail",
+  "private": true,
+  "type": "module",
+  "dependencies": { "postal-mime": "4.0.4" }
+}

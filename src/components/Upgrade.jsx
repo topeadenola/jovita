@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useData } from "../lib/data";
-import { PLANS, TRIAL_DAYS, daysLeft, loadPrices, offerPrice, rank, requestUpgrade, startTrial } from "../lib/plan";
+import { PLANS, TRIAL_DAYS, YEARLY_OFF, daysLeft, loadPrices, offerPrice, rank, requestUpgrade, startTrial, yearlyPrice } from "../lib/plan";
 import { money } from "../lib/format";
 import { locale, tx, txn } from "../lib/i18n";
 import { supabase } from "../supabase";
@@ -34,6 +34,7 @@ export function PlanCards({ plan, onPlan, compact }) {
   const [prices, setPrices] = useState({});
   const [busy, setBusy] = useState("");
   const [asked, setAsked] = useState("");
+  const [cycle, setCycle] = useState(studio.plan_cycle || "month");
   useEffect(() => { loadPrices(studio.home_currency).then(setPrices); }, [studio.home_currency]);
   const trial = plan.status === "trialing";
   const canTrial = plan.plan === "free" && !plan.trial_used;
@@ -47,7 +48,7 @@ export function PlanCards({ plan, onPlan, compact }) {
         if (r?.error === "trial_used") toast(tx("You've already had your free trial."));
         else { onPlan?.({ ...plan, plan: "pro", status: "trialing", trial_used: true, trial_ends_at: r?.trial_ends_at || new Date(Date.now() + TRIAL_DAYS * 864e5).toISOString() }); toast(tx("Pro is on for {n} days. Enjoy!", { n: TRIAL_DAYS }), true); }
       } else {
-        await requestUpgrade(key);
+        await requestUpgrade(key, cycle);
         setAsked(key);
       }
     } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
@@ -55,6 +56,11 @@ export function PlanCards({ plan, onPlan, compact }) {
   };
 
   return (
+    <>
+    <div className="cycle-switch" role="group" aria-label={tx("How you pay")}>
+      <button type="button" aria-pressed={cycle === "month"} onClick={() => setCycle("month")}>{tx("Monthly")}</button>
+      <button type="button" aria-pressed={cycle === "year"} onClick={() => setCycle("year")}>{tx("Yearly")} <span className="save">{tx("Save {n}%", { n: YEARLY_OFF })}</span></button>
+    </div>
     <div className={`plans ${compact ? "compact" : ""}`}>
       {PLANS.map((p) => {
         const price = prices[p.key];
@@ -75,8 +81,11 @@ export function PlanCards({ plan, onPlan, compact }) {
               <h3>{tx(p.name)}</h3>
               {current ? <span className="pill p-neutral">{tx("Your plan")}</span> : onTrial ? <span className="pill p-joy">{txn(daysLeft(plan.trial_ends_at), "Trial · {n} day left", "Trial · {n} days left")}</span> : p.badge && !down ? <span className="pill p-joy">{tx(p.badge)}</span> : null}
             </div>
-            <p className="pc-price">{!price ? <b>&nbsp;</b> : offer ? <><b>{money(offerPrice(price.monthly_amount, offer.percent_off), price.currency)}</b><span>{tx("/ month")}</span></> : <><b>{money(price.monthly_amount, price.currency)}</b><span>{tx("/ month")}</span></>}</p>
-            {offer && price && <OfferNote offer={offer} full={money(price.monthly_amount, price.currency)} />}
+            <p className="pc-price">{!price ? <b>&nbsp;</b>
+              : cycle === "year" && Number(price.monthly_amount) > 0 ? <><b>{money(yearlyPrice(offer ? offerPrice(price.monthly_amount, offer.percent_off) : price.monthly_amount), price.currency)}</b><span>{tx("/ year")}</span></>
+              : offer ? <><b>{money(offerPrice(price.monthly_amount, offer.percent_off), price.currency)}</b><span>{tx("/ month")}</span></> : <><b>{money(price.monthly_amount, price.currency)}</b><span>{tx("/ month")}</span></>}</p>
+            {cycle === "year" && price && Number(price.monthly_amount) > 0 && <p className="pc-year sub">{tx("Like paying {m} a month. You save {s}.", { m: money(Math.round(yearlyPrice(price.monthly_amount) / 12), price.currency), s: money(Number(price.monthly_amount) * 12 - yearlyPrice(price.monthly_amount), price.currency) })}</p>}
+            {offer && price && cycle === "month" && <OfferNote offer={offer} full={money(price.monthly_amount, price.currency)} />}
             <p className="sub">{tx(p.line)}</p>
             <ul>{p.features.map((f) => <li key={f}><Icon name="check" />{tx(f)}</li>)}</ul>
             <div className="pc-foot">
@@ -88,6 +97,7 @@ export function PlanCards({ plan, onPlan, compact }) {
         );
       })}
     </div>
+    </>
   );
 }
 

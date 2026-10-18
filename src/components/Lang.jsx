@@ -4,7 +4,7 @@ import { LANGS, getLang, guessCountry, pickLang, setLang, tx } from "../lib/i18n
 const KEY = "jovita-lang";
 const read = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
 const write = (v) => { try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch { /* private mode */ } };
-// Netlify tells us the visitor's country (see netlify/edge-functions/geo.js)
+// A jv_country cookie (if the host sets one) tells us the visitor's country
 // Locally (no Netlify) we fall back to the browser's region or time zone
 export const countryCookie = () => guessCountry((document.cookie.match(/(?:^|; )jv_country=([A-Z]{2})/) || [])[1] || "");
 

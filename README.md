@@ -38,14 +38,10 @@ git push -u origin main
 
 `.env` and `node_modules` are in `.gitignore`, so your keys and installed packages stay on your Mac.
 
-## Host on Netlify
+## Hosting
 
-1. In Netlify, choose **Add new site → Import an existing project → GitHub**, and pick `jovita`.
-2. The build settings come from `netlify.toml` (`npm run build`, publish `dist`).
-3. Under **Site configuration → Environment variables**, add:
-   - `VITE_SUPABASE_URL` = `https://bdyjlmgjtrzqmohkklcg.supabase.co`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` = the value in your `.env`
-4. Deploy. Then in Supabase go to **Authentication → URL Configuration** and set **Site URL** to your Netlify address (e.g. `https://jovita.netlify.app`), so sign-up emails link back to the live site.
+Jovita runs on Cloudflare Workers (website, app and the mail Worker), built from GitHub on every push to `main`.
+See `DEPLOY.md` for the exact settings.
 
 ## What's in v1
 
@@ -90,7 +86,7 @@ Colours, type and voice follow the Jovita brand guidelines: marigold `#FFB320`, 
 Jovita speaks English, French, Spanish, Portuguese and Swahili.
 
 - **How it picks:** a choice made in the app → the studio's saved language (Settings) → the visitor's country
-  (Netlify adds a `jv_country` cookie via `netlify/edge-functions/geo.js`) → the phone/browser language → English.
+  the phone/browser language → English.
   Someone opening Jovita in Abidjan sees French, in Madrid Spanish, in Dar es Salaam Swahili.
 - **Client portal** follows the client's own location and language, with a switcher at the top.
 - **Where the words live:** `src/locales/*.json` (web) and `mobile/src/locales/*.json` (phone, same files).

@@ -5,16 +5,18 @@
 //
 //   POST { kind: "invoice" | "payment_reminder" | "receipt", invoice_id }
 //   POST { kind: "contract", project_id }
-//   POST { kind: "gallery", gallery_id }
+//   POST { kind: "gallery", gallery_id, invite_id? }
 //   POST { kind: "booking", booking_id }
 //   POST { kind: "welcome" | "trial_started" | "trial_ending" }      → to the creative themselves
 //   POST { kind: "test", template: "<key>" }                         → sends that template to the creative, with sample data
 //   POST { kind: "quote", invoice_id }                               → the quote to the client
 //   POST { kind: "quote_accepted", token, invoice_id }               → from the client page (no login): emails the new invoice
 //                                                                      to the client and tells the studio. Only once per quote.
+//   POST { kind: "message", client_id, body, subject? }               → a reply written in the Jovita Inbox, emailed to the client
 //   Any client email: add copy_me: true (or turn on "Send me a copy" in Settings) to get a copy (BCC).
 //
-// Secrets (Supabase → Edge Functions → Secrets): BREVO_API_KEY. Optional: APP_URL (default https://app.getjovita.com)
+// Secrets (Supabase → Edge Functions → Secrets): BREVO_API_KEY. Optional: APP_URL (default https://app.getjovita.com),
+// INBOX_DOMAIN (e.g. getjovita.com, once Email Routing + the jovita-mail Worker are set up): client replies then come back into the Inbox.
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided automatically.
 // Deployed with verify_jwt off: every path checks the login itself, except quote_accepted, which checks the client page token.
 
@@ -97,6 +99,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
   const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
   const owner = ur.ok ? await ur.json() : null;
   const ownerEmail = studio.reply_email || owner?.email || "";
+  const inbox = env("INBOX_DOMAIN") && studio.inbox_code ? `inbox+${studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
   const logo = studio.logo_path ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
   const link = `${APP_URL}/p/${token}`;
   const sent: string[] = [];
@@ -104,7 +107,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
     await brevo(TEMPLATES.invoice, { email: c.email, name: c.name }, {
       studio_name: studio.name || "Your photographer", studio_logo: logo, client_first_name: firstName(c.name), invoice_number: inv.number,
       amount: money(inv.amount, inv.currency), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
-    }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, ownerEmail ? { email: ownerEmail, name: studio.name } : undefined,
+    }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, (inbox || ownerEmail) ? { email: inbox || ownerEmail, name: studio.name } : undefined,
       studio.copy_me && ownerEmail ? { email: ownerEmail } : undefined);
     sent.push("client");
   }
@@ -137,7 +140,9 @@ Deno.serve(async (req) => {
     const studioParams = { studio_name: studio.name || "Your photographer", studio_logo: logo };
     // Client emails go out in the studio's name; replies go straight to the creative.
     const asStudio = { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` };
-    const replyToStudio = { email: studio.reply_email || user.email, name: studio.name || undefined };
+    // With the Jovita inbox switched on, client replies come back into Inbox (and a copy goes to the creative)
+    const inbox = env("INBOX_DOMAIN") && studio.inbox_code ? `inbox+${studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
+    const replyToStudio = { email: inbox || studio.reply_email || user.email, name: studio.name || undefined };
     const me = { email: user.email as string, name: studio.owner_first_name || undefined };
     const copy = (body.copy_me ?? studio.copy_me) ? { email: studio.reply_email || user.email, name: studio.name || undefined } : undefined;
 
@@ -168,11 +173,19 @@ Deno.serve(async (req) => {
         { ...studioParams, client_first_name: firstName(c.name), project_name: p.title || "your session", link: `${APP_URL}/p/${p.portal_token}` }, asStudio, replyToStudio, copy);
     } else if (kind === "gallery") {
       const g = await one(get(`galleries?id=eq.${body.gallery_id}&select=*`), "Gallery");
-      const c = await one(get(`clients?id=eq.${g.client_id}&select=name,email`), "Client");
-      if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
-      id = await brevo(TEMPLATES.gallery, { email: c.email, name: c.name }, {
-        ...studioParams, client_first_name: firstName(c.name), gallery_name: g.title || "Your gallery", photo_count: String(g.photo_count ?? ""),
-        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link: `${APP_URL}/g/${g.share_token}`,
+      // To one invited person (their own link, so you see when they open it), or to the gallery's client
+      let to: Who, link = `${APP_URL}/g/${g.share_token}`;
+      if (body.invite_id) {
+        const inv = await one(get(`gallery_invites?id=eq.${body.invite_id}&gallery_id=eq.${g.id}&select=email,name,token`), "Invite");
+        to = { email: inv.email, name: inv.name || undefined }; link = `${APP_URL}/g/${inv.token}`;
+      } else {
+        const c = await one(get(`clients?id=eq.${g.client_id}&select=name,email`), "Client");
+        if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
+        to = { email: c.email, name: c.name };
+      }
+      id = await brevo(TEMPLATES.gallery, to, {
+        ...studioParams, client_first_name: firstName(to.name || ""), gallery_name: g.title || "Your gallery", photo_count: String(g.photo_count ?? ""),
+        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link,
       }, asStudio, replyToStudio, copy);
     } else if (kind === "booking") {
       const b = await one(get(`bookings?id=eq.${body.booking_id}&select=*`), "Booking");
@@ -183,6 +196,26 @@ Deno.serve(async (req) => {
         ...studioParams, client_first_name: firstName(c.name), session_name: b.title || "Your session", date: day(b.starts_at, true),
         location: b.location || "To be confirmed", link: p ? `${APP_URL}/p/${p.portal_token}` : APP_URL,
       }, asStudio, replyToStudio, copy);
+    } else if (kind === "message") {
+      const c = await one(get(`clients?id=eq.${body.client_id}&select=name,email`), "Client");
+      if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
+      const text = String(body.body || "").trim().slice(0, 4000);
+      if (!text) throw new Error("Write a message first.");
+      const esc = (x: string) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const html = `<div style="font:16px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#261433;max-width:600px">
+        ${logo ? `<img src="${logo}" width="44" height="44" alt="" style="border-radius:10px;margin-bottom:12px">` : ""}
+        <div style="white-space:pre-wrap">${esc(text)}</div>
+        <p style="color:#5E5069;font-size:13px;margin-top:24px">${esc(studio.name || "")} · sent with Jovita. Just reply to this email.</p></div>`;
+      const key = env("BREVO_API_KEY");
+      if (!key) throw new Error("Email isn't set up on the server yet (missing BREVO_API_KEY).");
+      const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST", headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ sender: asStudio, to: [{ email: c.email, name: c.name }], replyTo: replyToStudio, ...(copy ? { bcc: [copy] } : {}),
+          subject: String(body.subject || "").slice(0, 200) || `A message from ${studio.name || "your photographer"}`, htmlContent: html, textContent: text }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.message || `Brevo error ${r.status}`);
+      id = j.messageId;
     } else if (kind === "welcome" || kind === "trial_started" || kind === "trial_ending") {
       id = await brevo(TEMPLATES[kind], me, {
         first_name: studio.owner_first_name || firstName(user.user_metadata?.full_name) || "there",

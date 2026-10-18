@@ -171,6 +171,14 @@ function ConnectionsTab() {
           <span className="help">{tx("Leave empty to use your sign-in email. Use your studio's email, e.g. hello@yourstudio.com.")}</span></div>
         <div className="switch"><div><b>{tx("Send me a copy")}</b><span>{tx("A copy of every email Jovita sends your clients, so you always have a record.")}</span></div>
           <Toggle on={!!studio.copy_me} label={tx("Send me a copy")} onChange={async (v) => { try { await updateStudio({ copy_me: v }); toast(v ? tx("You'll get a copy of client emails") : tx("Copies off")); } catch (e) { toast(e.message); } }} /></div>
+        {studio.inbox_code && <>
+          <div className="field"><label>{tx("Your Jovita inbox address")}</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><code className="inbox-addr">inbox+{studio.inbox_code}@getjovita.com</code>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(`inbox+${studio.inbox_code}@getjovita.com`); toast(tx("Address copied"), true); } catch { /* shown on screen */ } }}><Icon name="link" />{tx("Copy")}</button></div>
+            <span className="help">{tx("When clients reply to Jovita emails, their answer lands in your Inbox like a chat, and you reply from there. Want other client emails in too? Forward them to this address from Gmail or Outlook.")}</span></div>
+          <div className="switch"><div><b>{tx("Also send replies to my own email")}</b><span>{tx("A copy of every client email that lands in your Jovita inbox.")}</span></div>
+            <Toggle on={studio.forward_inbox !== false} label={tx("Also send replies to my own email")} onChange={async (v) => { try { await updateStudio({ forward_inbox: v }); } catch (e) { toast(e.message); } }} /></div>
+        </>}
         <p className="sub" style={{ fontSize: 13 }}><a href="https://getjovita.com/help/#connect-email" target="_blank" rel="noreferrer">{tx("How email works in Jovita")}</a></p>
       </section>
       <GoogleCard />

@@ -45,7 +45,14 @@ export async function startTrial() {
   return data;
 }
 
-export async function requestUpgrade(plan) {
-  const { error } = await supabase.rpc("request_upgrade", { p_plan: plan });
-  if (error) throw error;
+// Yearly is 12 months less 5%
+export const YEARLY_OFF = 5;
+export const yearlyPrice = (monthly) => { const v = Number(monthly) * 12 * (100 - YEARLY_OFF) / 100; return v >= 1000 ? Math.round(v / 100) * 100 : Math.round(v * 100) / 100; };
+
+export async function requestUpgrade(plan, cycle = "month") {
+  const { error } = await supabase.rpc("request_plan", { p_plan: plan, p_cycle: cycle });
+  if (!error) return;
+  // Before update 8 is run, fall back to the older request
+  const { error: e2 } = await supabase.rpc("request_upgrade", { p_plan: plan });
+  if (e2) throw e2;
 }

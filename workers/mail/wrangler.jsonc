@@ -1,0 +1,10 @@
+// Jovita mail: receives client emails sent to inbox+<code>@getjovita.com (Cloudflare Email Routing)
+// and passes them to Supabase, where they appear in the creative's Inbox.
+// In Cloudflare: Workers & Pages > Create > Import from GitHub (topeadenola/jovita), root directory workers/mail,
+// build command empty, deploy command `npx wrangler deploy`. Then add the secret INBOUND_SECRET (Settings > Variables and secrets).
+{
+  "name": "jovita-mail",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "vars": { "INBOUND_URL": "https://bdyjlmgjtrzqmohkklcg.supabase.co/functions/v1/inbound-email" }
+}

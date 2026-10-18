@@ -411,3 +411,30 @@ revoke all on function public.seed_templates(uuid) from public, anon, authentica
 
 -- Existing studios
 select public.add_starter_templates(id) from public.studios;
+
+-- ---------- Pay monthly or yearly (yearly saves 5%) ----------
+alter table public.studios add column if not exists plan_cycle text not null default 'month';
+alter table public.studios drop constraint if exists studios_plan_cycle_check;
+alter table public.studios add constraint studios_plan_cycle_check check (plan_cycle in ('month', 'year'));
+
+-- Same as request_upgrade, plus how they want to pay. HQ sees "monthly" or "yearly" in the request.
+create or replace function public.request_plan(p_plan text, p_cycle text default 'month')
+returns void language plpgsql security definer set search_path = '' as $$
+declare s record; up boolean; cur text; cyc text;
+begin
+  if p_plan not in ('free', 'pro', 'studio') then raise exception 'Unknown plan'; end if;
+  cyc := case when p_cycle = 'year' then 'year' else 'month' end;
+  select id, name, plan, plan_status, plan_cycle into s from public.studios where id = public.my_studio_id();
+  if s.id is null then raise exception 'No studio'; end if;
+  cur := case when s.plan_status = 'trialing' then 'free' else s.plan end;
+  if p_plan = cur and cyc = s.plan_cycle then return; end if;
+  up := array_position(array['free','pro','studio'], p_plan) >= array_position(array['free','pro','studio'], cur);
+  if exists (select 1 from public.events where studio_id = s.id and kind in ('upgrade_request', 'downgrade_request') and meta->>'plan' = p_plan and meta->>'cycle' = cyc and created_at > now() - interval '1 day') then return; end if;
+  insert into public.events (studio_id, kind, meta) values (s.id, case when up then 'upgrade_request' else 'downgrade_request' end, jsonb_build_object('plan', p_plan, 'from', cur, 'cycle', cyc));
+  insert into public.admin_notifications (kind, title, body, studio_id)
+  values (case when up then 'upgrade_request' else 'downgrade_request' end, case when up then 'Wants to upgrade' else 'Wants to downgrade' end,
+          coalesce(s.name, 'A studio') || ' asked to move from ' || initcap(cur) || case when s.plan_status = 'trialing' then ' (on a Pro trial)' else '' end
+          || ' to ' || initcap(p_plan) || case when p_plan <> 'free' then ', paid ' || case when cyc = 'year' then 'yearly (5% off)' else 'monthly' end else '' end, s.id);
+end $$;
+revoke all on function public.request_plan(text, text) from public, anon;
+grant execute on function public.request_plan(text, text) to authenticated;

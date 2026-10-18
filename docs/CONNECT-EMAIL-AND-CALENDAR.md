@@ -13,6 +13,20 @@ Already done: hello@getjovita.com is the sender, and the templates are in Brevo.
 
 Test: in the app, send an invoice to a client whose email is your own.
 
+### Client emails in the Jovita Inbox (free, once)
+This makes client replies land in Inbox like a chat. Every studio gets its own address: `inbox+<code>@getjovita.com`.
+
+1. **Make a secret:** any long random password (e.g. from a password manager). Keep it handy for steps 3 and 4.
+2. **Cloudflare › Workers & Pages › Create › Import a repository** › `topeadenola/jovita`.
+   Project name `jovita-mail`, root directory `workers/mail`, build command empty, deploy command `npx wrangler deploy`.
+3. In the new **jovita-mail** Worker › Settings › Variables and secrets › add a **Secret** called `INBOUND_SECRET` with your secret.
+4. **Supabase › Edge Functions › Secrets:** add `INBOUND_SECRET` (same value) and `INBOX_DOMAIN` = `getjovita.com`.
+5. **Cloudflare › getjovita.com › Email › Email Routing › Settings:** turn on **Subaddressing**.
+6. **Email Routing › Routing rules › Create address:** custom address `inbox` › action **Send to a Worker** › `jovita-mail`.
+
+Test: send an email to the inbox address shown in Settings › Connections. It appears in Inbox within a few seconds.
+Until steps 4 to 6 are done, client replies simply go to the creative's own email, so nothing breaks.
+
 ### Google Calendar (so creatives can press "Connect Google Calendar")
 1. Go to console.cloud.google.com › create a project called **Jovita**.
 2. **APIs & Services › Library** › enable **Google Calendar API**.
@@ -24,7 +38,7 @@ Test: in the app, send an invoice to a client whose email is your own.
 
 ## Part 2 · What each creative does (in the app)
 
-### Email: nothing to set up
+### Email: nothing to set up (Inbox address shown in Settings › Connections)
 1. **Settings › Connections › Email**.
 2. **Client replies go to**: leave as their sign-in email, or type their studio email.
 3. **Send me a copy**: on if they want a copy of every client email.

@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
-import { GalleryPreview, publicUrl } from "../components/GalleryEditor";
+import { GalleryPreview, downloadUrl, isRaw, isVideo, publicUrl, thumbUrl } from "../components/GalleryEditor";
 import StudioLogo from "../components/StudioLogo";
 import Icon from "../components/Icon";
 import { tx } from "../lib/i18n";
 import { fdate } from "../lib/format";
 import { LangSwitch } from "../components/Lang";
+
+// Who's viewing: the invited email, or a private id kept in this browser
+const VKEY = "jv-viewer";
+const readLS = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+function viewerId(g) {
+  if (g?.viewer?.email) return String(g.viewer.email).toLowerCase();
+  let v = readLS(VKEY);
+  if (!v) { v = "v-" + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()); writeLS(VKEY, v); }
+  return v;
+}
 
 const DEF_DESIGN = { cover: "center", font: "sans", palette: "light", grid: { style: "vertical", size: "regular", spacing: "regular" } };
 
@@ -18,6 +29,14 @@ export default function ClientGallery() {
   const [showPw, setShowPw] = useState(false);
   const [setId, setSetId] = useState("all");
   const [open, setOpen] = useState(-1);
+  const [pass, setPass] = useState("");          // the password that opened it, for hearts and notes
+  const [mine, setMine] = useState(new Set());   // my favourites
+  const [notes, setNotes] = useState([]);
+  const [onlyFavs, setOnlyFavs] = useState(false);
+  const [name, setName] = useState(readLS("jv-viewer-name"));
+  const [ask, setAsk] = useState(null);          // waiting for a name before saving a heart or note
+  const [note, setNote] = useState("");
+  const [panel, setPanel] = useState(false);
 
   const load = useCallback(async (password) => {
     setState((s) => ({ ...s, loading: true }));
@@ -25,6 +44,7 @@ export default function ClientGallery() {
     if (error) return setState({ error: "missing" });
     if (!data) return setState({ error: "missing" });
     if (data.error) return setState({ error: data.error, title: data.title, cover: data.cover_path, date: data.event_date, studio: data.studio, tried: !!password });
+    setPass(password || "");
     setState({ g: data });
   }, [token]);
   useEffect(() => { load(); }, [load]);
@@ -35,11 +55,35 @@ export default function ClientGallery() {
     sets: Array.isArray(g.sets) && g.sets.length ? g.sets : [{ id: "highlights", name: tx("Highlights") }],
     design: { ...DEF_DESIGN, ...(g.design || {}), grid: { ...DEF_DESIGN.grid, ...(g.design?.grid || {}) } },
   }), [g]);
-  const photos = useMemo(() => (g?.photos || []).filter((p) => setId === "all" || p.set_id === setId), [g, setId]);
+  const vid = useMemo(() => (g ? viewerId(g) : ""), [g]);
+  const favOn = g && g.favorite?.on !== false;
+  const loadFeedback = useCallback(async () => {
+    if (!g) return;
+    const { data } = await supabase.rpc("gallery_feedback", { p_token: token, p_password: pass || null, p_viewer: vid });
+    if (data) { setMine(new Set(data.favorites || [])); setNotes(data.comments || []); }
+  }, [g, token, pass, vid]);
+  useEffect(() => { loadFeedback(); }, [loadFeedback]);
+  const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id))), [g, setId, onlyFavs, mine]);
+  const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
+  const who = g?.viewer?.name || name;
+  const needName = (fn) => (who ? fn(who) : setAsk(() => fn));
+  const toggleFav = (p) => needName(async (nm) => {
+    const was = mine.has(p.id);
+    setMine((m) => { const n = new Set(m); was ? n.delete(p.id) : n.add(p.id); return n; });
+    const { error } = await supabase.rpc("gallery_toggle_favorite", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: vid, p_name: nm });
+    if (error) { setMine((m) => { const n = new Set(m); was ? n.add(p.id) : n.delete(p.id); return n; }); window.alert?.(error.message); }
+  });
+  const addNote = (p) => needName(async (nm) => {
+    const body = note.trim(); if (!body) return;
+    const { data, error } = await supabase.rpc("gallery_add_comment", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: vid, p_name: nm, p_body: body });
+    if (error) return;
+    setNotes((n) => [...n, data]); setNote("");
+  });
 
   useEffect(() => {
     if (open < 0) return;
     const h = (e) => {
+      if (e.target.closest?.("input,textarea")) return;
       if (e.key === "Escape") setOpen(-1);
       if (e.key === "ArrowRight") setOpen((i) => Math.min(photos.length - 1, i + 1));
       if (e.key === "ArrowLeft") setOpen((i) => Math.max(0, i - 1));
@@ -89,14 +133,51 @@ export default function ClientGallery() {
           {d.sets.map((s) => <button key={s.id} type="button" aria-pressed={setId === s.id} onClick={() => setSetId(s.id)}>{s.name}</button>)}
         </nav>
       )}
-      <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen} />
+      {favOn && (
+        <div className="cg-tools">
+          <button type="button" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all photos") : tx("My favourites ({n})", { n: mine.size })}</button>
+          <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>
+        </div>
+      )}
+      <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen}
+        favs={mine} onFav={favOn ? toggleFav : undefined} notes={noteCount} />
+      {onlyFavs && !photos.length && <p className="gp-empty">{tx("No favourites yet. Tap the heart on the photos you love.")}</p>}
       {cur && (
         <div className="cg-light" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
-          <img src={publicUrl(cur.path)} alt="" />
+          {isVideo(cur.path) ? <video key={cur.path} src={publicUrl(cur.path)} controls autoPlay playsInline poster={thumbUrl(cur.path)} />
+            : isRaw(cur.path) ? <img src={thumbUrl(cur.path)} alt={cur.name || ""} /> : <img src={publicUrl(cur.path)} alt={cur.name || ""} />}
+          {panel && (
+            <aside className="lb-notes" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><b className="lb-file">{cur.name || tx("Photo {n}", { n: open + 1 })}</b><button type="button" className="x" onClick={() => setPanel(false)} aria-label={tx("Close notes")}><Icon name="x" /></button></div>
+              <div className="lb-thread">
+                {notes.filter((c) => c.photo_id === cur.id).map((c) => <div key={c.id} className={`lb-note ${c.from_client ? "me" : ""}`}><small>{c.from_client ? (c.author || tx("You")) : g.studio?.name}</small>{c.body}</div>)}
+                {!notes.some((c) => c.photo_id === cur.id) && <p className="sub" style={{ fontSize: 13 }}>{tx("Tell your photographer what you'd like changed on this photo, e.g. \"please brighten it a little\".")}</p>}
+              </div>
+              <form className="lb-reply" onSubmit={(e) => { e.preventDefault(); addNote(cur); }}>
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx("Write a note…")} aria-label={tx("Write a note")} maxLength={2000} />
+                <button className="btn btn-primary btn-sm" disabled={!note.trim()}><Icon name="send" /></button>
+              </form>
+            </aside>
+          )}
           <button type="button" className="cg-x" onClick={() => setOpen(-1)} aria-label={tx("Close")}><Icon name="x" /></button>
           {open > 0 && <button type="button" className="cg-prev" onClick={() => setOpen(open - 1)} aria-label={tx("Previous photo")}>‹</button>}
           {open < photos.length - 1 && <button type="button" className="cg-next" onClick={() => setOpen(open + 1)} aria-label={tx("Next photo")}>›</button>}
-          {dl.on && <a className="btn btn-secondary btn-sm cg-dl" href={publicUrl(cur.path)} target="_blank" rel="noreferrer" download><Icon name="download" />{tx("Download")}</a>}
+          <div className="cg-lb-tools" onClick={(e) => e.stopPropagation()}>
+            <span>{cur.name || ""} · {open + 1} / {photos.length}</span>
+            {favOn && <button type="button" className="btn btn-secondary btn-sm" aria-pressed={mine.has(cur.id)} onClick={() => toggleFav(cur)}><Icon name="heart" />{mine.has(cur.id) ? tx("Favourite") : tx("Add to favourites")}</button>}
+            <button type="button" className="btn btn-secondary btn-sm" aria-pressed={panel} onClick={() => setPanel(!panel)}><Icon name="chat" />{noteCount[cur.id] ? tx("Notes ({n})", { n: noteCount[cur.id] }) : tx("Leave a note")}</button>
+            {dl.on && <a className="btn btn-secondary btn-sm" href={downloadUrl(cur.path, cur.name)} download={cur.name || true}><Icon name="download" />{tx("Download")}</a>}
+          </div>
+        </div>
+      )}
+      {ask && (
+        <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
+          <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Your name")} onSubmit={(e) => { e.preventDefault(); const n = name.trim(); if (!n) return; writeLS("jv-viewer-name", n); const fn = ask; setAsk(null); fn(n); }}>
+            <h2 className="h-m">{tx("What's your name?")}</h2>
+            <p className="sub" style={{ fontSize: 14 }}>{tx("So {studio} knows whose picks and notes these are.", { studio: g.studio?.name || tx("your photographer") })}</p>
+            <div className="field"><label htmlFor="cg-name">{tx("Your name")}</label><input id="cg-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={() => setAsk(null)}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Continue")}</button></div>
+          </form>
         </div>
       )}
     </div>
