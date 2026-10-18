@@ -113,7 +113,7 @@ async function makeThumb(file, max = 1200) {
     return { blob, ...dims };
   } catch { return { blob: null, width: null, height: null }; } // HEIC/RAW may not decode in the browser
 }
-const fmtBytes = (n) => (n >= 1024 ** 3 ? (n / 1024 ** 3).toFixed(1) + " GB" : Math.max(1, Math.round(n / 1024 ** 2)) + " MB");
+const fmtBytes = (n) => (n >= 1e12 ? +(n / 1e12).toFixed(1) + " TB" : n >= 1024 ** 3 ? (n / 1024 ** 3).toFixed(1) + " GB" : Math.max(1, Math.round(n / 1024 ** 2)) + " MB");
 
 export const COVERS = [
   ["center", "Centre"], ["left", "Left"], ["novel", "Novel"], ["vintage", "Vintage"], ["frame", "Frame"],
@@ -356,7 +356,7 @@ export default function GalleryEditor({ id, onClose }) {
     const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
     list.sort((a, b) => byName.compare(a.name, b.name));
     if (!list.length) { if (!raws.length) toast(tx("Add photos (JPG, PNG, WebP, HEIC) or videos (MP4, MOV).")); return; }
-    // Storage limit for the plan (Free 500 MB, Pro 1000 GB, Studio unlimited)
+    // Storage limit for the plan (Free 500 MB, Pro 1 TB, Studio unlimited)
     const batch = list.reduce((n, f) => n + f.size, 0);
     try {
       const { data: q } = await supabase.rpc("storage_quota");

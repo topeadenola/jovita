@@ -91,7 +91,9 @@ function Bell({ notes, setNotes, sample, onOpenStudio }) {
 
 function HQ({ session }) {
   const [page, setPage] = useState(() => (location.hash.slice(1) || "overview"));
-  const [sample, setSample] = useState(() => store.get("jhq-sample", !!window.__HQ_PREVIEW));
+  // Sample data is only for designing HQ on this Mac; the live HQ always shows real data
+  const devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || !!window.__HQ_PREVIEW;
+  const [sample, setSample] = useState(() => devHost && store.get("jhq-sample", !!window.__HQ_PREVIEW));
   const [days, setDays] = useState(() => store.get("jhq-days", 30));
   const [notes, setNotes] = useState([]);
   const [celebrate, setCelebrate] = useState(null);
@@ -145,9 +147,9 @@ function HQ({ session }) {
           <label className="hq-search"><Icon name="search" /><span className="sr">Search studios</span>
             <input placeholder="Search studios by name or email" value={search} onChange={(e) => { setSearch(e.target.value); if (page !== "studios") go("studios"); }} /></label>
           <span className="spacer" />
-          <label className="row sample-lbl" style={{ gap: 8, fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
+          {devHost && <label className="row sample-lbl" style={{ gap: 8, fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
             Sample data<button type="button" role="switch" className="toggle" aria-checked={sample} aria-label="Show sample data" onClick={() => setSample(!sample)} />
-          </label>
+          </label>}
           <Bell notes={notes} setNotes={setNotes} sample={sample} onOpenStudio={(id) => { setOpenStudio(id); go("studios"); }} />
         </header>
         <main className="hq-body">

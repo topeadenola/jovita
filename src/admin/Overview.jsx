@@ -83,7 +83,7 @@ export default function Overview({ ctx }) {
 
   const spark = useMemo(() => (d?.daily || []).map((r) => r.signups), [d]);
   const cumulative = useMemo(() => { let c = d ? d.studios - (d.daily || []).reduce((s, r) => s + r.signups, 0) : 0; return (d?.daily || []).map((r) => (c += r.signups)); }, [d]);
-  if (err) return <div className="card empty"><b>HQ needs one setup step</b><p className="sub">Run the latest Jovita update in Supabase (RUN-THIS-IN-SUPABASE.sql), then refresh. Or turn on Sample data to preview the dashboard.</p><small className="sub">{err}</small></div>;
+  if (err) return <div className="card empty"><b>HQ needs one setup step</b><p className="sub">Run the latest Jovita update in Supabase (RUN-THIS-IN-SUPABASE.sql), then refresh. </p><small className="sub">{err}</small></div>;
   if (!d) return <div className="loading" style={{ minHeight: 300 }}>Loading the numbers…</div>;
 
   const mrr = byValue(d.mrr); const processed = byValue(d.processed); const prevProcessed = d.processed_prev || {};
@@ -105,7 +105,7 @@ export default function Overview({ ctx }) {
         <div>
           <p className="eyebrow">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p>
           <h1 className="h-xl" style={{ marginTop: 6 }}>{greeting()}, {name}</h1>
-          <p className="sub">{d.signups ? `${n(d.signups)} new studios in the last ${rangeText}. ` : ""}Here's how Jovita is doing.</p>
+          <p className="sub">{d.signups ? `${n(d.signups)} new ${d.signups === 1 ? "studio" : "studios"} in the last ${rangeText}. ` : ""}Here's how Jovita is doing.</p>
         </div>
         <RangePicker days={days} setDays={setDays} />
       </div>
