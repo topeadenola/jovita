@@ -1031,3 +1031,7 @@ body{transition:background-color .2s}
 .gs-res>.ic{width:18px;height:18px;flex:none;color:#2E8B57}
 .gs-res.bad>.ic{color:var(--danger,#B42F26)}
 .gs-res span{flex:1}
+/* Masonry in reading order: columns built in JS */
+.gp-masonry{display:flex;align-items:flex-start}
+.gp-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.gp-col>.gp-item{display:block}

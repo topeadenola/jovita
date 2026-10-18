@@ -155,6 +155,16 @@ function toDraft(g) {
   };
 }
 
+// Masonry that reads left to right like a book (IMG_1, IMG_2, IMG_3 across the top row), not down each column:
+// each photo goes into the shortest column so far, by its shape
+function masonry(list, cols) {
+  const out = Array.from({ length: Math.max(1, cols) }, () => []), h = new Array(out.length).fill(0);
+  list.forEach((p, i) => {
+    let c = 0; for (let k = 1; k < out.length; k++) if (h[k] < h[c] - 0.01) c = k;
+    out[c].push({ p, i }); h[c] += p.width && p.height ? p.height / p.width : 1.25;
+  });
+  return out;
+}
 /* ---------- Live preview of the client gallery ---------- */
 export function GalleryPreview({ d, photos, studioName, device, full = false, onPhoto, favs, onFav, notes }) {
   const pal = PALETTES[d.design.palette] || PALETTES.light;
@@ -198,7 +208,8 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
       {photos.length ? (
         g.style === "horizontal"
           ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />))}</div>
-          : <div className="gp-masonry" style={{ columnCount: cols, columnGap: gap, padding: gap }}>{(full ? photos : photos.slice(0, 24)).map((p, i) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />))}</div>
+          : <div className="gp-masonry" style={{ gap, padding: gap }}>{masonry(full ? photos : photos.slice(0, 24), cols).map((col, ci) => (
+              <div key={ci} className="gp-col">{col.map(({ p, i }) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />))}</div>))}</div>
       ) : <p className="gp-empty">{tx("There are no photos here yet.")}</p>}
     </div>
   );
