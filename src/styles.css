@@ -569,7 +569,7 @@ body{transition:background-color .2s}
 .raw-tile.big{width:min(60vw,480px)}
 .ge-lb-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;color:#fff;font-size:13px;background:rgba(0,0,0,.4);padding:6px 8px 6px 14px;border-radius:12px;flex-wrap:wrap;justify-content:center}
 .ge-lb-bar .btn{position:static;width:auto;height:auto;font-size:13px;border-radius:8px}
-.ge-progress{position:relative;height:30px;border-radius:999px;background:var(--sunken);overflow:hidden;display:flex;align-items:center;padding:0 14px}
+.ge-progress{position:relative;flex:none;min-height:34px;height:auto;gap:10px;border-radius:999px;background:var(--sunken);overflow:hidden;display:flex;align-items:center;padding:0 14px}
 .ge-progress span{position:absolute;inset:0 auto 0 0;background:var(--marigold);transition:width .3s}
 .ge-progress b{position:relative;font-size:13px;color:#261433}
 .ge-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -990,3 +990,7 @@ body{transition:background-color .2s}
 .ge-progress.del span{background:#F2B8B5}
 /* File names in capitals, so they read like the numbers on the camera */
 .cg-lb-name b,.lb-file,.ge-lb-bar span,.ge-pick-names,.ge-name{text-transform:uppercase;letter-spacing:.02em}
+.ge-progress em{position:relative;margin-left:auto;font-style:normal;font-size:12px;color:#261433;opacity:.75;white-space:nowrap}
+.ge-up-bar{position:absolute;left:12px;right:44px;bottom:12px;height:5px;border-radius:999px;background:rgba(255,255,255,.75);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.ge-up-bar i{display:block;height:100%;background:var(--marigold,#FFB320);transition:width .25s}
+.ge-up-pct{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(15,11,19,.7);color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:4px 10px}

@@ -42,6 +42,33 @@ export function Thumb({ path, alt = "", thumb, ...rest }) {
   }
   return <img src={src} alt={alt} loading="lazy" decoding="async" onLoad={(e) => e.currentTarget.classList.add("in")} onError={() => { if (src !== publicUrl(path)) setSrc(publicUrl(path)); }} {...rest} />;
 }
+// Upload with live progress (bytes sent), straight to Supabase Storage
+async function putWithProgress(path, file, contentType, onProgress) {
+  const url = import.meta.env.VITE_SUPABASE_URL, key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || typeof XMLHttpRequest === "undefined") {
+    const r = await supabase.storage.from(BUCKET).upload(path, file, { contentType, cacheControl: "31536000" });
+    onProgress?.(file.size);
+    return r;
+  }
+  const { data } = await supabase.auth.getSession();
+  return new Promise((resolve) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", `${url}/storage/v1/object/${BUCKET}/${path.split("/").map(encodeURIComponent).join("/")}`);
+    x.setRequestHeader("Authorization", `Bearer ${data?.session?.access_token || key}`);
+    x.setRequestHeader("apikey", key);
+    x.setRequestHeader("x-upsert", "false");
+    x.setRequestHeader("cache-control", "max-age=31536000");
+    x.setRequestHeader("Content-Type", contentType);
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(e.loaded); };
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) { onProgress?.(file.size); return resolve({ error: null }); }
+      let msg = `Upload failed (${x.status})`; try { msg = JSON.parse(x.responseText).message || msg; } catch { /* keep */ }
+      resolve({ error: new Error(msg) });
+    };
+    x.onerror = () => resolve({ error: new Error("Network problem. Check your connection and try again.") });
+    x.send(file);
+  });
+}
 // First frame of a video, as a small JPG for grids
 async function makeVideoThumb(file, max = 1200) {
   const url = URL.createObjectURL(file);
@@ -307,7 +334,15 @@ export default function GalleryEditor({ id, onClose }) {
         return;
       }
     } catch { /* limits not switched on yet */ }
-    setUploading({ done: 0, total: list.length, failed: 0 });
+    setUploading({ done: 0, total: list.length, failed: 0, sent: 0, bytes: batch, speed: 0 });
+    // Live progress: bytes sent per file, shown on each tile and in the top bar (refreshed 4 times a second)
+    const sentBy = new Array(list.length).fill(0);
+    const t0 = Date.now();
+    const tick = setInterval(() => {
+      const sent = sentBy.reduce((a, b) => a + b, 0), secs = (Date.now() - t0) / 1000;
+      setUploading((u) => (u ? { ...u, sent, speed: secs > 0.5 ? sent / secs : 0 } : u));
+      setPreviews((v) => v.map((x, j) => (x.state === "up" ? { ...x, pct: Math.min(99, Math.round((sentBy[j] / (list[j].size || 1)) * 100)) } : x)));
+    }, 250);
     // Show every file straight away while it uploads
     const pv = list.map((f) => ({ key: f.name + f.size + Math.random(), name: f.name, url: /^image\/(jpeg|png|webp|gif)/.test(f.type) ? URL.createObjectURL(f) : "", state: "wait" }));
     setPreviews(pv);
@@ -327,7 +362,7 @@ export default function GalleryEditor({ id, onClose }) {
           const raw = isRaw(file.name);
           const vid = isVideo(file.name) || /^video\//.test(file.type);
           const t = raw ? { blob: null } : vid ? await makeVideoThumb(file) : await makeThumb(file);
-          const ups = [supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream", cacheControl: "31536000" })];
+          const ups = [putWithProgress(path, file, file.type || "application/octet-stream", (n) => { sentBy[i] = n; })];
           if (t.blob) ups.push(supabase.storage.from(BUCKET).upload(thumbPath(path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000" }));
           const [r1] = await Promise.all(ups);
           if (r1.error) throw r1.error;
@@ -353,6 +388,7 @@ export default function GalleryEditor({ id, onClose }) {
     // First photos in an empty gallery become its cover
     if (!d.cover_path && added[0]) { set("cover_path", added[0]); patch.cover_path = added[0]; }
     await update("galleries", id, patch);
+    clearInterval(tick);
     setUploading(null);
     if (added.length) toast(txn(added.length, "{n} file added", "{n} files added"), true);
   }
@@ -526,10 +562,19 @@ export default function GalleryEditor({ id, onClose }) {
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos or videos")}</button>
                     </div>
                     <input ref={fileRef} type="file" accept={"image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v" + (plan === "studio" ? "," + RAW_EXT.map((e) => "." + e).join(",") : "")} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
-                  {setPhotosInSet.length > 0 && !picked.size && <p className="sub ge-hint">{tx("Click a photo to select it. Double-click to open it.")}</p>}
+                  {setPhotosInSet.length > 0 && !picked.size && !uploading && !deleting && <p className="sub ge-hint">{tx("Click a photo to select it. Double-click to open it.")}</p>}
                   {fixing && !uploading && <p className="sub" style={{ fontSize: 13 }}>{tx("Making fast previews for your client… {a} of {b}", { a: fixing.done, b: fixing.total })}</p>}
                   {deleting && <div className="ge-progress del" role="status"><span style={{ width: `${(deleting.done / deleting.total) * 100}%` }} /><b>{tx("Deleting {a} of {b}…", { a: deleting.done, b: deleting.total })}</b></div>}
-                  {uploading && <div className="ge-progress" role="status"><span style={{ width: `${(uploading.done / uploading.total) * 100}%` }} /><b>{tx("Uploading {a} of {b}…", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })}</b></div>}
+                  {uploading && (() => {
+                    const pct = uploading.bytes ? Math.min(100, Math.round((uploading.sent / uploading.bytes) * 100)) : Math.round((uploading.done / uploading.total) * 100);
+                    const left = uploading.speed > 0 ? Math.max(0, (uploading.bytes - uploading.sent) / uploading.speed) : null;
+                    const eta = left == null ? "" : left < 60 ? tx("{n}s left", { n: Math.ceil(left) }) : tx("about {n} min left", { n: Math.ceil(left / 60) });
+                    return (
+                      <div className="ge-progress" role="status" aria-live="polite"><span style={{ width: `${pct}%` }} />
+                        <b>{tx("Uploading {a} of {b}", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })} · {pct}%</b>
+                        <em>{fmtBytes(uploading.sent)} / {fmtBytes(uploading.bytes)}{uploading.speed ? ` · ${fmtBytes(uploading.speed)}/s` : ""}{eta ? ` · ${eta}` : ""}</em></div>
+                    );
+                  })()}
                   {picked.size > 0 && (
                     <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
                       <b>{txn(picked.size, "{n} selected", "{n} selected")}</b>
@@ -549,6 +594,8 @@ export default function GalleryEditor({ id, onClose }) {
                             <figure className={`ge-photo ge-up ${x.state}`}>
                               {x.url ? <img src={x.url} alt="" /> : <span className="ge-up-file"><Icon name="image" /></span>}
                               <span className="ge-up-state">{x.state === "done" ? <Icon name="check" /> : x.state === "fail" ? <Icon name="x" /> : <i className="ge-spin" />}</span>
+                              {x.state === "up" && <span className="ge-up-bar" aria-hidden="true"><i style={{ width: `${x.pct || 2}%` }} /></span>}
+                              {x.state === "up" && <span className="ge-up-pct">{x.pct || 0}%</span>}
                             </figure>
                           </div>
                         ))}
