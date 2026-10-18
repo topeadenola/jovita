@@ -987,3 +987,6 @@ body{transition:background-color .2s}
 .cg-lb-name b{font:700 14px/1.2 ui-monospace,Menlo,monospace;color:#fff}
 .cg-lb-name small{font-size:12px;opacity:.7}
 @media (max-width:700px){.cg-view{padding:56px 10px 150px}.cg-view>img,.cg-view>video{max-width:100%;max-height:calc(100vh - 230px)}.cg-view .cg-prev,.cg-view .cg-next{top:auto;bottom:96px}}
+.ge-progress.del span{background:#F2B8B5}
+/* File names in capitals, so they read like the numbers on the camera */
+.cg-lb-name b,.lb-file,.ge-lb-bar span,.ge-pick-names,.ge-name{text-transform:uppercase;letter-spacing:.02em}

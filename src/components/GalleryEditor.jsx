@@ -194,7 +194,8 @@ export default function GalleryEditor({ id, onClose }) {
   const [dupes, setDupes] = useState(null);      // { files, names } when some file names are already in the gallery
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(null);  // the Send / Share window
-  const [previews, setPreviews] = useState([]);  // files uploading right now, shown straight away
+  const [previews, setPreviews] = useState([]);
+  const [deleting, setDeleting] = useState(null); // { done, total }  // files uploading right now, shown straight away
   const [uploading, setUploading] = useState(null);
   const [over, setOver] = useState(false);
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
@@ -210,11 +211,19 @@ export default function GalleryEditor({ id, onClose }) {
     await update("galleries", id, { title: v.title.trim() || tx("Untitled gallery"), event_date: v.event_date || null, expires_on: v.expires_on || null, slug: slugify(v.slug) || null, sets: v.sets, cover_path: v.cover_path || null, design: v.design, settings: v.settings, updated_at: new Date().toISOString() });
   });
 
+  // Load every photo (the database hands them over 1,000 at a time)
   const loadPhotos = useCallback(async () => {
-    const { data } = await supabase.from("gallery_photos").select("*").eq("gallery_id", id).order("position", { ascending: true });
-    setPhotos(data || []);
+    const all = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from("gallery_photos").select("*").eq("gallery_id", id).order("position", { ascending: true }).range(from, from + 999);
+      if (error || !data) break;
+      all.push(...data);
+      if (data.length < 1000) break;
+    }
+    setPhotos(all);
+    return all;
   }, [id]);
-  useEffect(() => { loadPhotos(); }, [loadPhotos]);
+  useEffect(() => { loadPhotos().then((all) => { if (all && all.length !== (g?.photo_count ?? all.length)) update("galleries", id, { photo_count: all.length }).catch(() => {}); }); }, [loadPhotos]); // eslint-disable-line react-hooks/exhaustive-deps
   // Older photos have no light preview copy: make them in the background so the client's gallery opens fast
   const [fixing, setFixing] = useState(null);
   const fixingRef = useRef(false);
@@ -358,20 +367,34 @@ export default function GalleryEditor({ id, onClose }) {
     if (error) return toast(error.message);
     setComments((c) => [...c, data]); setReply("");
   };
+  // Delete fast: photos leave the screen at once, then go in batches (100 at a time, several in parallel)
   async function removePhotos(list) {
     if (!list.length) return;
     if (!window.confirm(list.length === 1 ? tx("Remove this photo from the gallery?") : tx("Remove {n} photos from the gallery?", { n: list.length }))) return;
-    const paths = list.flatMap((p) => [p.path, thumbPath(p.path)]);
-    await supabase.storage.from(BUCKET).remove(paths);
-    await supabase.from("gallery_photos").delete().in("id", list.map((p) => p.id));
-    if (list.some((p) => p.path === d.cover_path)) set("cover_path", "");
+    const gone = new Set(list.map((p) => p.id));
+    setPhotos((ps) => ps.filter((p) => !gone.has(p.id)));
     setPicked(new Set()); setViewer(-1);
-    await loadPhotos();
-    await update("galleries", id, { photo_count: Math.max(0, photos.length - list.length) });
-    toast(txn(list.length, "{n} photo removed", "{n} photos removed"));
+    if (list.some((p) => p.path === d.cover_path)) set("cover_path", "");
+    const chunks = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
+    const pool = async (jobs, size, fn) => { let k = 0; await Promise.all(Array.from({ length: Math.min(size, jobs.length) }, async () => { while (k < jobs.length) await fn(jobs[k++]); })); };
+    let done = 0, failed = 0;
+    setDeleting({ done: 0, total: list.length });
+    await pool(chunks(list.map((p) => p.id), 100), 4, async (ids) => {
+      const { error } = await supabase.from("gallery_photos").delete().in("id", ids);
+      if (error) failed += ids.length;
+      done += ids.length; setDeleting({ done, total: list.length });
+    });
+    // Files are removed in the background; the photos are already gone from the gallery
+    pool(chunks(list.flatMap((p) => [p.path, thumbPath(p.path)]), 500), 3, (ps) => supabase.storage.from(BUCKET).remove(ps)).catch(() => {});
+    const fresh = await loadPhotos();
+    await update("galleries", id, { photo_count: fresh.length });
+    setDeleting(null);
+    if (failed) toast(tx("{n} couldn't be removed. Try again.", { n: failed }));
+    else toast(txn(list.length, "{n} photo removed", "{n} photos removed"), true);
   }
   async function movePhotos(list, setId) {
-    await supabase.from("gallery_photos").update({ set_id: setId }).in("id", list.map((p) => p.id));
+    const ids = list.map((p) => p.id);
+    for (let i = 0; i < ids.length; i += 100) await supabase.from("gallery_photos").update({ set_id: setId }).in("id", ids.slice(i, i + 100));
     setPicked(new Set());
     await loadPhotos();
     toast(tx("Moved to {name}", { name: d.sets.find((s) => s.id === setId)?.name }));
@@ -505,6 +528,7 @@ export default function GalleryEditor({ id, onClose }) {
                     <input ref={fileRef} type="file" accept={"image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v" + (plan === "studio" ? "," + RAW_EXT.map((e) => "." + e).join(",") : "")} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
                   {setPhotosInSet.length > 0 && !picked.size && <p className="sub ge-hint">{tx("Click a photo to select it. Double-click to open it.")}</p>}
                   {fixing && !uploading && <p className="sub" style={{ fontSize: 13 }}>{tx("Making fast previews for your client… {a} of {b}", { a: fixing.done, b: fixing.total })}</p>}
+                  {deleting && <div className="ge-progress del" role="status"><span style={{ width: `${(deleting.done / deleting.total) * 100}%` }} /><b>{tx("Deleting {a} of {b}…", { a: deleting.done, b: deleting.total })}</b></div>}
                   {uploading && <div className="ge-progress" role="status"><span style={{ width: `${(uploading.done / uploading.total) * 100}%` }} /><b>{tx("Uploading {a} of {b}…", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })}</b></div>}
                   {picked.size > 0 && (
                     <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
@@ -726,7 +750,7 @@ export default function GalleryEditor({ id, onClose }) {
           {viewer > 0 && <button type="button" className="cg-prev" onClick={() => setViewer(viewer - 1)} aria-label={tx("Previous photo")}>‹</button>}
           {viewer < setPhotosInSet.length - 1 && <button type="button" className="cg-next" onClick={() => setViewer(viewer + 1)} aria-label={tx("Next photo")}>›</button>}
           <div className="ge-lb-bar">
-            <span>{viewer + 1} / {setPhotosInSet.length}</span>
+            <span><b style={{ textTransform: "uppercase" }}>{setPhotosInSet[viewer].name}</b> · {viewer + 1} / {setPhotosInSet.length}</span>
             <a className="btn btn-secondary btn-sm" href={downloadUrl(setPhotosInSet[viewer].path, setPhotosInSet[viewer].name)} download={setPhotosInSet[viewer].name}><Icon name="download" />{tx("Download")}</a>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", setPhotosInSet[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="x" />{tx("Delete")}</button>
