@@ -557,7 +557,7 @@ body{transition:background-color .2s}
 .ge-menu>*:hover{background:var(--sunken)}
 .ge-menu .danger{color:var(--danger, #b42318)}
 .ge-menu .ic{width:16px;height:16px}
-.ge-selbar{position:sticky;bottom:12px;margin:12px auto 0;display:flex;align-items:center;gap:10px;background:#1d1424;color:#fff;border-radius:12px;padding:8px 10px 8px 8px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:640px;width:100%;flex-wrap:wrap}
+.ge-selbar{position:sticky;top:0;z-index:6;margin:0;display:flex;align-items:center;gap:10px;background:#1d1424;color:#fff;border-radius:12px;padding:8px 10px 8px 8px;box-shadow:0 10px 30px rgba(0,0,0,.25);width:100%;flex-wrap:wrap}
 .ge-selbar .spacer{flex:1}
 .ge-selbar button,.ge-selbar select{display:inline-flex;align-items:center;gap:6px;border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
 .ge-selbar select option{color:#000}
@@ -977,3 +977,5 @@ body{transition:background-color .2s}
 .gp-cap{display:block;font:600 11px/1.3 ui-monospace,Menlo,monospace;opacity:.75;padding:4px 2px 8px;margin-top:-4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gp-rows .gp-item .gp-cap{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:2px 6px;opacity:1}
 .gp-item .gp-notecount{bottom:30px}
+.ge-hint{font-size:13px;margin:-6px 0 0}
+.ge-photo .ge-hit[aria-pressed="true"]{outline:none}

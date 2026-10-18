@@ -349,7 +349,7 @@ export default function GalleryEditor({ id, onClose }) {
   }
   const copyNames = async (list) => {
     const text = list.map((p) => p.name).join(", ");
-    try { await navigator.clipboard.writeText(text); toast(txn(list.length, "{n} file name copied. Paste it into Lightroom's search.", "{n} file names copied. Paste them into Lightroom's search."), true); }
+    try { await navigator.clipboard.writeText(text); toast(txn(list.length, "{n} file name copied", "{n} file names copied"), true); }
     catch { window.prompt(tx("Copy these file names"), text); }
   };
   const sendReply = async (p) => {
@@ -503,8 +503,20 @@ export default function GalleryEditor({ id, onClose }) {
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos or videos")}</button>
                     </div>
                     <input ref={fileRef} type="file" accept={"image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v" + (plan === "studio" ? "," + RAW_EXT.map((e) => "." + e).join(",") : "")} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
+                  {setPhotosInSet.length > 0 && !picked.size && <p className="sub ge-hint">{tx("Click a photo to select it. Double-click to open it.")}</p>}
                   {fixing && !uploading && <p className="sub" style={{ fontSize: 13 }}>{tx("Making fast previews for your client… {a} of {b}", { a: fixing.done, b: fixing.total })}</p>}
                   {uploading && <div className="ge-progress" role="status"><span style={{ width: `${(uploading.done / uploading.total) * 100}%` }} /><b>{tx("Uploading {a} of {b}…", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })}</b></div>}
+                  {picked.size > 0 && (
+                    <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
+                      <b>{txn(picked.size, "{n} selected", "{n} selected")}</b>
+                      <button type="button" onClick={() => setPicked(new Set())}><Icon name="x" />{tx("Deselect all")}</button>
+                      {picked.size < setPhotosInSet.length && <button type="button" onClick={() => setPicked(new Set(setPhotosInSet.map((p) => p.id)))}><Icon name="check" />{tx("Select all")}</button>}
+                      <span className="spacer" />
+                      {picked.size === 1 && <button type="button" onClick={() => { const p = photos.find((x) => picked.has(x.id)); set("cover_path", p.path); setPicked(new Set()); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>}
+                      {d.sets.length > 1 && <select aria-label={tx("Move to set")} value="" onChange={(e) => e.target.value && movePhotos(photos.filter((x) => picked.has(x.id)), e.target.value)}><option value="">{tx("Move to…")}</option>{d.sets.filter((x) => x.id !== currentSet.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
+                      <button type="button" className="danger" onClick={() => removePhotos(photos.filter((x) => picked.has(x.id)))}><Icon name="x" />{tx("Delete")}</button>
+                    </div>
+                  )}
                   <div className={`ge-drop ${over ? "on" : ""} ${setPhotosInSet.length || previews.length ? "has" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
                     {setPhotosInSet.length || previews.length ? (
                       <div className={`ge-grid ${picked.size ? "picking" : ""}`}>
@@ -521,7 +533,7 @@ export default function GalleryEditor({ id, onClose }) {
                           return (
                             <div className="ge-cell" key={p.id}>
                             <figure className={`ge-photo ${on ? "on" : ""} ${d.cover_path === p.path ? "is-cover" : ""}`}>
-                              <button type="button" className="ge-hit" title={p.name} onClick={() => (picked.size ? togglePick(p.id) : setViewer(i))} aria-label={picked.size ? tx("Select {name}", { name: p.name }) : tx("Open {name}", { name: p.name })}>
+                              <button type="button" className="ge-hit" title={p.name} onClick={() => togglePick(p.id)} onDoubleClick={() => setViewer(i)} aria-pressed={on} aria-label={tx("Select {name}. Double-click to open.", { name: p.name })}>
                                 <Thumb path={p.path} alt={p.name} thumb={p.has_thumb} />
                               </button>
                               <button type="button" className="ge-check" aria-pressed={on} onClick={() => togglePick(p.id)} aria-label={on ? tx("Unselect photo") : tx("Select photo")}><Icon name="check" /></button>
@@ -553,16 +565,7 @@ export default function GalleryEditor({ id, onClose }) {
                       </div>
                     )}
                   </div>
-                  {picked.size > 0 && (
-                    <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
-                      <button type="button" className="ge-selx" onClick={() => setPicked(new Set())} aria-label={tx("Clear selection")}><Icon name="x" /></button>
-                      <b>{txn(picked.size, "{n} selected", "{n} selected")}</b>
-                      <span className="spacer" />
-                      {picked.size === 1 && <button type="button" onClick={() => { const p = photos.find((x) => picked.has(x.id)); set("cover_path", p.path); setPicked(new Set()); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>}
-                      {d.sets.length > 1 && <select aria-label={tx("Move to set")} value="" onChange={(e) => e.target.value && movePhotos(photos.filter((x) => picked.has(x.id)), e.target.value)}><option value="">{tx("Move to…")}</option>{d.sets.filter((x) => x.id !== currentSet.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
-                      <button type="button" className="danger" onClick={() => removePhotos(photos.filter((x) => picked.has(x.id)))}><Icon name="x" />{tx("Delete")}</button>
-                    </div>
-                  )}
+
                 </>
               )}
 

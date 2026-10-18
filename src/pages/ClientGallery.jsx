@@ -37,20 +37,24 @@ export default function ClientGallery() {
   const [ask, setAsk] = useState(null);          // waiting for a name before saving a heart or note
   const [note, setNote] = useState("");
   const [panel, setPanel] = useState(false);
-  const [pin, setPin] = useState("");
+  const [pin, setPin] = useState(() => readLS("jv-gpin-" + token));
   const [pinAsk, setPinAsk] = useState(null);     // waiting for the download PIN
   const [zipping, setZipping] = useState(null);   // { done, total }
 
-  const load = useCallback(async (password) => {
+  const forget = useCallback(() => { try { localStorage.removeItem("jv-gpw-" + token); } catch { /* fine */ } }, [token]);
+  const load = useCallback(async (password, tried = false) => {
     setState((s) => ({ ...s, loading: true }));
     const { data, error } = await supabase.rpc("open_gallery", { p_token: token, p_password: password || null });
     if (error) return setState({ error: "missing" });
     if (!data) return setState({ error: "missing" });
+    if (data.error === "password" && password && !tried) { forget(); return load("", true); }
     if (data.error) return setState({ error: data.error, title: data.title, cover: data.cover_path, date: data.event_date, studio: data.studio, tried: !!password });
+    // Remember the password on this device, so a refresh never asks again
+    if (password) writeLS("jv-gpw-" + token, password);
     setPass(password || "");
     setState({ g: data });
-  }, [token]);
-  useEffect(() => { load(); }, [load]);
+  }, [token, forget]);
+  useEffect(() => { load(readLS("jv-gpw-" + token) || undefined); }, [load, token]);
 
   const g = state.g;
   const d = useMemo(() => g && ({
@@ -86,7 +90,7 @@ export default function ClientGallery() {
   const withPin = (args, go) => needName(async (nm) => {
     const res = await clearance(args, undefined, nm);
     if (res === "ok") return go();
-    if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm); if (r2 === "ok") { setPin(p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
+    if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm); if (r2 === "ok") { setPin(p2); writeLS("jv-gpin-" + token, p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
     window.alert?.(tx("Downloads are switched off for this gallery."));
   });
   const saveOne = (p) => withPin({ p_photo: p.id, p_kind: "photo", p_files: 1, p_label: p.name || "" }, () => {
