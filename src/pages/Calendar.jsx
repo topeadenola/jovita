@@ -18,7 +18,7 @@ const startOfWeek = (d) => { const x = startOfDay(d); const k = (x.getDay() + 6)
 const sameDay = (a, b) => isoDay(a) === isoDay(b);
 const timeOf = (d) => fmt({ hour: "numeric", minute: "2-digit" }).format(d);
 const KINDS = [["session", "Sessions"], ["shoot", "Shoots"], ["due", "Payments due"], ["google", "Google Calendar"]];
-const VIEWS = [["month", "Month"], ["week", "Week"], ["day", "Day"], ["list", "List"]];
+const VIEWS = [["year", "Year"], ["month", "Month"], ["week", "Week"], ["day", "Day"], ["list", "List"]];
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } };
 
@@ -63,7 +63,7 @@ export default function Calendar() {
   }, [bookings, calendar_busy, projects, invoices, client, show]);
 
   const onDay = (d) => events.filter((e) => e.start < addD(startOfDay(d), 1) && e.end > startOfDay(d) && !(e.allDay && e.end <= startOfDay(d)));
-  const step = (n) => setCursor((c) => view === "month" ? new Date(c.getFullYear(), c.getMonth() + n, 1) : addD(c, (view === "week" ? 7 : view === "day" ? 1 : 30) * n));
+  const step = (n) => setCursor((c) => view === "year" ? new Date(c.getFullYear() + n, c.getMonth(), 1) : view === "month" ? new Date(c.getFullYear(), c.getMonth() + n, 1) : addD(c, (view === "week" ? 7 : view === "day" ? 1 : 30) * n));
   const today = () => setCursor(startOfDay(new Date()));
   const openDay = (d) => { setCursor(startOfDay(d)); setView("day"); };
   const newAt = (d, hour) => setBook({ date: isoDay(d), time: hour != null ? `${String(hour).padStart(2, "0")}:00` : "10:00" });
@@ -74,12 +74,12 @@ export default function Calendar() {
       if (e.target.closest("input,textarea,select,[contenteditable]") || pick || book || e.metaKey || e.ctrlKey) return;
       if (e.key === "ArrowLeft") step(-1); else if (e.key === "ArrowRight") step(1);
       else if (e.key === "t") today();
-      else { const v = { m: "month", w: "week", d: "day", l: "list" }[e.key]; if (v) setView(v); }
+      else { const v = { y: "year", m: "month", w: "week", d: "day", l: "list" }[e.key]; if (v) setView(v); }
     };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
   });
 
-  const title = view === "month" || view === "list" ? fmt({ month: "long", year: "numeric" }).format(cursor)
+  const title = view === "year" ? String(cursor.getFullYear()) : view === "month" || view === "list" ? fmt({ month: "long", year: "numeric" }).format(cursor)
     : view === "week" ? (() => { const a = startOfWeek(cursor), b = addD(a, 6); return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${fmt({ month: "long", year: "numeric" }).format(b)}` : `${fmt({ day: "numeric", month: "short" }).format(a)} – ${fmt({ day: "numeric", month: "short", year: "numeric" }).format(b)}`; })()
     : fmt({ weekday: "long", day: "numeric", month: "long" }).format(cursor);
 
@@ -115,6 +115,7 @@ export default function Calendar() {
 
       <div className={`cal-body v-${view}`}>
         <div className="cal-main card">
+          {view === "year" && <Year cursor={cursor} now={now} events={events} openDay={openDay} openMonth={(d) => { setCursor(d); setView("month"); }} />}
           {view === "month" && <Month cursor={cursor} now={now} onDay={onDay} onPick={setPick} openDay={openDay} newAt={newAt} />}
           {(view === "week" || view === "day") && <TimeGrid days={view === "week" ? Array.from({ length: 7 }, (_, i) => addD(startOfWeek(cursor), i)) : [cursor]} now={now} onDay={onDay} onPick={setPick} newAt={newAt} openDay={openDay} />}
           {view === "list" && <List from={new Date(cursor.getFullYear(), cursor.getMonth(), 1)} events={events} onPick={setPick} />}
@@ -134,7 +135,7 @@ export default function Calendar() {
       </div>
 
       <div className="cal-google"><GoogleCard /></div>
-      <p className="sub cal-keys">{tx("Tip: use ← → to move, T for today, and M, W, D, L to switch views.")}</p>
+      <p className="sub cal-keys">{tx("Tip: use ← → to move, T for today, and Y, M, W, D, L to switch views.")}</p>
 
       {pick && <EventCard e={pick} onClose={() => setPick(null)}
         openProject={(id) => { setPick(null); setOpenProject(id); }} openInvoice={(id) => { setPick(null); setOpenInvoice(id); }}
@@ -159,7 +160,7 @@ function Month({ cursor, now, onDay, onPick, openDay, newAt }) {
   const days = Array.from({ length: weeks * 7 }, (_, i) => addD(start, i));
   const names = Array.from({ length: 7 }, (_, i) => fmt({ weekday: "short" }).format(addD(start, i)));
   return (
-    <div className="cal-month" style={{ gridTemplateRows: `auto repeat(${weeks}, minmax(112px, 1fr))` }}>
+    <div className="cal-month" style={{ gridTemplateRows: `auto repeat(${weeks}, minmax(0, 1fr))` }}>
       {names.map((n) => <div key={n} className="cal-dow">{n}</div>)}
       {days.map((d) => {
         const list = onDay(d), out = d.getMonth() !== cursor.getMonth(), isToday = sameDay(d, now), past = d < startOfDay(now);
@@ -261,6 +262,39 @@ function List({ from, events, onPick }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// The whole year: 12 small months, busy days marked, how much is on each month
+function Year({ cursor, now, events, openDay, openMonth }) {
+  const y = cursor.getFullYear();
+  const byDay = {};
+  events.forEach((e) => { const k = isoDay(e.start); (byDay[k] = byDay[k] || new Set()).add(e.kind); });
+  return (
+    <div className="cal-year">
+      {Array.from({ length: 12 }, (_, mi) => {
+        const m = new Date(y, mi, 1), start = startOfWeek(m);
+        const weeks = Math.ceil(((m - start) / DAY + new Date(y, mi + 1, 0).getDate()) / 7);
+        const n = events.filter((e) => e.start.getFullYear() === y && e.start.getMonth() === mi && (e.kind === "session" || e.kind === "shoot")).length;
+        const isNow = now.getFullYear() === y && now.getMonth() === mi;
+        return (
+          <div key={mi} className={`cal-ym${isNow ? " now" : ""}`}>
+            <button type="button" className="cal-ym-head" onClick={() => openMonth(m)}><b>{fmt({ month: "long" }).format(m)}</b>{n > 0 && <small>{txn(n, "{n} session", "{n} sessions")}</small>}</button>
+            <div className="cal-ym-grid">
+              {Array.from({ length: 7 }, (_, i) => <small key={i}>{fmt({ weekday: "narrow" }).format(addD(start, i))}</small>)}
+              {Array.from({ length: weeks * 7 }, (_, i) => addD(start, i)).map((d) => {
+                const kinds = byDay[isoDay(d)];
+                return d.getMonth() !== mi ? <span key={+d} /> : (
+                  <button type="button" key={+d} className={`${sameDay(d, now) ? "today" : ""} ${kinds ? "busy" : ""}`} onClick={() => openDay(d)} title={kinds ? [...kinds].map((k) => tx(KINDS.find((x) => x[0] === k)[1])).join(", ") : undefined}>
+                    {d.getDate()}{kinds && <span className="ym-dots">{[...kinds].slice(0, 3).map((k) => <i key={k} className={`k-${k}`} />)}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

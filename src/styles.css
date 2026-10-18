@@ -1200,3 +1200,30 @@ body{transition:background-color .2s}
 .cal-card-rows .ic{width:17px;height:17px;color:var(--muted);flex:none}
 .cal-card-acts{display:flex;gap:8px;flex-wrap:wrap;padding:6px 20px 20px}
 .danger-text{color:var(--danger)}
+/* Calendar fits the screen: the whole month visible without scrolling */
+.cal-title h1{font-size:clamp(26px,2.6vw,36px)}
+.cal-top{margin-bottom:10px}
+.cal-filters{margin-bottom:10px}
+.cal-body.v-month .cal-main,.cal-body.v-year .cal-main{height:max(440px,calc(100vh - 262px))}
+.cal-body.v-month .cal-month{height:100%;min-height:0}
+.cal-month .cal-cell{overflow:hidden;min-height:0}
+.cal-month .cal-cell-evs{overflow:hidden;flex:1;min-height:0}
+@media (max-width:760px){.cal-body.v-month .cal-main{height:auto}.cal-body.v-month .cal-month{height:auto}}
+/* Year */
+.cal-year{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 18px;padding:16px 18px;height:100%;overflow:auto;align-content:start}
+@media (max-width:1300px){.cal-year{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.cal-year{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cal-ym{padding:8px;border-radius:14px}
+.cal-ym.now{background:color-mix(in srgb,var(--marigold) 9%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--marigold) 45%,transparent)}
+.cal-ym-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;border:0;background:none;padding:2px 4px 6px;cursor:pointer;color:var(--ink);font-family:var(--font-body)}
+.cal-ym-head b{font:700 15px var(--font-display);text-transform:capitalize}
+.cal-ym-head small{font-size:11px;font-weight:700;color:var(--marigold-text)}
+.cal-ym-head:hover b{text-decoration:underline}
+.cal-ym-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center}
+.cal-ym-grid small{font:700 10px var(--font-body);color:var(--muted);padding:2px 0;text-transform:uppercase}
+.cal-ym-grid button{position:relative;aspect-ratio:1;border:0;background:none;border-radius:8px;font:600 11.5px var(--font-body);color:var(--ink);cursor:pointer;padding:0}
+.cal-ym-grid button:hover{background:var(--sunken)}
+.cal-ym-grid button.busy{background:color-mix(in srgb,var(--marigold) 14%,transparent);font-weight:800}
+.cal-ym-grid button.today{background:var(--marigold);color:var(--on-marigold)}
+.ym-dots{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:2px}
+.ym-dots i{width:4px;height:4px;border-radius:50%;background:var(--k)}
