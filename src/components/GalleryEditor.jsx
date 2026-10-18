@@ -466,12 +466,15 @@ export default function GalleryEditor({ id, onClose }) {
       const { data: inv, error } = await supabase.from("gallery_invites").upsert([{ studio_id: studio.id, gallery_id: id, email: to.email, name: to.name }], { onConflict: "gallery_id,email", ignoreDuplicates: false }).select().single();
       if (error) throw error;
       const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id });
+      const link = galleryLink(inv.token);
       if (!r.ok) {
-        try { await navigator.clipboard.writeText(galleryLink(inv.token)); } catch { /* fine */ }
-        toast(tx("{reason} The gallery link is copied so you can send it yourself.", { reason: r.reason }));
-      } else toast(tx("Gallery sent to {name}", { name: to.name || to.email }), true);
-      setSending(null);
-    } catch (e) { toast(e.message); setSending((x) => x && { ...x, busy: false }); }
+        try { await navigator.clipboard.writeText(link); } catch { /* fine */ }
+        setSending((x) => x && { ...x, busy: false, result: { ok: false, to, link, reason: r.reason } });
+      } else {
+        setSending((x) => x && { ...x, busy: false, result: { ok: true, to, link } });
+        toast(tx("Sent to {name}", { name: to.name || to.email }), true);
+      }
+    } catch (e) { setSending((x) => x && { ...x, busy: false, result: { ok: false, to, reason: e.message } }); }
   }
   const copyLink = async () => {
     if (!published) await publish(true);
@@ -807,6 +810,23 @@ export default function GalleryEditor({ id, onClose }) {
 
       {sending && (
         <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setSending(null)}>
+          {sending.result ? (
+            <div className="modal" role="dialog" aria-modal="true" aria-label={sending.result.ok ? tx("Sent") : tx("Not sent")}>
+              <div className={`send-result ${sending.result.ok ? "ok" : "bad"}`}>
+                <span className="send-ic"><Icon name={sending.result.ok ? "check" : "x"} /></span>
+                <h2 className="h-m">{sending.result.ok ? tx("Sent!") : tx("The email didn't go out")}</h2>
+                <p className="sub">{sending.result.ok
+                  ? tx("{name} will get an email with their gallery link in a minute. You'll see in Activity when they open it.", { name: sending.result.to.name || sending.result.to.email })
+                  : tx("Reason: {reason}", { reason: sending.result.reason || tx("unknown") })}</p>
+              </div>
+              {sending.result.link && <div className="field"><label>{sending.result.ok ? tx("Their link") : tx("Send them this link yourself (it's copied)")}</label>
+                <div className="ge-slug"><input readOnly value={sending.result.link} onFocus={(e) => e.target.select()} /><button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(sending.result.link); toast(tx("Link copied"), true); } catch { /* shown */ } }}>{tx("Copy")}</button></div></div>}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setSending({ ...sending, result: null, who: "new", name: "", email: "" })}>{tx("Send to someone else")}</button>
+                <button type="button" className="btn btn-primary" onClick={() => setSending(null)}>{tx("Done")}</button>
+              </div>
+            </div>
+          ) : (
           <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); sendGallery(); }}>
             <div className="set-head"><h2 className="h-m">{tx("Send \"{title}\"", { title: d.title || tx("this gallery") })}</h2><button type="button" className="x" onClick={() => setSending(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
             <div className="field"><label htmlFor="gs-who">{tx("Send to")}</label>
@@ -833,6 +853,7 @@ export default function GalleryEditor({ id, onClose }) {
               <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending…") : tx("Send")}</button>
             </div>
           </form>
+          )}
         </div>
       )}
 

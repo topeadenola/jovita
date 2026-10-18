@@ -235,6 +235,7 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, messageId: id });
   } catch (e) {
+    console.error("send-email failed:", (e as Error).message);
     return json({ error: (e as Error).message }, 400);
   }
 });
