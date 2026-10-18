@@ -199,7 +199,7 @@ export default function ClientGallery() {
         favs={mine} onFav={favOn ? toggleFav : undefined} notes={noteCount} />
       {onlyFavs && !photos.length && <p className="gp-empty">{tx("No favourites yet. Tap the heart on the photos you love.")}</p>}
       {cur && (
-        <div className="cg-light" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
+        <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
           {isVideo(cur.path) ? <video key={cur.path} src={publicUrl(cur.path)} controls autoPlay playsInline poster={thumbUrl(cur.path)} />
             : isRaw(cur.path) ? <img src={thumbUrl(cur.path)} alt={cur.name || ""} /> : <img src={publicUrl(cur.path)} alt={cur.name || ""} />}
           {panel && (
@@ -219,7 +219,7 @@ export default function ClientGallery() {
           {open > 0 && <button type="button" className="cg-prev" onClick={() => setOpen(open - 1)} aria-label={tx("Previous photo")}>‹</button>}
           {open < photos.length - 1 && <button type="button" className="cg-next" onClick={() => setOpen(open + 1)} aria-label={tx("Next photo")}>›</button>}
           <div className="cg-lb-tools" onClick={(e) => e.stopPropagation()}>
-            <span>{cur.name || ""} · {open + 1} / {photos.length}</span>
+            <span className="cg-lb-name">{cur.name ? <b>{cur.name}</b> : null}<small>{open + 1} / {photos.length}</small></span>
             {favOn && <button type="button" className="btn btn-secondary btn-sm" aria-pressed={mine.has(cur.id)} onClick={() => toggleFav(cur)}><Icon name="heart" />{mine.has(cur.id) ? tx("Favourite") : tx("Add to favourites")}</button>}
             <button type="button" className="btn btn-secondary btn-sm" aria-pressed={panel} onClick={() => setPanel(!panel)}><Icon name="chat" />{noteCount[cur.id] ? tx("Notes ({n})", { n: noteCount[cur.id] }) : tx("Leave a note")}</button>
             {dl.on && <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveOne(cur)}><Icon name="download" />{tx("Download")}</button>}

@@ -979,3 +979,11 @@ body{transition:background-color .2s}
 .gp-item .gp-notecount{bottom:30px}
 .ge-hint{font-size:13px;margin:-6px 0 0}
 .ge-photo .ge-hit[aria-pressed="true"]{outline:none}
+/* Client full-size view: calm, solid background, photo framed with space around it, name + number underneath */
+.cg-view{background:#0F0B13;padding:56px 72px 96px}
+.cg-view>img,.cg-view>video{max-width:min(86vw,1400px);max-height:calc(100vh - 170px);box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.cg-view .cg-lb-tools{bottom:20px;background:rgba(255,255,255,.06);padding:8px 10px 8px 16px}
+.cg-lb-name{display:flex;flex-direction:column;line-height:1.2;margin-right:6px}
+.cg-lb-name b{font:700 14px/1.2 ui-monospace,Menlo,monospace;color:#fff}
+.cg-lb-name small{font-size:12px;opacity:.7}
+@media (max-width:700px){.cg-view{padding:56px 10px 150px}.cg-view>img,.cg-view>video{max-width:100%;max-height:calc(100vh - 230px)}.cg-view .cg-prev,.cg-view .cg-next{top:auto;bottom:96px}}
