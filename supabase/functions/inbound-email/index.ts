@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
     const owner = ur.ok ? await ur.json() : null;
     const to = studio.reply_email || owner?.email;
-    const apiKey = env("BREVO_API_KEY");
+    const apiKey = (env("BREVO_API_KEY") || env("BREVO"));
     if (to && apiKey) {
       const who = fromName ? `${fromName} <${from}>` : from;
       const html = `<div style="font:15px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#261433;max-width:600px">

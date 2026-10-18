@@ -65,7 +65,7 @@ const one = async (p: Promise<unknown[]>, what: string) => {
 
 type Who = { email: string; name?: string };
 async function brevo(templateId: number, to: Who, params: Record<string, unknown>, sender = FROM, replyTo?: Who, bcc?: Who) {
-  const key = env("BREVO_API_KEY");
+  const key = (env("BREVO_API_KEY") || env("BREVO"));
   if (!key) throw new Error("Email isn't set up on the server yet (missing BREVO_API_KEY).");
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
         ${logo ? `<img src="${logo}" width="44" height="44" alt="" style="border-radius:10px;margin-bottom:12px">` : ""}
         <div style="white-space:pre-wrap">${esc(text)}</div>
         <p style="color:#5E5069;font-size:13px;margin-top:24px">${esc(studio.name || "")} · sent with Jovita. Just reply to this email.</p></div>`;
-      const key = env("BREVO_API_KEY");
+      const key = (env("BREVO_API_KEY") || env("BREVO"));
       if (!key) throw new Error("Email isn't set up on the server yet (missing BREVO_API_KEY).");
       const r = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST", headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" },
