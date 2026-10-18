@@ -1,12 +1,12 @@
 import { supabase } from "../supabase";
 import { useEffect, useState } from "react";
-import { Thumb } from "../components/GalleryEditor";
+import { Thumb, deleteGalleryAll } from "../components/GalleryEditor";
 import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { CloseBtn, Empty, Modal, Pill, useToast } from "../components/ui";
 import { addDays, fdate, first } from "../lib/format";
-import { tx } from "../lib/i18n";
+import { tx, txn } from "../lib/i18n";
 
 const TONES = [["var(--tile1)", "var(--tile2)", "var(--tile4)"], ["var(--tile6)", "var(--tile3)", "var(--tile1)"], ["var(--tile3)", "var(--tile5)", "var(--tile4)"], ["var(--tile4)", "var(--tile1)", "var(--tile5)"]];
 const tone = (id) => TONES[id.charCodeAt(0) % TONES.length];
@@ -36,10 +36,18 @@ function NewGallery({ onClose, onCreated }) {
 }
 
 export default function Galleries() {
-  const { galleries, client, update } = useData();
+  const { galleries, client, update, remove } = useData();
   const { q, setOpenGallery } = useUi();
   const toast = useToast();
   const [form, setForm] = useState(false);
+  const [del, setDel] = useState(null); // gallery to delete
+  const [busy, setBusy] = useState(false);
+  const doDelete = async () => {
+    setBusy(true);
+    try { const n = await deleteGalleryAll(del.id, remove); toast(txn(n, "Gallery deleted with {n} photo", "Gallery deleted with {n} photos"), true); setDel(null); }
+    catch (e) { toast(tx("Couldn't delete the gallery: {err}", { err: e.message })); }
+    setBusy(false);
+  };
   // Galleries without a chosen cover show their first photo
   const [firsts, setFirsts] = useState({});
   const missing = galleries.filter((g) => !g.cover_path && g.photo_count > 0).map((g) => g.id).join(",");
@@ -82,11 +90,21 @@ export default function Galleries() {
                     : <button className="btn btn-secondary btn-sm" onClick={async () => { await update("galleries", g.id, { expires_on: addDays(30) }); toast(tx("Open until {fdate}", {
                     fdate: fdate(addDays(30))
                   })); }}>{tx("Extend 30 days")}</button>}
+                  <button className="btn btn-ghost btn-sm gal-del" onClick={() => setDel(g)} aria-label={tx("Delete {title}", { title: g.title })} title={tx("Delete gallery")}><Icon name="trash" /></button>
                 </div>
               </div>
             </div>
           ); })}
         </div>
+      )}
+      {del && (
+        <Modal label={tx("Delete gallery")} onClose={() => !busy && setDel(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 className="h-l">{tx("Delete \"{name}\"?", { name: del.title })}</h2><CloseBtn onClick={() => !busy && setDel(null)} /></div>
+            <p className="sub">{txn(del.photo_count || 0, "The gallery and its {n} photo will be deleted for good, with its sets, favourites, notes and client links.", "The gallery and its {n} photos will be deleted for good, with its sets, favourites, notes and client links.")}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setDel(null)}>{tx("Cancel")}</button><button type="button" className="btn btn-danger" disabled={busy} onClick={doDelete}><Icon name="trash" />{busy ? tx("Deleting…") : tx("Delete gallery")}</button></div>
+          </div>
+        </Modal>
       )}
       {form && <NewGallery onClose={() => setForm(false)} onCreated={(gid) => { setForm(false); setOpenGallery(gid); }} />}
     </>

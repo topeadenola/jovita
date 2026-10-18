@@ -998,3 +998,12 @@ body{transition:background-color .2s}
 .send-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;color:#fff;background:#2E8B57}
 .send-result.bad .send-ic{background:#b42318}
 .send-ic .ic{width:28px;height:28px}
+/* Deleting sets and galleries */
+.btn-danger{background:var(--danger,#B42F26);color:#fff;border-color:var(--danger,#B42F26)}
+.btn-danger:hover{filter:brightness(1.08)}
+.ge-del-opts{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.ge-del-opts .btn{justify-content:center}
+.ge-danger{margin-top:28px;padding:16px;border:1px solid var(--danger-tint,#FCE6E3);background:color-mix(in srgb,var(--danger-tint,#FCE6E3) 45%,transparent);border-radius:14px;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ge-danger b{color:var(--danger,#B42F26)}
+.ge-danger .sub{font-size:13px;margin:4px 0 0}
+.gal-del{margin-left:auto;color:var(--danger,#B42F26)}

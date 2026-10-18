@@ -21,6 +21,19 @@ export const isVideo = (path) => VIDEO_EXT.includes(String(path || "").split("."
 // Download with the original file name (IMG_0123.jpg), not the storage name
 export const downloadUrl = (path, name) => (path ? publicUrl(path) + (name ? "?download=" + encodeURIComponent(name) : "") : "");
 export const thumbPath = (path) => String(path || "").replace(/\.[^./]+$/, ".thumb.jpg");
+// Delete a whole gallery: its photos, sets, favourites, notes and invites go with it (database cascade); files are cleared in the background
+export async function deleteGalleryAll(gid, remove) {
+  const paths = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase.from("gallery_photos").select("path").eq("gallery_id", gid).range(from, from + 999);
+    if (!data?.length) break;
+    data.forEach((r) => paths.push(r.path, thumbPath(r.path)));
+    if (data.length < 1000) break;
+  }
+  await remove("galleries", gid);
+  (async () => { for (let i = 0; i < paths.length; i += 500) await supabase.storage.from(BUCKET).remove(paths.slice(i, i + 500)).catch(() => {}); })();
+  return paths.length / 2;
+}
 export const thumbUrl = (path) => (path ? publicUrl(thumbPath(path)) : "");
 // <Thumb> shows the light copy, and falls back to the original for photos uploaded before thumbnails existed
 export function Thumb({ path, alt = "", thumb, ...rest }) {
@@ -228,6 +241,9 @@ export default function GalleryEditor({ id, onClose }) {
   const [uploading, setUploading] = useState(null);
   const [over, setOver] = useState(false);
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
+  const [delSet, setDelSet] = useState(null); // the set being deleted
+  const [delGal, setDelGal] = useState(false); // "Delete gallery" confirm open
+  const [delBusy, setDelBusy] = useState(false);
   const [device, setDevice] = useState("desktop");
   const [preview, setPreview] = useState(false);
   const [picked, setPicked] = useState(() => new Set()); // selected photo ids
@@ -291,11 +307,11 @@ export default function GalleryEditor({ id, onClose }) {
   const favCount = useMemo(() => favs.reduce((m, f) => ({ ...m, [f.photo_id]: (m[f.photo_id] || 0) + 1 }), {}), [favs]);
   const noteCount = useMemo(() => comments.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [comments]);
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape" && !setModal && !preview && viewer < 0) { flush(); onClose(); } };
+    const h = (e) => { if (e.key === "Escape" && !setModal && !delSet && !delGal && !preview && viewer < 0) { flush(); onClose(); } };
     document.addEventListener("keydown", h);
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
-  }, [flush, onClose, setModal, preview, viewer]);
+  }, [flush, onClose, setModal, delSet, delGal, preview, viewer]);
 
   const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos && (!onlyFavs || favCount[p.id])), [photos, sub.photos, onlyFavs, favCount]);
   if (!g || !d) return null;
@@ -409,9 +425,9 @@ export default function GalleryEditor({ id, onClose }) {
     setComments((c) => [...c, data]); setReply("");
   };
   // Delete fast: photos leave the screen at once, then go in batches (100 at a time, several in parallel)
-  async function removePhotos(list) {
+  async function removePhotos(list, ask = true) {
     if (!list.length) return;
-    if (!window.confirm(list.length === 1 ? tx("Remove this photo from the gallery?") : tx("Remove {n} photos from the gallery?", { n: list.length }))) return;
+    if (ask && !window.confirm(list.length === 1 ? tx("Remove this photo from the gallery?") : tx("Remove {n} photos from the gallery?", { n: list.length }))) return;
     const gone = new Set(list.map((p) => p.id));
     setPhotos((ps) => ps.filter((p) => !gone.has(p.id)));
     setPicked(new Set()); setViewer(-1);
@@ -493,14 +509,24 @@ export default function GalleryEditor({ id, onClose }) {
     else { const nid = uid(); set("sets", [...d.sets, { id: nid, name, description: setModal.description }]); setSub((x) => ({ ...x, photos: nid })); }
     setSetModal(null);
   }
-  async function deleteSet(s) {
-    if (d.sets.length === 1) return toast(tx("A gallery needs at least one set."));
-    const n = photos.filter((p) => p.set_id === s.id).length;
-    if (!window.confirm(n ? tx("Delete \"{name}\"? Its {n} photos move to \"{first}\".", { name: s.name, n, first: d.sets.find((x) => x.id !== s.id).name }) : tx("Delete \"{name}\"?", { name: s.name }))) return;
-    const to = d.sets.find((x) => x.id !== s.id).id;
-    if (n) { await supabase.from("gallery_photos").update({ set_id: to }).eq("gallery_id", id).eq("set_id", s.id); await loadPhotos(); }
-    set("sets", d.sets.filter((x) => x.id !== s.id));
-    setSub((x) => ({ ...x, photos: to }));
+  // Delete a set (folder): choose to delete its photos too, or keep them by moving them to another set
+  const deleteSet = (s) => setDelSet(s);
+  async function doDeleteSet(mode) {
+    const s = delSet; setDelSet(null);
+    const inSet = photos.filter((p) => p.set_id === s.id);
+    const others = d.sets.filter((x) => x.id !== s.id);
+    if (mode === "photos" && inSet.length) await removePhotos(inSet, false);
+    if (mode === "move" && inSet.length) { await supabase.from("gallery_photos").update({ set_id: others[0].id }).eq("gallery_id", id).eq("set_id", s.id); await loadPhotos(); }
+    if (others.length) { set("sets", others); setSub((x) => ({ ...x, photos: others[0].id })); }
+    else if (mode === "photos") toast(tx("Set emptied. A gallery keeps at least one set."), true);
+  }
+  async function doDeleteGallery() {
+    setDelBusy(true);
+    try {
+      const n = await deleteGalleryAll(id, remove);
+      toast(txn(n, "Gallery deleted with {n} photo", "Gallery deleted with {n} photos"), true);
+      onClose();
+    } catch (e) { toast(tx("Couldn't delete the gallery: {err}", { err: e.message })); setDelBusy(false); }
   }
 
   const RAIL = [["photos", "image", "Photos"], ["design", "edit", "Design"], ["settings", "settings", "Settings"], ["share", "send", "Share"], ["activity", "chart", "Activity"]];
@@ -541,7 +567,7 @@ export default function GalleryEditor({ id, onClose }) {
                   <div key={s.id} className="ge-set" aria-current={sub.photos === s.id}>
                     <button type="button" onClick={() => setSub((x) => ({ ...x, photos: s.id }))}>{s.name} <span className="count">({photos.filter((p) => p.set_id === s.id).length})</span></button>
                     <button type="button" className="ge-mini" onClick={() => setSetModal({ ...s })} aria-label={tx("Edit set {name}", { name: s.name })}><Icon name="edit" /></button>
-                    <button type="button" className="ge-mini" onClick={() => deleteSet(s)} aria-label={tx("Delete set {name}", { name: s.name })}><Icon name="x" /></button>
+                    <button type="button" className="ge-mini" onClick={() => deleteSet(s)} aria-label={tx("Delete set {name}", { name: s.name })} title={tx("Delete set")}><Icon name="trash" /></button>
                   </div>
                 ))}
               </div>
@@ -591,7 +617,7 @@ export default function GalleryEditor({ id, onClose }) {
                       <span className="spacer" />
                       {picked.size === 1 && <button type="button" onClick={() => { const p = photos.find((x) => picked.has(x.id)); set("cover_path", p.path); setPicked(new Set()); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>}
                       {d.sets.length > 1 && <select aria-label={tx("Move to set")} value="" onChange={(e) => e.target.value && movePhotos(photos.filter((x) => picked.has(x.id)), e.target.value)}><option value="">{tx("Move to…")}</option>{d.sets.filter((x) => x.id !== currentSet.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
-                      <button type="button" className="danger" onClick={() => removePhotos(photos.filter((x) => picked.has(x.id)))}><Icon name="x" />{tx("Delete")}</button>
+                      <button type="button" className="danger" onClick={() => removePhotos(photos.filter((x) => picked.has(x.id)))}><Icon name="trash" />{tx("Delete")}</button>
                     </div>
                   )}
                   <div className={`ge-drop ${over ? "on" : ""} ${setPhotosInSet.length || previews.length ? "has" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
@@ -626,7 +652,7 @@ export default function GalleryEditor({ id, onClose }) {
                                   <a role="menuitem" href={downloadUrl(p.path, p.name)} download={p.name} onClick={() => setMenuFor(null)}><Icon name="download" />{tx("Download")}</a>
                                   <button type="button" role="menuitem" onClick={() => { setMenuFor(null); copyNames([p]); }}><Icon name="file" />{tx("Copy file name")}</button>
                                   {d.sets.length > 1 && d.sets.filter((x) => x.id !== p.set_id).map((x) => <button key={x.id} type="button" role="menuitem" onClick={() => { setMenuFor(null); movePhotos([p], x.id); }}><Icon name="folder" />{tx("Move to {name}", { name: x.name })}</button>)}
-                                  <button type="button" role="menuitem" className="danger" onClick={() => { setMenuFor(null); removePhotos([p]); }}><Icon name="x" />{tx("Delete")}</button>
+                                  <button type="button" role="menuitem" className="danger" onClick={() => { setMenuFor(null); removePhotos([p]); }}><Icon name="trash" />{tx("Delete")}</button>
                                 </div>
                               )}
                             </figure>
@@ -684,7 +710,9 @@ export default function GalleryEditor({ id, onClose }) {
                     <input id="ge-tags" value={d.settings.tags.join(", ")} onChange={(e) => setS("tags", e.target.value.split(",").map((s) => s.trimStart()).filter((s, i, a) => s || i === a.length - 1))} placeholder={tx("e.g. wedding, outdoor, summer")} />
                     <span className="help">{tx("Separate with commas. Helps you find galleries later.")}</span></div>
                   <div className="field"><label htmlFor="ge-wm">{tx("Watermark")}</label>
-                    <select id="ge-wm" value={d.settings.watermark} onChange={(e) => setS("watermark", e.target.value)}><option value="none">{tx("No watermark")}</option><option value="studio">{tx("Studio name")} · {studio.name}</option></select></div></>
+                    <select id="ge-wm" value={d.settings.watermark} onChange={(e) => setS("watermark", e.target.value)}><option value="none">{tx("No watermark")}</option><option value="studio">{tx("Studio name")} · {studio.name}</option></select></div>
+                  <div className="ge-danger"><div><b>{tx("Delete this gallery")}</b><p className="sub">{tx("Removes the gallery, all its sets and photos, favourites, notes and links. This can't be undone.")}</p></div>
+                    <button type="button" className="btn btn-danger" onClick={() => setDelGal(true)}><Icon name="trash" />{tx("Delete gallery")}</button></div></>
               )}
               {tab === "settings" && sub.settings === "privacy" && (
                 <><h2 className="h-m">{tx("Privacy")}</h2>
@@ -765,6 +793,30 @@ export default function GalleryEditor({ id, onClose }) {
         </div>
       </div>
 
+      {delSet && (() => { const n = photos.filter((p) => p.set_id === delSet.id).length; const other = d.sets.find((x) => x.id !== delSet.id); return (
+        <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setDelSet(null)} onKeyDown={(e) => e.key === "Escape" && setDelSet(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Delete set")}>
+            <div className="set-head"><h2 className="h-l">{other ? tx("Delete \"{name}\"?", { name: delSet.name }) : tx("Empty \"{name}\"?", { name: delSet.name })}</h2><button type="button" className="x" onClick={() => setDelSet(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
+            <p className="sub">{n ? txn(n, "This set has {n} photo.", "This set has {n} photos.") : tx("This set is empty.")}{!other && " " + tx("A gallery needs at least one set, so the set stays and only its photos are deleted.")}</p>
+            <div className="ge-del-opts">
+              {n > 0 && <button type="button" className="btn btn-danger" onClick={() => doDeleteSet("photos")}><Icon name="trash" />{other ? txn(n, "Delete set and its {n} photo", "Delete set and its {n} photos") : txn(n, "Delete its {n} photo", "Delete all {n} photos")}</button>}
+              {other && <button type="button" className="btn btn-secondary" onClick={() => doDeleteSet("move")}>{n ? tx("Delete set, keep photos (move to \"{first}\")", { first: other.name }) : tx("Delete set")}</button>}
+              <button type="button" className="btn btn-ghost" onClick={() => setDelSet(null)}>{tx("Cancel")}</button>
+            </div>
+          </div>
+        </div>); })()}
+      {delGal && (
+        <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && !delBusy && setDelGal(false)} onKeyDown={(e) => e.key === "Escape" && !delBusy && setDelGal(false)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Delete gallery")}>
+            <div className="set-head"><h2 className="h-l">{tx("Delete \"{name}\"?", { name: d.title })}</h2><button type="button" className="x" disabled={delBusy} onClick={() => setDelGal(false)} aria-label={tx("Close")}><Icon name="x" /></button></div>
+            <p className="sub">{txn(photos.length, "The gallery and its {n} photo will be deleted for good, with its sets, favourites, notes and client links.", "The gallery and its {n} photos will be deleted for good, with its sets, favourites, notes and client links.")}</p>
+            <div className="ge-del-opts">
+              <button type="button" className="btn btn-danger" disabled={delBusy} onClick={doDeleteGallery}><Icon name="trash" />{delBusy ? tx("Deleting…") : tx("Delete gallery")}</button>
+              <button type="button" className="btn btn-ghost" disabled={delBusy} onClick={() => setDelGal(false)}>{tx("Cancel")}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {setModal && (
         <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setSetModal(null)}>
           <form className="modal" role="dialog" aria-modal="true" aria-label={setModal.id ? tx("Edit set") : tx("New photo set")} onSubmit={(e) => { e.preventDefault(); saveSet(); }}>
@@ -808,7 +860,7 @@ export default function GalleryEditor({ id, onClose }) {
             <span><b style={{ textTransform: "uppercase" }}>{setPhotosInSet[viewer].name}</b> · {viewer + 1} / {setPhotosInSet.length}</span>
             <a className="btn btn-secondary btn-sm" href={downloadUrl(setPhotosInSet[viewer].path, setPhotosInSet[viewer].name)} download={setPhotosInSet[viewer].name}><Icon name="download" />{tx("Download")}</a>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", setPhotosInSet[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="x" />{tx("Delete")}</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="trash" />{tx("Delete")}</button>
           </div>
         </div>
       )}
