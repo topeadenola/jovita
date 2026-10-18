@@ -464,38 +464,56 @@ export default function GalleryEditor({ id, onClose }) {
     toast(next ? tx("Gallery published") : tx("Gallery moved back to draft"), next);
   }
   // Send the gallery to an existing client or a new contact, by email from Jovita (publishes it first)
+  // People to send to: picked from contacts and/or typed or pasted emails ("Ada <ada@x.com>, bayo@y.com" all work)
+  const EMAIL = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+  function parseEmails(text) {
+    const out = [], bad = [];
+    String(text || "").split(/[\n,;]+/).map((x) => x.trim()).filter(Boolean).forEach((part) => {
+      const m = part.match(/^(.*?)<([^>]+)>$/);
+      const words = m ? [m[2]] : part.split(/\s+/);
+      const email = (m ? m[2] : words.find((w) => w.includes("@")) || "").trim().toLowerCase();
+      const name = m ? m[1].trim().replace(/^"|"$/g, "") : words.filter((w) => !w.includes("@")).join(" ");
+      if (EMAIL.test(email)) out.push({ email, name: name || clients.find((c) => (c.email || "").toLowerCase() === email)?.name || "" }); else bad.push(part);
+    });
+    return { out, bad };
+  }
+  const addTo = (list) => setSending((x) => { const have = new Set(x.to.map((t) => t.email)); return { ...x, to: [...x.to, ...list.filter((t) => !have.has(t.email) && have.add(t.email))] }; });
+  function addPasted() {
+    const { out, bad } = parseEmails(sending.paste);
+    if (out.length) addTo(out);
+    setSending((x) => ({ ...x, paste: bad.join(", ") }));
+    if (bad.length) toast(txn(bad.length, "{n} address doesn't look right", "{n} addresses don't look right"));
+  }
+  // Send the gallery to everyone on the list, each with their own link (publishes it first)
   async function sendGallery() {
     const s0 = sending;
-    let to = null;
-    if (s0.who === "new") {
-      const email = s0.email.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast(tx("Add a valid email address."));
-      to = { email, name: s0.name.trim() };
-    } else {
-      const cl = client(s0.who);
-      if (!cl?.email) return toast(tx("Add an email for {name} in Clients first.", { name: cl?.name || tx("this client") }));
-      to = { email: cl.email.toLowerCase(), name: cl.name };
-    }
-    setSending({ ...s0, busy: true });
+    let list = s0.to;
+    if (s0.paste.trim()) { const { out, bad } = parseEmails(s0.paste); if (bad.length) return toast(tx("Fix or remove: {list}", { list: bad.join(", ") })); const have = new Set(list.map((t) => t.email)); list = [...list, ...out.filter((t) => !have.has(t.email))]; }
+    if (!list.length) return toast(tx("Pick a contact or type an email address."));
+    setSending({ ...s0, to: list, paste: "", busy: true, progress: 0 });
     try {
       await flush();
-      if (s0.who === "new" && s0.save) {
-        const exists = clients.find((x) => (x.email || "").toLowerCase() === to.email);
-        if (!exists) await insert("clients", { name: to.name || to.email.split("@")[0], email: to.email, phone: "", city: "", status: "client" });
+      if (s0.save) {
+        const known = new Set(clients.map((x) => (x.email || "").toLowerCase()));
+        for (const t of list) if (!t.cid && !known.has(t.email)) { await insert("clients", { name: t.name || t.email.split("@")[0], email: t.email, phone: "", city: "", status: "client" }); known.add(t.email); }
       }
       if (!published) await publish(true);
-      const { data: inv, error } = await supabase.from("gallery_invites").upsert([{ studio_id: studio.id, gallery_id: id, email: to.email, name: to.name }], { onConflict: "gallery_id,email", ignoreDuplicates: false }).select().single();
-      if (error) throw error;
-      const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id });
-      const link = galleryLink(inv.token);
-      if (!r.ok) {
-        try { await navigator.clipboard.writeText(link); } catch { /* fine */ }
-        setSending((x) => x && { ...x, busy: false, result: { ok: false, to, link, reason: r.reason } });
-      } else {
-        setSending((x) => x && { ...x, busy: false, result: { ok: true, to, link } });
-        toast(tx("Sent to {name}", { name: to.name || to.email }), true);
-      }
-    } catch (e) { setSending((x) => x && { ...x, busy: false, result: { ok: false, to, reason: e.message } }); }
+      const results = [];
+      let k = 0, done = 0;
+      const one = async (t) => {
+        try {
+          const { data: inv, error } = await supabase.from("gallery_invites").upsert([{ studio_id: studio.id, gallery_id: id, email: t.email, name: t.name }], { onConflict: "gallery_id,email", ignoreDuplicates: false }).select().single();
+          if (error) throw error;
+          const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id });
+          results.push({ to: t, link: galleryLink(inv.token), ok: r.ok, reason: r.reason });
+        } catch (e) { results.push({ to: t, ok: false, reason: e.message }); }
+        done++; setSending((x) => x && { ...x, progress: done });
+      };
+      await Promise.all(Array.from({ length: Math.min(3, list.length) }, async () => { while (k < list.length) await one(list[k++]); }));
+      const sent = results.filter((r) => r.ok).length;
+      setSending((x) => x && { ...x, busy: false, results });
+      if (sent) toast(txn(sent, "Sent to {n} person", "Sent to {n} people"), true);
+    } catch (e) { setSending((x) => x && { ...x, busy: false, results: list.map((t) => ({ to: t, ok: false, reason: e.message })) }); }
   }
   const copyLink = async () => {
     if (!published) await publish(true);
@@ -551,7 +569,7 @@ export default function GalleryEditor({ id, onClose }) {
           <span className="spacer" />
           <button type="button" className="btn btn-secondary btn-sm" onClick={async () => { await flush(); setPreview(true); }}><Icon name="eye" />{tx("Preview")}</button>
           {published && <span className="pill p-success">{tx("Live")}</span>}
-          <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); setSending({ who: g.client_id || clients[0]?.id || "new", name: "", email: "", save: true, busy: false }); }}><Icon name="send" />{tx("Send or share")}</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); const cl = g.client_id && client(g.client_id); setSending({ to: cl?.email ? [{ email: cl.email.toLowerCase(), name: cl.name, cid: cl.id }] : [], paste: "", q: "", save: true, busy: false }); }}><Icon name="send" />{tx("Send or share")}</button>
         </header>
 
         <div className="ge">
@@ -867,50 +885,65 @@ export default function GalleryEditor({ id, onClose }) {
 
       {sending && (
         <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && setSending(null)}>
-          {sending.result ? (
-            <div className="modal" role="dialog" aria-modal="true" aria-label={sending.result.ok ? tx("Sent") : tx("Not sent")}>
-              <div className={`send-result ${sending.result.ok ? "ok" : "bad"}`}>
-                <span className="send-ic"><Icon name={sending.result.ok ? "check" : "x"} /></span>
-                <h2 className="h-m">{sending.result.ok ? tx("Sent!") : tx("The email didn't go out")}</h2>
-                <p className="sub">{sending.result.ok
-                  ? tx("{name} will get an email with their gallery link in a minute. You'll see in Activity when they open it.", { name: sending.result.to.name || sending.result.to.email })
-                  : tx("Reason: {reason}", { reason: sending.result.reason || tx("unknown") })}</p>
+          {sending.results ? (() => { const R = sending.results, ok = R.filter((r) => r.ok), bad = R.filter((r) => !r.ok); return (
+            <div className="modal" role="dialog" aria-modal="true" aria-label={bad.length ? tx("Not all sent") : tx("Sent")}>
+              <div className={`send-result ${ok.length ? "ok" : "bad"}`}>
+                <span className="send-ic"><Icon name={ok.length ? "check" : "x"} /></span>
+                <h2 className="h-m">{!bad.length ? (ok.length === 1 ? tx("Sent!") : tx("Sent to all {n}!", { n: ok.length })) : ok.length ? tx("Sent to {a} of {b}", { a: ok.length, b: R.length }) : tx("The email didn't go out")}</h2>
+                <p className="sub">{ok.length ? tx("Each person gets their own link in a minute. You'll see in Activity when they open it.") : tx("Reason: {reason}", { reason: bad[0]?.reason || tx("unknown") })}</p>
               </div>
-              {sending.result.link && <div className="field"><label>{sending.result.ok ? tx("Their link") : tx("Send them this link yourself (it's copied)")}</label>
-                <div className="ge-slug"><input readOnly value={sending.result.link} onFocus={(e) => e.target.select()} /><button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(sending.result.link); toast(tx("Link copied"), true); } catch { /* shown */ } }}>{tx("Copy")}</button></div></div>}
+              <div className="gs-results">
+                {R.map((r) => (
+                  <div key={r.to.email} className={`gs-res ${r.ok ? "ok" : "bad"}`}>
+                    <Icon name={r.ok ? "check" : "x"} />
+                    <span><b>{r.to.name || r.to.email}</b>{r.to.name && <small>{r.to.email}</small>}{!r.ok && <small className="err">{r.reason || tx("Not sent")}</small>}</span>
+                    {r.link && <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(r.link); toast(tx("Link copied"), true); } catch { /* fine */ } }}><Icon name="link" />{tx("Copy link")}</button>}
+                  </div>
+                ))}
+              </div>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setSending({ ...sending, result: null, who: "new", name: "", email: "" })}>{tx("Send to someone else")}</button>
+                {bad.length > 0 && <button type="button" className="btn btn-secondary" onClick={() => setSending({ ...sending, results: null, to: bad.map((r) => r.to) })}>{tx("Try the failed ones again")}</button>}
+                <button type="button" className="btn btn-ghost" onClick={() => setSending({ ...sending, results: null, to: [], paste: "" })}>{tx("Send to more people")}</button>
                 <button type="button" className="btn btn-primary" onClick={() => setSending(null)}>{tx("Done")}</button>
               </div>
-            </div>
-          ) : (
-          <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); sendGallery(); }}>
+            </div>); })() : (() => {
+            const picked = new Set(sending.to.map((t) => t.email));
+            const ql = sending.q.trim().toLowerCase();
+            const withEmail = clients.filter((cl) => cl.email);
+            const shown = withEmail.filter((cl) => !ql || (cl.name + " " + cl.email).toLowerCase().includes(ql));
+            const toggle = (cl) => { const e = cl.email.toLowerCase(); setSending((x) => ({ ...x, to: picked.has(e) ? x.to.filter((t) => t.email !== e) : [...x.to, { email: e, name: cl.name, cid: cl.id }] })); };
+            const newOnes = sending.to.filter((t) => !t.cid && !withEmail.some((c) => c.email.toLowerCase() === t.email)).length;
+            return (
+          <form className="modal gs-modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); sendGallery(); }}>
             <div className="set-head"><h2 className="h-m">{tx("Send \"{title}\"", { title: d.title || tx("this gallery") })}</h2><button type="button" className="x" onClick={() => setSending(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
-            <div className="field"><label htmlFor="gs-who">{tx("Send to")}</label>
-              <select id="gs-who" value={sending.who} onChange={(e) => setSending({ ...sending, who: e.target.value })}>
-                {clients.map((cl) => <option key={cl.id} value={cl.id}>{cl.name}{cl.email ? ` (${cl.email})` : ` · ${tx("no email")}`}</option>)}
-                <option value="new">{tx("+ Someone new")}</option>
-              </select></div>
-            {sending.who === "new" && (<>
-              <div className="form-grid">
-                <div className="field"><label htmlFor="gs-name">{tx("Name")}</label><input id="gs-name" value={sending.name} onChange={(e) => setSending({ ...sending, name: e.target.value })} autoFocus /></div>
-                <div className="field"><label htmlFor="gs-email">{tx("Email")}</label><input id="gs-email" type="email" value={sending.email} onChange={(e) => setSending({ ...sending, email: e.target.value })} /></div>
-              </div>
-              <label className="check"><input type="checkbox" checked={sending.save} onChange={(e) => setSending({ ...sending, save: e.target.checked })} />{tx("Save them to my clients")}</label>
-            </>)}
+            <div className="field"><label>{sending.to.length ? txn(sending.to.length, "Sending to {n} person", "Sending to {n} people") : tx("Send to")}</label>
+              {sending.to.length > 0 ? <div className="gs-chips">{sending.to.map((t) => <span key={t.email} className="gs-chip" title={t.email}>{t.name || t.email}<button type="button" onClick={() => setSending((x) => ({ ...x, to: x.to.filter((y) => y.email !== t.email) }))} aria-label={tx("Remove {name}", { name: t.name || t.email })}><Icon name="x" /></button></span>)}
+                {sending.to.length > 1 && <button type="button" className="gs-clear" onClick={() => setSending((x) => ({ ...x, to: [] }))}>{tx("Clear all")}</button>}</div>
+                : <p className="sub" style={{ fontSize: 13, margin: 0 }}>{tx("Tick contacts below, or type emails. Everyone gets their own link.")}</p>}
+            </div>
+            <div className="field"><label htmlFor="gs-paste">{tx("Type or paste emails")}</label>
+              <div className="ge-slug"><input id="gs-paste" value={sending.paste} onChange={(e) => setSending({ ...sending, paste: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter" && sending.paste.trim()) { e.preventDefault(); addPasted(); } }} onPaste={(e) => { const t = e.clipboardData.getData("text"); if (/[,;\n]/.test(t)) { e.preventDefault(); const { out, bad } = parseEmails(t); addTo(out); setSending((x) => ({ ...x, paste: bad.join(", ") })); } }} placeholder={tx("ada@mail.com, bayo@mail.com")} />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={addPasted} disabled={!sending.paste.trim()}>{tx("Add")}</button></div>
+              <span className="help">{tx("Separate with commas or new lines. Paste a whole list at once.")}</span></div>
+            {withEmail.length > 0 && <div className="field"><label htmlFor="gs-q">{tx("From your contacts")}</label>
+              <div className="gs-pick">
+                <div className="gs-pick-top"><input id="gs-q" value={sending.q} onChange={(e) => setSending({ ...sending, q: e.target.value })} placeholder={tx("Search contacts")} />
+                  {shown.length > 1 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const all = shown.every((cl) => picked.has(cl.email.toLowerCase())); if (all) setSending((x) => ({ ...x, to: x.to.filter((t) => !shown.some((cl) => cl.email.toLowerCase() === t.email)) })); else addTo(shown.map((cl) => ({ email: cl.email.toLowerCase(), name: cl.name, cid: cl.id }))); }}>{shown.every((cl) => picked.has(cl.email.toLowerCase())) ? tx("Untick these") : tx("Tick all {n}", { n: shown.length })}</button>}</div>
+                <div className="gs-list">{shown.length ? shown.map((cl) => <label key={cl.id} className="gs-row"><input type="checkbox" checked={picked.has(cl.email.toLowerCase())} onChange={() => toggle(cl)} /><span><b>{cl.name}</b><small>{cl.email}</small></span></label>) : <p className="sub" style={{ fontSize: 13, padding: 10 }}>{tx("No contact matches.")}</p>}</div>
+              </div></div>}
+            {newOnes > 0 && <label className="check"><input type="checkbox" checked={sending.save} onChange={(e) => setSending({ ...sending, save: e.target.checked })} />{txn(newOnes, "Save the {n} new person to my clients", "Save the {n} new people to my clients")}</label>}
             <div className="field"><label>{tx("What can they do?")}</label>
               <div className="seg" role="group" aria-label={tx("What can they do?")}>
                 <button type="button" aria-pressed={!d.settings.download.on} onClick={() => setDl("on", false)}>{tx("Pick favourites only")}</button>
                 <button type="button" aria-pressed={!!d.settings.download.on} onClick={() => setDl("on", true)}>{tx("Pick and download")}</button>
               </div>
               <span className="help">{d.settings.download.on ? tx("They can download one by one or everything as a zip, with the original file names.") + (d.settings.download.pin_on ? " " + tx("Download PIN: {pin}", { pin: d.settings.download.pin }) : "") : tx("They can view, heart their picks and leave notes. No downloads, ideal for selecting photos to edit.")}</span></div>
-            <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password ? " " + tx("Remember to send them the password: {pw}", { pw: d.settings.password }) : ""}</p>
+            <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password ? " " + tx("The password ({pw}) is in the email.", { pw: d.settings.password }) : ""}</p>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-ghost" onClick={copyLink}><Icon name="link" />{tx("Copy link to share")}</button>
-              <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending…") : tx("Send")}</button>
+              <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending {a} of {b}…", { a: Math.min((sending.progress || 0) + 1, sending.to.length), b: sending.to.length }) : sending.to.length > 1 ? tx("Send to {n} people", { n: sending.to.length }) : tx("Send")}</button>
             </div>
-          </form>
-          )}
+          </form>); })()}
         </div>
       )}
 
