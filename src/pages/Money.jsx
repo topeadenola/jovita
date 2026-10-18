@@ -7,6 +7,7 @@ import Icon from "../components/Icon";
 import { Avatar, Empty, Pill, Toggle, useToast } from "../components/ui";
 import { balanceOf, fdate, invState, money, totalLine, totalsBy } from "../lib/format";
 import { tx } from "../lib/i18n";
+import { receipts } from "../lib/accounting";
 
 const TABS = ["All", "Overdue", "Due soon", "Part paid", "Check payment", "Sent", "Paid", "Draft", "Quotes"];
 const inTab = (i, tab) => tab === "All" || (tab === "Quotes" ? i.kind === "quote" : i.kind !== "quote" && (invState(i).k === tab || (tab === "Sent" && invState(i).k === "Viewed") || (tab === "Draft" && i.status === "draft")));
@@ -23,7 +24,7 @@ export default function Money() {
     .filter((i) => inTab(i, tab))
     .filter((i) => !ql || (client(i.client_id).name + " " + i.number + " " + i.label).toLowerCase().includes(ql))
     .sort((a, b) => b.number - a.number);
-  const paid = totalLine(totalsBy(invoices.filter((i) => i.status === "paid")), home);
+  const paid = totalLine(totalsBy(invoices.flatMap(receipts)), home); // includes part payments
   const owing = invoices.filter((i) => i.status === "sent" && i.kind !== "quote").map((i) => ({ ...i, amount: balanceOf(i) }));
   const upcoming = totalLine(totalsBy(owing.filter((i) => invState(i).k !== "Overdue")), home);
   const late = totalLine(totalsBy(owing.filter((i) => invState(i).k === "Overdue")), home);

@@ -34,8 +34,20 @@ const day = (s) => String(s || "").slice(0, 10);
 export const paidDay = (i) => day(i.paid_at || i.created_at);
 const inRange = (d, [a, b]) => d >= a && d <= b;
 
+// Every amount that actually came in on an invoice, on the day it came in:
+// each part payment you recorded, plus the rest on the day it was marked paid.
+export function receipts(i) {
+  if (i.kind === "quote") return [];
+  const pays = (Array.isArray(i.payments) ? i.payments : []).filter((p) => Number(p.amount) > 0);
+  const psum = pays.reduce((s, p) => s + Number(p.amount), 0);
+  const out = pays.map((p) => ({ ...i, amount: Number(p.amount), paid_at: p.date || i.paid_at || i.updated_at || i.created_at, part: true, method: p.method }));
+  const recorded = Math.max(Number(i.amount_paid || 0), psum);
+  if (recorded > psum + 0.001) out.push({ ...i, amount: recorded - psum, paid_at: i.updated_at || i.created_at, part: true });
+  if (i.status === "paid") { const rest = Math.max(0, Number(i.amount) - recorded); if (rest > 0.001 || !out.length) out.push({ ...i, amount: rest }); }
+  return out;
+}
 export const paidIn = (invoices, range, cur) =>
-  invoices.filter((i) => i.status === "paid" && i.currency === cur && inRange(paidDay(i), range));
+  invoices.filter((i) => i.currency === cur).flatMap(receipts).filter((r) => inRange(paidDay(r), range));
 export const spentIn = (expenses, range, cur) =>
   expenses.filter((e) => e.currency === cur && inRange(day(e.spent_on), range));
 const sum = (list) => list.reduce((s, x) => s + Number(x.amount || 0), 0);
@@ -48,7 +60,8 @@ export function summary({ invoices, expenses, subscriptions }, periodKey, cur) {
   const exp = spentIn(expenses, range, cur);
   const income = sum(inc), spent = sum(exp);
   const subs = subscriptions.filter((s) => s.active && s.currency === cur);
-  const owed = invoices.filter((i) => i.status === "sent" && i.currency === cur);
+  // Still owed: what's left after part payments
+  const owed = invoices.filter((i) => i.status === "sent" && i.kind !== "quote" && i.currency === cur).map((i) => ({ amount: Math.max(0, Number(i.amount) - Number(i.amount_paid || 0)) }));
   const cats = {};
   exp.forEach((e) => { cats[e.category] = (cats[e.category] || 0) + Number(e.amount); });
   return {

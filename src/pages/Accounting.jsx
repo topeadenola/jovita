@@ -197,7 +197,7 @@ export default function Accounting() {
         {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
       </div>
       <div className="grid g-4">
-        <div className="card stat hero"><p className="label">{tx("Earned {period}", { period: periodLabel })}</p><p className="val num">{money(s.income, cur)}</p><p className="note">{txn(s.incomeRows.length, "{n} paid invoice", "{n} paid invoices")}</p></div>
+        <div className="card stat hero"><p className="label">{tx("Earned {period}", { period: periodLabel })}</p><p className="val num">{money(s.income, cur)}</p><p className="note">{txn(s.incomeRows.length, "{n} payment", "{n} payments")}</p></div>
         <div className="card stat"><p className="label">{tx("Spent")}</p><p className="val num">{money(s.spent, cur)}</p><p className="note">{txn(s.expenseRows.length, "{n} expense", "{n} expenses")}</p></div>
         <div className="card stat"><p className="label" style={{ color: s.profit < 0 ? "var(--danger)" : "var(--success)" }}>{s.profit < 0 ? tx("▼ Loss") : tx("▲ Profit")}</p><p className="val num">{money(Math.abs(s.profit), cur)}</p><p className="note">{s.margin === null ? tx("No income yet in this period") : tx("You keep {margin}% of what you earn", {
           margin: s.margin

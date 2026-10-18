@@ -7,6 +7,7 @@ import { fdate, invState, money, totalLine, totalsBy } from "../../lib/format";
 import { Button, Card, Chips, Empty, Fab, PageTitle, Pill, Screen, ToggleRow, Txt, useToast } from "../../components/ui";
 import { C, F } from "../../lib/theme";
 import { tx } from "../../lib/i18n";
+import { receipts } from "../../lib/accounting";
 
 // Long amounts (e.g. 1 670 000 F CFA) step down a size instead of being cut off
 const fit = (v) => { const n = String(v).length; return n > 12 ? { fontSize: 17, lineHeight: 22 } : n > 8 ? { fontSize: 20, lineHeight: 25 } : null; };
@@ -20,7 +21,7 @@ export default function Money() {
   if (!studio) return null;
   const home = studio.home_currency;
   const list = invoices.filter((i) => tab === "All" || invState(i).k === tab).sort((a, b) => b.number - a.number);
-  const paid = totalLine(totalsBy(invoices.filter((i) => i.status === "paid")), home);
+  const paid = totalLine(totalsBy(invoices.flatMap(receipts)), home); // includes part payments
   const late = totalLine(totalsBy(invoices.filter((i) => invState(i).k === "Overdue")), home);
   const upcoming = totalLine(totalsBy(invoices.filter((i) => i.status === "sent" && invState(i).k !== "Overdue")), home);
 

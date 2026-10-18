@@ -32,7 +32,7 @@ const READ_TOOLS = [
   { name: "invoices", description: "List invoices. status: draft, sent (unpaid), overdue, paid or all.", input_schema: obj({ status: { type: "string", enum: ["draft", "sent", "overdue", "paid", "all"] }, client_id: S("Optional client id") }) },
   { name: "schedule", description: "Bookings and project shoot dates between two dates (YYYY-MM-DD).", input_schema: obj({ from: S("Start date"), to: S("End date") }, ["from", "to"]) },
   { name: "projects", description: "List projects, optionally by stage: inquiry, booked, shooting, editing, delivered.", input_schema: obj({ stage: S("Optional stage") }) },
-  { name: "money_summary", description: "Money paid in, money still owed, and expenses between two dates, per currency.", input_schema: obj({ from: S("Start date YYYY-MM-DD"), to: S("End date YYYY-MM-DD") }, ["from", "to"]) },
+  { name: "money_summary", description: "Money that came in (including part payments) between two dates, money still owed (balances after part payments), and expenses, per currency.", input_schema: obj({ from: S("Start date YYYY-MM-DD"), to: S("End date YYYY-MM-DD") }, ["from", "to"]) },
   { name: "subscriptions", description: "The studio's software subscriptions (e.g. Evoto, Adobe) with renewal dates.", input_schema: obj({}) },
   { name: "galleries", description: "Client galleries with status, photo counts, favourites and downloads.", input_schema: obj({}) },
   { name: "unread_messages", description: "Client messages the studio hasn't read yet.", input_schema: obj({}) },
@@ -101,16 +101,28 @@ async function runRead(db: any, studioId: string, name: string, input: any) {
       return (await r).data;
     }
     case "money_summary": {
-      const [paid, owed, exp] = await Promise.all([
-        q("invoices").select("amount,currency").eq("status", "paid").gte("paid_at", input.from).lte("paid_at", input.to + "T23:59:59"),
-        q("invoices").select("amount,amount_paid,currency,due_date").eq("status", "sent"),
+      const [inv, exp] = await Promise.all([
+        q("invoices").select("kind,amount,amount_paid,payments,currency,status,due_date,paid_at,updated_at,created_at").neq("status", "draft"),
         q("expenses").select("amount,currency,category").gte("spent_on", input.from).lte("spent_on", input.to),
       ]);
-      const sum = (rows: { amount: number; currency: string }[] | null) => (rows || []).reduce((a: Record<string, number>, r) => ({ ...a, [r.currency]: (a[r.currency] || 0) + Number(r.amount) }), {});
-      // What's still owed is the balance left after part payments
-      const left = (rows: { amount: number; amount_paid?: number; currency: string }[] | null) => sum((rows || []).map((r) => ({ amount: Math.max(0, Number(r.amount) - Number(r.amount_paid || 0)), currency: r.currency })));
-      const late = (owed.data || []).filter((r: { due_date: string }) => r.due_date < today());
-      return { paid_in: sum(paid.data), still_owed: left(owed.data), overdue: left(late), expenses: sum(exp.data), paid_invoices: (paid.data || []).length, expense_count: (exp.data || []).length };
+      const day = (v: string) => String(v || "").slice(0, 10);
+      const inRange = (d: string) => d >= input.from && d <= input.to;
+      const add = (a: Record<string, number>, cur: string, v: number) => { a[cur] = Math.round(((a[cur] || 0) + v) * 100) / 100; return a; };
+      const paidIn: Record<string, number> = {}, owed: Record<string, number> = {}, late: Record<string, number> = {}, spent: Record<string, number> = {};
+      let payments = 0;
+      // Money in = every part payment on its date, plus the rest on the day the invoice was marked paid
+      for (const i of inv.data || []) {
+        if (i.kind === "quote") continue;
+        const pays = (Array.isArray(i.payments) ? i.payments : []).filter((p: { amount: number }) => Number(p.amount) > 0);
+        const psum = pays.reduce((t: number, p: { amount: number }) => t + Number(p.amount), 0);
+        for (const p of pays) if (inRange(day(p.date || i.paid_at || i.updated_at))) { add(paidIn, i.currency, Number(p.amount)); payments++; }
+        const recorded = Math.max(Number(i.amount_paid || 0), psum);
+        if (recorded > psum + 0.001 && inRange(day(i.updated_at || i.created_at))) { add(paidIn, i.currency, recorded - psum); payments++; }
+        if (i.status === "paid") { const rest = Math.max(0, Number(i.amount) - recorded); if (rest > 0.001 && inRange(day(i.paid_at || i.created_at))) { add(paidIn, i.currency, rest); payments++; } }
+        if (i.status === "sent") { const bal = Math.max(0, Number(i.amount) - Number(i.amount_paid || 0)); add(owed, i.currency, bal); if (i.due_date && i.due_date < today()) add(late, i.currency, bal); }
+      }
+      for (const e of exp.data || []) add(spent, e.currency, Number(e.amount));
+      return { paid_in: paidIn, payments_received: payments, still_owed: owed, overdue: late, expenses: spent, expense_count: (exp.data || []).length, note: "paid_in includes part payments; still_owed is the balance after part payments" };
     }
     case "subscriptions": return (await q("subscriptions").select("id,name,amount,currency,cycle,next_renewal,active").order("next_renewal")).data;
     case "galleries": return (await q("galleries").select("id,title,status,photo_count,favourites,downloads,expires_on,clients(name)").order("created_at", { ascending: false }).limit(30)).data;

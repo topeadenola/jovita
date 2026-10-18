@@ -89,7 +89,7 @@ export default function Accounting() {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         <Stat tone="hero" label={tx("Earned {label}", {
           label: label
-        })} value={money(s.income, cur)} note={txn(s.incomeRows.length, "{n} paid invoice", "{n} paid invoices")} />
+        })} value={money(s.income, cur)} note={txn(s.incomeRows.length, "{n} payment", "{n} payments")} />
         <Stat label={tx("Spent")} value={money(s.spent, cur)} note={txn(s.expenseRows.length, "{n} expense", "{n} expenses")} />
         <Stat tone={s.profit < 0 ? C.danger : C.success} label={s.profit < 0 ? tx("▼ Loss") : tx("▲ Profit")} value={money(Math.abs(s.profit), cur)} note={s.margin === null ? tx("No income yet") : tx("You keep {n}%", { n: s.margin })} />
         <Stat label={tx("Subscriptions")} value={tx("{amount}/mo", { amount: money(Math.round(s.subsMonthly), cur) })} note={tx("{n} active", { n: s.subsCount })} />
