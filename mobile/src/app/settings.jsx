@@ -67,7 +67,6 @@ function SettingsForm() {
         <ToggleRow title={tx("Automatic invoice reminders")} sub={tx("On by default")} value={studio.reminders_on} onChange={(v) => tog("reminders_on", v, "Reminders")} />
         <ToggleRow title={tx("3 days before it's due")} value={studio.remind_before} onChange={(v) => tog("remind_before", v, "Early reminder")} />
         <ToggleRow title={tx("When it's overdue")} value={studio.remind_after} onChange={(v) => tog("remind_after", v, "Overdue reminder")} />
-        <ToggleRow title={tx("Send on WhatsApp too")} value={studio.whatsapp_on} onChange={(v) => tog("whatsapp_on", v, "WhatsApp")} />
       </Card>
       <Card style={{ paddingVertical: 4 }}>
         <Row title={tx("Plan")} sub={tx("See plans, try Pro free or upgrade")} onPress={() => router.push("/plan")} right={<View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: C.marigold }}><Txt style={{ fontSize: 12, fontFamily: F.bold, color: "#261433" }}>{tx("Upgrade")}</Txt></View>} />

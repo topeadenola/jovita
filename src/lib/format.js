@@ -58,15 +58,30 @@ export const initials = (n = "") => n.split(/\s+/).filter(Boolean).map((w) => w[
 export const first = (n = "") => n.split(" ")[0];
 
 export function invState(i) {
+  const quote = i.kind === "quote";
   if (i.status === "paid") return { k: "Paid", c: "p-success" };
-  if (i.status === "draft") return { k: "Draft", c: "p-neutral" };
-  if (i.status === "cancelled") return { k: "Cancelled", c: "p-neutral" };
+  if (i.status === "draft") return { k: quote ? "Draft quote" : "Draft", c: "p-neutral" };
+  if (i.status === "cancelled") return { k: quote ? "Declined" : "Cancelled", c: "p-neutral" };
+  if (quote) return i.viewed_at ? { k: "Quote viewed", c: "p-info", viewed: true } : { k: "Quote sent", c: "p-info" };
   if (i.payment_reported_at) return { k: "Check payment", c: "p-info" };
   const n = daysFrom(i.due_date);
   if (n < 0) return { k: "Overdue", c: "p-danger", late: -n };
-  if (n <= 7) return { k: "Due soon", c: "p-warning" };
-  return { k: "Sent", c: "p-info" };
+  if (Number(i.amount_paid) > 0) return { k: "Part paid", c: "p-warning" };
+  if (n <= 7) return { k: i.viewed_at ? "Viewed" : "Due soon", c: "p-warning", viewed: !!i.viewed_at };
+  return i.viewed_at ? { k: "Viewed", c: "p-info", viewed: true } : { k: "Sent", c: "p-info" };
 }
+
+// What's still owed on an invoice after part payments
+export const balanceOf = (i) => Math.max(0, Math.round((Number(i.amount) - Number(i.amount_paid || 0)) * 100) / 100);
+
+// Money typed with thousand separators: "2000000" ⇄ "2,000,000"
+export const groupDigits = (v) => {
+  const s = String(v ?? "").replace(/[^\d.]/g, "");
+  if (!s) return "";
+  const [w, ...rest] = s.split(".");
+  const d = rest.length ? "." + rest.join("").slice(0, 2) : "";
+  return (w.replace(/^0+(?=\d)/, "") || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",") + d;
+};
 
 export function nextStep(p) {
   if (p.stage === "inquiry") return { t: tx("Send quote"), a: "quote" };

@@ -5,7 +5,7 @@ import { answer, SUGGESTIONS } from "../lib/ask";
 import { command, fromBrain } from "../lib/askActions";
 import { askBrain, brainOff, leftNote } from "../lib/brain";
 import { useActions } from "../lib/actions";
-import { mailLink, waLink } from "../lib/voice";
+import { mailLink } from "../lib/voice";
 import { useToast } from "./ui";
 import { useUi } from "./Shell";
 import Icon from "./Icon";
@@ -28,7 +28,6 @@ const greeting = (name) => ({ who: "jo", at: Date.now(), text: name ? tx("Hi {na
 
 function Draft({ d }) {
   const toast = useToast();
-  const wa = waLink(d.phone, d.text);
   const mail = mailLink(d.email, d.subject, d.text);
   const copy = async () => {
     try { await navigator.clipboard.writeText(d.text); toast(tx("Message copied")); } catch { toast(tx("Select the text to copy it")); }
@@ -38,7 +37,6 @@ function Draft({ d }) {
       <small>{tx("To {name} · in your voice", { name: d.to })}</small>
       <span style={{ whiteSpace: "pre-line" }}>{d.text}</span>
       <div className="ask-acts">
-        {wa && <a className="btn btn-primary btn-sm" href={wa} target="_blank" rel="noreferrer">{tx("WhatsApp")}</a>}
         {mail && <a className="btn btn-secondary btn-sm" href={mail}>{tx("Email")}</a>}
         <button type="button" className="btn btn-ghost btn-sm" onClick={copy}><Icon name="link" />{tx("Copy")}</button>
       </div>
@@ -64,7 +62,7 @@ export default function AskJovita({ onClose }) {
   const toast = useToast();
   const { invoiceAction } = useActions();
   const saved = loadLog(studio.id);
-  const [log, setLog] = useState(() => saved?.log || [greeting(studio.owner_first_name)]);
+  const [log, setLog] = useState(() => saved?.log || [greeting(String(studio.owner_first_name || "").split(" ")[0])]);
   const [pending, setPending] = useState(saved?.pending || null);
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -161,7 +159,7 @@ export default function AskJovita({ onClose }) {
     }
     memory = null;
     try { localStorage.removeItem(KEY(studio.id)); } catch { /* ignore */ }
-    setLog([greeting(studio.owner_first_name)]);
+    setLog([greeting(String(studio.owner_first_name || "").split(" ")[0])]);
     setPending(null);
     setEnding(false);
     toast(how === "email" ? tx("Chat ended. Your email app opened with the chat, press send to keep a copy.") : tx("Chat ended"));
@@ -194,10 +192,12 @@ export default function AskJovita({ onClose }) {
       </div>
       <form className="ask-foot" onSubmit={(e) => { e.preventDefault(); ask(text); }}>
         <label className="ask-input"><span className="sr">{tx("Message Ask Jovita")}</span>
-          <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder={pending ? tx("Type the client's name") : tx("Ask or tell Jovita what to do")} autoComplete="off" />
+          <textarea ref={input} rows={1} value={text} onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text); e.currentTarget.style.height = "auto"; } }}
+            placeholder={pending ? tx("Type the client's name") : tx("Ask or tell Jovita what to do")} autoComplete="off" />
           <button aria-label={tx("Send")}><Icon name="arrow" /></button>
         </label>
-        <p className="ask-note">{tx("Jovita creates drafts and opens them for you. It never sends a message or marks money paid without your OK.")}</p>
+        <p className="ask-note">{tx("Jovita can make mistakes. Check important details before you send.")}<br />{tx("Shift + Enter for a new line.")}</p>
       </form>
 
       {ending && (

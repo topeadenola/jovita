@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../lib/data";
+import { supabase } from "../supabase";
 import Icon from "../components/Icon";
-import { Pill, Toggle, useToast } from "../components/ui";
+import { MoneyInput, Pill, Toggle, useToast } from "../components/ui";
 import { CURRENCIES, SYM, money } from "../lib/format";
 import { FIELDS, fill, values } from "../lib/merge";
 import { tx } from "../lib/i18n";
@@ -11,7 +12,7 @@ import { guardLeave, useUnsaved } from "../lib/unsaved";
 const KINDS = [
   ["contract", "Contracts", "The agreement clients sign in their portal before you shoot."],
   ["model_release", "Model releases", "Permission to use images of the client in your portfolio and marketing."],
-  ["invoice", "Invoices", "Packages with line items. Pick one when you create an invoice."],
+  ["invoice", "Packages", "Packages with line items. Pick one when you create a quote or an invoice."],
   ["email", "Emails", "Messages you send at each step. Merge fields fill in automatically."],
 ];
 const BLANK = {
@@ -75,9 +76,9 @@ function Editor({ t, onDirty }) {
                   <input aria-label={tx("Item {v0} quantity", {
                     v0: ix + 1
                   })} type="number" min="0" value={it.qty} onChange={(e) => setItem(ix, "qty", e.target.value)} />
-                  <input aria-label={tx("Item {v0} price", {
+                  <MoneyInput aria-label={tx("Item {v0} price", {
                     v0: ix + 1
-                  })} type="number" min="0" step="0.01" value={it.price} onChange={(e) => setItem(ix, "price", e.target.value)} />
+                  })} value={it.price} onChange={(v) => setItem(ix, "price", v)} />
                   <button type="button" className="x" aria-label={tx("Remove item {v0}", {
                     v0: ix + 1
                   })} onClick={() => setF({ ...f, items: f.items.filter((_, j) => j !== ix) })}><Icon name="x" /></button>
@@ -142,9 +143,20 @@ function Editor({ t, onDirty }) {
 }
 
 export default function Templates({ embedded }) {
-  const { templates, insert } = useData();
+  const { templates, insert, reload } = useData();
   const toast = useToast();
   const [kind, setKind] = useState("contract");
+  const [adding, setAdding] = useState(false);
+  // Jovita's ready-made set: wedding, portrait, family and couple contracts, a model release, client emails and packages
+  const addStarters = async () => {
+    setAdding(true);
+    try {
+      const { data, error } = await supabase.rpc("add_my_starter_templates");
+      if (error) throw error;
+      await reload();
+      toast(data ? tx("Added {n} ready-made templates", { n: data }) : tx("You already have all of Jovita's ready-made templates"), !!data);
+    } catch (e) { toast(e.message); } finally { setAdding(false); }
+  };
   const [sel, setSel] = useState(null);
   const [dirty, setDirty] = useState(false);
   const list = useMemo(() => templates.filter((t) => t.kind === kind).sort((a, b) => (b.is_default - a.is_default) || a.name.localeCompare(b.name)), [templates, kind]);
@@ -158,13 +170,15 @@ export default function Templates({ embedded }) {
         <p className="sub" style={{ marginTop: 6 }}>{tx(
           "Write them once. Every client gets their own copy with their details filled in."
         )}</p></div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="btn btn-secondary" disabled={adding} onClick={addStarters}><Icon name="star" />{adding ? tx("Adding…") : tx("Add ready-made templates")}</button>
         <button className="btn btn-primary" onClick={async () => {
           const b = BLANK[kind];
           const t = await insert("templates", { kind, ...b, name: tx(b.name), body: tx(b.body), ...(b.subject ? { subject: tx(b.subject) } : {}), ...(b.items ? { items: b.items.map((it) => ({ ...it, name: tx(it.name) })) } : {}), is_default: list.length === 0 });
           setSel(t.id); toast(tx("Template created"));
-        }}><Icon name="plus" />{tx("New")}{" "}{meta[1].toLowerCase().replace(/s$/, "")}</button></div>
+        }}><Icon name="plus" />{tx("New")}{" "}{meta[1].toLowerCase().replace(/s$/, "")}</button></div></div>
       <div className="tabs" role="tablist">{KINDS.map(([k, l]) => <button key={k} role="tab" aria-selected={kind === k} onClick={() => guard(() => { setKind(k); setSel(null); })}>{tx(l)} <span className="count">{templates.filter((t) => t.kind === k).length}</span></button>)}</div>
-      <p className="sub">{meta[2]}</p>
+      <p className="sub">{meta[2]}{(kind === "contract" || kind === "model_release") && " " + tx("Ready-made contracts are a starting point, not legal advice. Check them against your local law.")}</p>
       <div className="tpl-layout">
         <nav className="tpl-list" aria-label={meta[1]}>
           {list.map((t) => (

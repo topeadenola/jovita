@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import Icon from "../components/Icon";
-import { CloseBtn, Empty, Modal, Pill, useToast } from "../components/ui";
+import { CloseBtn, Empty, Modal, MoneyInput, Pill, useToast } from "../components/ui";
 import { txn } from "../lib/i18n";
 import { CURRENCIES, SYM, fdate, money, todayISO } from "../lib/format";
 import {
@@ -50,7 +50,7 @@ function ExpenseForm({ onClose, cur }) {
         <div className="field"><label htmlFor="x-cat">{tx("Category")}</label><select id="x-cat" value={f.category} onChange={set("category")}>{EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{tx(c)}</option>)}</select></div>
       </div>
       <div className="form-grid">
-        <div className="field"><label htmlFor="x-amt">{tx("Amount")}</label><input id="x-amt" inputMode="decimal" value={f.amount} onChange={set("amount")} placeholder="0" /></div>
+        <div className="field"><label htmlFor="x-amt">{tx("Amount")}</label><MoneyInput id="x-amt" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} placeholder="0" /></div>
         <div className="field"><label htmlFor="x-cur">{tx("Currency")}</label><select id="x-cur" value={f.currency} onChange={set("currency")}>{CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}</select></div>
       </div>
       <div className="form-grid">
@@ -81,7 +81,7 @@ function SubscriptionForm({ onClose, cur, sub }) {
         <button type="button" key={p} className="chip" aria-pressed={f.name === p} onClick={() => setF({ ...f, name: p })}>{p}</button>))}</div>}
       <div className="field"><label htmlFor="s-name">{tx("App or service")}</label><input id="s-name" value={f.name} onChange={set("name")} placeholder={tx("e.g. Evoto")} /></div>
       <div className="form-grid">
-        <div className="field"><label htmlFor="s-amt">{tx("Price")}</label><input id="s-amt" inputMode="decimal" value={f.amount} onChange={set("amount")} placeholder={tx("What you pay each time")} /></div>
+        <div className="field"><label htmlFor="s-amt">{tx("Price")}</label><MoneyInput id="s-amt" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} placeholder={tx("What you pay each time")} /></div>
         <div className="field"><label htmlFor="s-cur">{tx("Currency")}</label><select id="s-cur" value={f.currency} onChange={set("currency")}>{CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}</select></div>
       </div>
       <div className="form-grid">

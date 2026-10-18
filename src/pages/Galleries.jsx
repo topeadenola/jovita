@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Thumb } from "../components/GalleryEditor";
 import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
@@ -39,6 +40,16 @@ export default function Galleries() {
   const { q, setOpenGallery } = useUi();
   const toast = useToast();
   const [form, setForm] = useState(false);
+  // Galleries without a chosen cover show their first photo
+  const [firsts, setFirsts] = useState({});
+  const missing = galleries.filter((g) => !g.cover_path && g.photo_count > 0).map((g) => g.id).join(",");
+  useEffect(() => {
+    if (!missing) return;
+    let live = true;
+    Promise.all(missing.split(",").map((gid) => supabase.from("gallery_photos").select("gallery_id,path").eq("gallery_id", gid).order("position", { ascending: true }).limit(1)))
+      .then((rs) => { if (live) setFirsts(Object.fromEntries(rs.map((r) => r.data?.[0]).filter(Boolean).map((x) => [x.gallery_id, x.path]))); });
+    return () => { live = false; };
+  }, [missing]);
   const ql = q.toLowerCase();
   const list = galleries.filter((g) => !ql || (g.title + " " + client(g.client_id).name).toLowerCase().includes(ql));
   const deliver = async (g) => {
@@ -57,11 +68,11 @@ export default function Galleries() {
         <div className="gal">
           {list.map((g) => { const t = tone(g.id); const pc = g.status === "delivered" ? "p-success" : g.status === "proofing" ? "p-info" : "p-neutral"; return (
             <div className="galcard" key={g.id} onClick={(e) => { if (!e.target.closest("button")) setOpenGallery(g.id); }}>
-              {g.cover_path ? <div className="galcover" style={{ backgroundImage: `url("${supabase.storage.from("gallery-photos").getPublicUrl(g.cover_path).data.publicUrl}")` }} />
+              {g.cover_path || firsts[g.id] ? <div className="galcover"><Thumb path={g.cover_path || firsts[g.id]} alt="" /></div>
                 : <div className="mosaic">{t.map((c, ix) => <i key={ix} style={{ background: c }} />)}</div>}
               <div className="body">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}><b style={{ fontFamily: "var(--font-display)", fontSize: 16 }}>{g.title}</b><Pill c={pc}>{g.status === "delivered" ? tx("Published") : g.status === "proofing" ? tx("Proofing") : tx("Draft")}</Pill></div>
-                <p className="sub" style={{ fontSize: 13 }}>{client(g.client_id).name}· {g.photo_count}{" "}{tx("photos")}{g.expires_on ? tx(" · open until {fdate}", {
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}><b className="galtitle">{g.settings?.password && <span title={tx("Password protected")} aria-label={tx("Password protected")}><Icon name="lock" /></span>}{g.title}</b><Pill c={pc}>{g.status === "delivered" ? tx("Published") : g.status === "proofing" ? tx("Proofing") : tx("Draft")}</Pill></div>
+                <p className="sub" style={{ fontSize: 13 }}>{client(g.client_id).name} · {g.photo_count}{" "}{tx("photos")}{g.expires_on ? tx(" · open until {fdate}", {
                     fdate: fdate(g.expires_on)
                   }) : ""}</p>
                 <p style={{ fontSize: 13, display: "flex", gap: 14 }}><span>♥ {g.favourites}{" "}{tx("favourites")}</span><span>↓ {g.downloads}</span></p>

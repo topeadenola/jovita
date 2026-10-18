@@ -4,7 +4,8 @@ import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, Modal, useToast } from "../components/ui";
 import { ago, first } from "../lib/format";
-import { mailLink, waLink } from "../lib/voice";
+import { mailLink } from "../lib/voice";
+import { useNavigate } from "react-router-dom";
 import { useUnsaved } from "../lib/unsaved";
 import { tx } from "../lib/i18n";
 
@@ -26,10 +27,15 @@ export function ChannelBadge({ ch, small }) {
   );
 }
 
+// Channels you can reply on today. WhatsApp comes in v2; older WhatsApp messages still show their badge.
+const LIVE = ["email", "portal"];
+
 function ConnectPanel({ onClose }) {
+  const navigate = useNavigate();
   return (
-    <Modal title={tx("Connect your channels")} onClose={onClose} wide>
-      <p className="sub">{tx("Bring WhatsApp, email and your client pages into this one inbox. Every message keeps a badge showing where it came from, and replies go back the same way.")}</p>
+    <Modal label={tx("Connect your channels")} onClose={onClose} wide>
+      <h2 className="h-m">{tx("Connect your channels")}</h2>
+      <p className="sub">{tx("Email and your client pages come together in this one inbox. Every message keeps a badge showing where it came from.")}</p>
       <div className="conn-grid">
         <section className="conn">
           <div className="conn-top"><ChannelBadge ch="portal" /><span className="pill p-success">{tx("Connected")}</span></div>
@@ -37,28 +43,19 @@ function ConnectPanel({ onClose }) {
           <p>{tx("Messages clients send from their Jovita link already land here. Nothing to set up.")}</p>
         </section>
         <section className="conn">
-          <div className="conn-top"><ChannelBadge ch="whatsapp" /><span className="pill p-warning">{tx("Not connected yet")}</span></div>
-          <b>{tx("WhatsApp Business")}</b>
-          <ol>
-            <li>{tx("Get the WhatsApp Business app number you use for clients ready. It must be a business number (Meta's rule).")}</li>
-            <li>{tx("Create a free Meta Business account and a WhatsApp Business Platform app at business.facebook.com.")}</li>
-            <li>{tx("Add your number to the app and verify it with the code Meta sends.")}</li>
-            <li>{tx("Paste the access token and phone number ID into Jovita. Jovita then receives new messages here and sends your replies.")}</li>
-          </ol>
-          <p className="conn-note">{tx("Meta charges a small fee per conversation after the free monthly allowance. Until it's connected, Reply by WhatsApp opens WhatsApp with your message ready, and you can log important chats here.")}</p>
+          <div className="conn-top"><ChannelBadge ch="email" /><span className="pill p-success">{tx("Connected")}</span></div>
+          <b>{tx("Email")}</b>
+          <p>{tx("Invoices, quotes and galleries go to clients by email in your studio's name. Their replies come to your own inbox, and you can log important ones here.")}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { onClose(); navigate("/settings?tab=connections"); }}>{tx("Email settings")}</button>
         </section>
         <section className="conn">
-          <div className="conn-top"><ChannelBadge ch="email" /><span className="pill p-warning">{tx("Not connected yet")}</span></div>
-          <b>{tx("Email")}</b>
-          <ol>
-            <li>{tx("Easiest: connect Gmail or Outlook with one click and pick which emails Jovita can see (only clients' emails are brought in).")}</li>
-            <li>{tx("Or forward client emails to your private Jovita address. Jovita matches each one to the client by their email address.")}</li>
-            <li>{tx("Replies you write here are sent from your own email address, so clients see you, not Jovita.")}</li>
-          </ol>
-          <p className="conn-note">{tx("Until it's connected, Reply by email opens your email app with the message ready.")}</p>
+          <div className="conn-top"><span className="ch ch-po"><Icon name="calendar" />{tx("Calendar")}</span></div>
+          <b>{tx("Google Calendar")}</b>
+          <p>{tx("Bookings go both ways, so you never double-book.")}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { onClose(); navigate("/settings?tab=connections"); }}>{tx("Connect")}</button>
         </section>
       </div>
-      <p className="sub" style={{ fontSize: 13 }}>{tx("Connecting needs a one-time setup on the Jovita server. Your messages stay private to your studio.")}</p>
+      <p className="sub" style={{ fontSize: 13 }}>{tx("WhatsApp is coming in a future update.")}</p>
     </Modal>
   );
 }
@@ -66,7 +63,7 @@ function ConnectPanel({ onClose }) {
 function LogMessage({ onClose, pre }) {
   const { clients, insert } = useData();
   const toast = useToast();
-  const [f, setF] = useState({ client_id: pre || clients[0]?.id || "", channel: "whatsapp", from_client: "yes", body: "" });
+  const [f, setF] = useState({ client_id: pre || clients[0]?.id || "", channel: "email", from_client: "yes", body: "" });
   return (
     <Modal title={tx("Log a message")} onClose={onClose}>
       <form className="stack" onSubmit={async (e) => {
@@ -74,10 +71,10 @@ function LogMessage({ onClose, pre }) {
         if (!f.body.trim()) return toast(tx("Paste or type the message."));
         try { await insert("messages", { client_id: f.client_id, channel: f.channel, from_client: f.from_client === "yes", read: true, body: f.body.trim().slice(0, 4000) }); toast(tx("Added to the conversation")); onClose(); } catch (x) { toast(x.message); }
       }}>
-        <p className="sub">{tx("Keep a WhatsApp chat or email in the client's history by pasting it here.")}</p>
+        <p className="sub">{tx("Keep an email or a chat from another app in the client's history by pasting it here.")}</p>
         <div className="form-grid">
           <div className="field"><label htmlFor="lm-c">{tx("Client")}</label><select id="lm-c" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-          <div className="field"><label htmlFor="lm-ch">{tx("Came from")}</label><select id="lm-ch" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}>{Object.entries(CH).map(([k, v]) => <option key={k} value={k}>{tx(v.label)}</option>)}</select></div>
+          <div className="field"><label htmlFor="lm-ch">{tx("Came from")}</label><select id="lm-ch" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}>{LIVE.map((k) => <option key={k} value={k}>{tx(CH[k].label)}</option>)}</select></div>
         </div>
         <div className="field"><label htmlFor="lm-w">{tx("Who wrote it")}</label><select id="lm-w" value={f.from_client} onChange={(e) => setF({ ...f, from_client: e.target.value })}><option value="yes">{tx("The client")}</option><option value="no">{tx("You")}</option></select></div>
         <div className="field"><label htmlFor="lm-b">{tx("Message")}</label><textarea id="lm-b" rows={5} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
@@ -112,7 +109,7 @@ export default function Inbox() {
   const box = useRef(null);
   const t = threads.find((x) => x.cid === sel) || threads[0];
   const c = t ? client(t.cid) : null;
-  const channel = via || t?.last.channel || "portal";
+  const channel = via || (LIVE.includes(t?.last.channel) ? t.last.channel : "portal");
 
   useEffect(() => { setVia(null); }, [t?.cid]);
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [t?.msgs.length, t?.cid]);
@@ -125,27 +122,27 @@ export default function Inbox() {
   const send = async () => {
     const body = text.trim();
     if (!body || !t) return;
-    // Until WhatsApp and email are connected, open the app with the message ready, and keep a copy here
-    const out = channel === "whatsapp" ? waLink(c.phone, body) : channel === "email" ? mailLink(c.email, tx("Re: your message"), body) : null;
-    if ((channel === "whatsapp" && !c.phone) || (channel === "email" && !c.email)) { toast(channel === "whatsapp" ? tx("Add {name}'s WhatsApp number in Clients first.", { name: first(c.name) }) : tx("Add {name}'s email in Clients first.", { name: first(c.name) })); throw new Error("contact"); }
+    // Email replies open your email app with the message ready, and keep a copy here
+    const out = channel === "email" ? mailLink(c.email, tx("Re: your message"), body) : null;
+    if (channel === "email" && !c.email) { toast(tx("Add {name}'s email in Clients first.", { name: first(c.name) })); throw new Error("contact"); }
     await insert("messages", { client_id: t.cid, channel, from_client: false, read: true, body: body.slice(0, 4000) });
     setText("");
-    if (out) window.open(out, channel === "whatsapp" ? "_blank" : "_self", "noopener");
-    toast(channel === "portal" ? tx("Sent to {name}'s client page", { name: first(c.name) }) : channel === "whatsapp" ? tx("WhatsApp opened with your reply. Press send there.") : tx("Your email app opened with your reply. Press send there."));
+    if (out) window.open(out, "_self", "noopener");
+    toast(channel === "portal" ? tx("Sent to {name}'s client page", { name: first(c.name) }) : tx("Your email app opened with your reply. Press send there."));
   };
   useUnsaved(!!text.trim(), send);
 
   const head = (
     <div className="head"><div><p className="eyebrow">{tx("Inbox")}</p><h1 className="h-l">{tx("All your client messages")}</h1></div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect WhatsApp and email")}</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect email and calendar")}</button>
         {clients.length > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setLogging(true)}><Icon name="plus" />{tx("Log a message")}</button>}
         <button className="btn btn-ghost btn-sm" onClick={reload}>{tx("Refresh")}</button>
       </div></div>
   );
   const chips = (
     <div className="ch-filter" role="group" aria-label={tx("Show messages from")}>
-      {[["all", "All"], ["whatsapp", "WhatsApp"], ["email", "Email"], ["portal", "Client page"]].map(([k, label]) => (
+      {[["all", "All"], ["email", "Email"], ["portal", "Client page"], ...(counts.whatsapp ? [["whatsapp", "WhatsApp"]] : [])].map(([k, label]) => (
         <button key={k} type="button" aria-pressed={filter === k} onClick={() => { setFilter(k); setSel(null); }}>
           {k !== "all" && <ChannelBadge ch={k} small />}{tx(label)}<span className="n">{counts[k] || 0}</span>
         </button>
@@ -159,8 +156,8 @@ export default function Inbox() {
       <div className="card inbox-empty">
         <Icon name="inbox" />
         <b>{messages.length ? tx("No {channel} messages yet", { channel: tx(CH[filter]?.label || "") }) : tx("No messages yet")}</b>
-        <p className="sub">{tx("Messages from your client pages land here now. Connect WhatsApp and email to see everything in one place, each with a badge showing where it came from.")}</p>
-        <button className="btn btn-primary" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect WhatsApp and email")}</button>
+        <p className="sub">{tx("Messages from your client pages land here now. Email replies come to your own inbox, and you can log them here, each with a badge showing where it came from.")}</p>
+        <button className="btn btn-primary" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect email and calendar")}</button>
       </div>{modals}</>
   );
 
@@ -193,7 +190,7 @@ export default function Inbox() {
           <form className="reply" onSubmit={async (e) => { e.preventDefault(); try { await send(); } catch (x) { if (x.message !== "contact") toast(x.message); } }}>
             <label className="reply-via"><span className="sr">{tx("Reply by")}</span>
               <select value={channel} onChange={(e) => setVia(e.target.value)} aria-label={tx("Reply by")}>
-                {Object.entries(CH).map(([k, v]) => <option key={k} value={k}>{tx(v.label)}</option>)}
+                {LIVE.map((k) => <option key={k} value={k}>{tx(CH[k].label)}</option>)}
               </select></label>
             <label htmlFor="replybox" className="sr">{tx("Reply")}</label>
             <input id="replybox" value={text} onChange={(e) => setText(e.target.value)} placeholder={tx("Reply to {first}…", { first: first(c.name) })} autoComplete="off" />

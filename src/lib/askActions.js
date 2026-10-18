@@ -102,7 +102,7 @@ export function command(raw, ctx) {
     if (c && drafts.length) {
       const i = drafts[0];
       return { text: tx("Send invoice #{number} ({amount}) to {name}? It goes to their client page, where they can pay.", { number: i.number, amount: money(i.amount, i.currency), name: first(c.name) }),
-        buttons: [{ label: tx("Yes, send it"), primary: true, run: async () => { await ctx.ui.sendInvoice(i); return { text: tx("Sent. Invoice #{number} is waiting in {name}'s client page. Want me to draft a WhatsApp to let them know?", { number: i.number, name: first(c.name) }), chips: [tx("Remind {name}", { name: first(c.name) })] }; } },
+        buttons: [{ label: tx("Yes, send it"), primary: true, run: async () => { await ctx.ui.sendInvoice(i); return { text: tx("Sent. Invoice #{number} is waiting in {name}'s client page. We've emailed them the link.", { number: i.number, name: first(c.name) }), chips: [tx("Remind {name}", { name: first(c.name) })] }; } },
           { label: tx("Open it first"), run: () => { ctx.ui.openInvoice(i.id); return null; } }] };
     }
   }
@@ -174,7 +174,7 @@ function doFor(what, name, opts, ctx) {
     if (dupe && dupe.name.toLowerCase() === name.toLowerCase()) return { text: tx("{name} is already in your clients.", { name: dupe.name }), buttons: [{ label: tx("Open clients"), run: () => { ctx.ui.nav("/clients"); return null; } }] };
     return { text: tx("Adding {name} to your clients…", { name }), run: async () => {
       await ctx.ui.insert("clients", { name, email: opts.email || "", phone: opts.phone || "", city: "", status: opts.status || "client" });
-      return { text: tx("Done. {name} is now in your clients.", { name }) + (opts.email || opts.phone ? "" : "\n" + tx("Add their email or WhatsApp number in Clients so I can draft messages to them.")), chips: [tx("Create an invoice for {name}", { name: first(name) }), tx("Create a project for {name}", { name: first(name) })] };
+      return { text: tx("Done. {name} is now in your clients.", { name }) + (opts.email || opts.phone ? "" : "\n" + tx("Add their email in Clients so I can draft messages to them.")), chips: [tx("Create an invoice for {name}", { name: first(name) }), tx("Create a project for {name}", { name: first(name) })] };
     } };
   }
   const c = findClient(name, clients);
@@ -208,7 +208,14 @@ async function create(what, c, name, opts, ctx) {
   }
   const fname = first(c.name);
   if (what === "invoice") {
-    const p = projects.filter((x) => x.client_id === c.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+    // An invoice means you're working with them, so it always belongs to a project (made now if there's no open one)
+    let p = projects.filter((x) => x.client_id === c.id && x.stage !== "delivered").sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+    if (!p) {
+      const type = PROJECT_TYPES.find((t) => t.toLowerCase() === String(opts.type || "").toLowerCase()) || "Portrait";
+      p = await ctx.ui.insert("projects", { client_id: c.id, title: opts.label || tx("{type} session", { type: tx(type) }), type, stage: "booked", amount: opts.amount?.value || 0,
+        currency: opts.currency || opts.amount?.currency || studio.home_currency, session_date: /^\d{4}-\d{2}-\d{2}$/.test(opts.session_date || "") ? opts.session_date : null });
+      steps.push(tx("Created the project \"{title}\" for {name}.", { title: p.title, name: fname }));
+    }
     const pkg = opts.label && templates.find((t) => t.kind === "invoice" && t.name.toLowerCase().includes(opts.label.toLowerCase().split(" ")[0]));
     const price = opts.amount?.value ?? (pkg ? null : Number(p?.amount) || 0);
     const items = opts.items?.length ? opts.items.map((it) => ({ id: uid(), name: it.name || "", description: it.description || "", qty: Number(it.qty ?? 1) || 1, price: Number(it.price) || 0 }))

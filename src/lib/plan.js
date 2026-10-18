@@ -2,9 +2,9 @@
 import { supabase } from "../supabase";
 
 export const PLANS = [
-  { key: "free", name: "Free", line: "Get organised and get paid.", features: ["Clients, projects and bookings", "Invoices with reminders", "Contracts and releases", "Ask Jovita: 10 questions to try it", "Client pages show a small \"Made with Jovita\" mark"] },
-  { key: "pro", name: "Pro", line: "Your brand, your assistant.", badge: "Most loved", features: ["Everything in Free", "Ask Jovita: 300 questions a month", "Jovita writes in your voice and remembers what you tell it", "Your logo and colours, no Jovita mark"] },
-  { key: "studio", name: "Studio", line: "For busy studios and teams.", features: ["Everything in Pro", "Ask Jovita: unlimited", "Smarter answers for long requests", "Priority help from the Jovita team"] },
+  { key: "free", name: "Free", line: "Get organised and get paid.", features: ["Clients, projects and bookings", "Invoices with reminders", "Contracts and releases", "Ask Jovita: 10 questions to try it", "Client pages show a small \"Made with Jovita\" mark", "500 MB of gallery storage"] },
+  { key: "pro", name: "Pro", line: "Your brand, your assistant.", badge: "Most loved", features: ["Everything in Free", "Ask Jovita: 300 questions a month", "Jovita writes in your voice and remembers what you tell it", "Your logo and colours, no Jovita mark", "1,000 GB of gallery storage"] },
+  { key: "studio", name: "Studio", line: "For busy studios and teams.", features: ["Everything in Pro", "Ask Jovita: unlimited", "Smarter answers for long requests", "Priority help from the Jovita team", "Unlimited storage, with RAW photo support"] },
 ];
 export const TRIAL_DAYS = 7;
 export const rank = (p) => ["free", "pro", "studio"].indexOf(p);

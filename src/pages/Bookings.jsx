@@ -47,7 +47,7 @@ function BookingForm({ onClose }) {
   );
 }
 
-function GoogleCard() {
+export function GoogleCard() {
   const { calendar_connections, reload } = useData();
   const toast = useToast();
   const [busy, setBusy] = useState(false);

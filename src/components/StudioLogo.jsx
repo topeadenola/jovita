@@ -29,7 +29,7 @@ export function LogoUploader() {
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${studio.id}/logo-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("studio-assets").upload(path, file, { contentType: file.type, upsert: true });
+      const { error } = await supabase.storage.from("studio-assets").upload(path, file, { contentType: file.type, cacheControl: "3600" });
       if (error) throw error;
       const old = studio.logo_path;
       await updateStudio({ logo_path: path });

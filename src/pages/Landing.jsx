@@ -24,7 +24,7 @@ const STEPS = [
 
 const PLANS = [
   { name: "Starter", price: "Free", note: "For your first clients", items: ["Up to 5 active projects", "Contracts and model releases", "Client portal", "Bank transfer payments"] },
-  { name: "Pro", price: "[₦ / £ / $ per month]", note: "For busy creatives", items: ["Unlimited projects", "Paystack and Stripe payments", "Automatic reminders by email and WhatsApp", "Galleries with downloads"], featured: true },
+  { name: "Pro", price: "[₦ / £ / $ per month]", note: "For busy creatives", items: ["Unlimited projects", "Paystack and Stripe payments", "Automatic email reminders", "Galleries with downloads"], featured: true },
   { name: "Studio", price: "[₦ / £ / $ per month]", note: "For teams", items: ["Everything in Pro", "Team members and roles", "Multiple brands", "Priority support"] },
 ];
 

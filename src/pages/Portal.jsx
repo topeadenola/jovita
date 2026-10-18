@@ -4,7 +4,7 @@ import { supabase } from "../supabase";
 import StudioLogo from "../components/StudioLogo";
 import Icon, { Mark } from "../components/Icon";
 import { Pill, useToast } from "../components/ui";
-import { fdate, fday, first, ftime, invState, money } from "../lib/format";
+import { balanceOf, fdate, fday, first, ftime, invState, money } from "../lib/format";
 import { fill, values } from "../lib/merge";
 import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
@@ -61,13 +61,29 @@ export default function Portal() {
     setD(error ? null : data);
   }, [token]);
   useEffect(() => { load(); }, [load]);
+  // Let the studio know their client opened the page (quote / invoice "Viewed")
+  useEffect(() => { supabase.rpc("portal_seen", { p_token: token }).then(() => {}, () => {}); }, [token]);
+  const [accepting, setAccepting] = useState(false);
 
   if (d === undefined) return <div className="loading">{tx("Loading…")}</div>;
   if (!d) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("This link isn't working")}</b><p>{tx("Ask your photographer or creative to send you a fresh link.")}</p></div></div>;
 
   const { project: p, client: c, studio: s } = d;
   const vals = values({ studio: s, client: c, project: { ...p, portal_token: token } });
-  const open = d.invoices.find((i) => i.status === "sent");
+  const quotes = d.invoices.filter((i) => i.kind === "quote" && i.status === "sent");
+  const open0 = d.invoices.find((i) => i.status === "sent" && i.kind !== "quote");
+  // Part paid: what's left is what they pay now
+  const open = open0 && Number(open0.amount_paid) > 0 ? { ...open0, total: open0.amount, amount: balanceOf(open0) } : open0;
+  const acceptQuote = async (q) => {
+    setAccepting(true);
+    try {
+      const { data: ok, error } = await supabase.rpc("portal_accept_quote", { p_token: token, p_invoice: q.id });
+      if (error || !ok) throw new Error(error?.message || tx("This quote can't be accepted any more. Please contact {name}.", { name: s.name }));
+      supabase.functions.invoke("send-email", { body: { kind: "quote_accepted", token, invoice_id: q.id } }).catch(() => {});
+      toast(tx("Quote accepted. Your date is booked! Your invoice is below."), true);
+      await load();
+    } catch (e) { toast(e.message); } finally { setAccepting(false); }
+  };
   // The studio's own switched-on accounts that can take this invoice's currency
   const accts = Array.isArray(d.payments) ? d.payments : [];
   const acct = (prov) => accts.find((a) => a.provider === prov);
@@ -94,7 +110,7 @@ export default function Portal() {
     } catch (e) { if (e.message !== "closed") toast(e.message); } finally { setPaying(false); }
   };
   const needsContract = !!d.contract;
-  const allSet = (!needsContract || p.contract_signed) && !open;
+  const allSet = (!needsContract || p.contract_signed) && !open && !quotes.length;
   let step = 0;
 
   return (
@@ -106,6 +122,21 @@ export default function Portal() {
       </header>
       <div className="portal-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          {quotes.map((q) => (
+            <section className="card quote-box" key={q.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{tx("Your quote")}</h2><Pill c="p-info">{tx("Waiting for you")}</Pill></div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(q.amount, q.currency)}</span></div>
+              {Array.isArray(q.items) && q.items.some((it) => it.name || it.description) && (
+                <ul className="portal-items">{q.items.filter((it) => it.name || it.description).map((it, i) => (
+                  <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></li>
+                ))}</ul>
+              )}
+              {q.notes && <p className="sub" style={{ whiteSpace: "pre-line", fontSize: 14 }}>{q.notes}</p>}
+              <p className="sub" style={{ fontSize: 13 }}>{tx("Accepting books your date. The quote becomes an invoice right here so you can pay.")}</p>
+              <button className="btn btn-joy" style={{ alignSelf: "flex-start" }} disabled={accepting} onClick={() => acceptQuote(q)}><Icon name="check" />{accepting ? tx("Booking…") : tx("Accept quote")}</button>
+            </section>
+          ))}
+
           {needsContract && <SignBlock title={tx("{v0}. Sign your contract", {
             v0: ++step
           })} done={p.contract_signed} doneText={tx("Signed. Thank you!")} text={fill(d.contract, vals)} signLabel={tx("Sign contract")}
@@ -115,10 +146,10 @@ export default function Portal() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{++step}. {open ? tx("Pay {v0}", {
               v0: open.label.toLowerCase()
             }) : tx("Payments")}</h2>
-              {open ? <Pill c={invState(open).c}>{invState(open).k}</Pill> : d.invoices.length ? <Pill c="p-success">{tx("Paid")}</Pill> : <Pill c="p-neutral">{tx("Nothing due")}</Pill>}</div>
+              {open ? <Pill c={invState(open).c}>{invState(open).k}</Pill> : d.invoices.some((i) => i.kind !== "quote") ? <Pill c="p-success">{tx("Paid")}</Pill> : <Pill c="p-neutral">{tx("Nothing due")}</Pill>}</div>
             {open ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Invoice #")}{open.number}{" "}{tx("· due")}{" "}{fdate(open.due_date)}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(open.amount, open.currency)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Invoice #")}{open.number}{" "}{tx("· due")}{" "}{fdate(open.due_date)}{open.total ? " · " + tx("{paid} of {total} paid", { paid: money(open0.amount_paid, open.currency), total: money(open.total, open.currency) }) : ""}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(open.amount, open.currency)}</span></div>
                 {Array.isArray(open.items) && open.items.some((it) => it.name || it.description) && (
                   <ul className="portal-items">{open.items.filter((it) => it.name || it.description).map((it, i) => (
                     <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), open.currency)}</span></li>
@@ -142,7 +173,7 @@ export default function Portal() {
                   </>
                 )}
               </>
-            ) : <p className="sub">{d.invoices.length ? tx("All paid. Thank you!") : tx("No payment due right now.")}</p>}
+            ) : <p className="sub">{d.invoices.some((i) => i.kind !== "quote") ? tx("All paid. Thank you!") : quotes.length ? tx("Accept your quote above and your invoice appears here.") : tx("No payment due right now.")}</p>}
           </section>
 
           {d.release && <SignBlock title={tx("{v0}. Model release (optional)", {

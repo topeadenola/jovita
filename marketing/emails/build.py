@@ -169,6 +169,20 @@ add("booking", "Client · Booking confirmed", "client", f"You're booked with {P(
     + p("Need to change something? Just reply to this email.")
     + button("View details", P("link")), signoff=SIGN_STUDIO))
 
+add("quote", "Client · Quote", "client", f"Your quote from {P('studio_name')}", layout(
+    preheader=f"{P('amount')} for {P('project_name')}. Accept it online to lock in your date.",
+    eyebrow="Quote", title=f"Hi {P('client_first_name')}, here's your quote.", studio=STUDIO,
+    body=facts([("Total", P("amount")), ("For", P("project_name")), ("Valid until", P("due_date"))])
+    + p("Have a look at what's included. When you're happy, tap Accept. It turns into an invoice so you can pay your deposit and your date is booked.")
+    + button("View and accept", P("link")), signoff=SIGN_STUDIO))
+
+add("quote_accepted", "Jovita · Quote accepted", "creative", f"🎉 {P('client_name')} accepted your quote", layout(
+    preheader=f"{P('project_name')} is booked. Their invoice is on its way to them.",
+    eyebrow="Booked", title=f"{P('client_name')} said yes.",
+    body=facts([("Project", P("project_name")), ("Amount", P("amount")), ("Invoice", "#" + P("invoice_number"))])
+    + p("The quote is now an invoice, and we've emailed it to them so they can pay. The project has moved to Booked.")
+    + button("Open in Jovita", P("link")), signoff=SIGN_JOVITA))
+
 # ---- Supabase sign-in emails (Go template syntax) ----
 SB = []
 def sb(key, subject, eyebrow, title, text, label, note):

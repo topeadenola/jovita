@@ -34,9 +34,9 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
 
   const names = CAREERS.map((c) => c[1]).filter((n) => picked.has(n));
-  const joSays = step === 0 ? tx("Hi{name}! I'm Jo. Which language should Jovita speak?", { name: studio.owner_first_name ? " " + studio.owner_first_name : "" })
+  const joSays = step === 0 ? tx("Hi{name}! I'm Jo. Which language should Jovita speak?", { name: studio.owner_first_name ? " " + String(studio.owner_first_name || "").split(" ")[0] : "" })
     : step === 2 ? tx("Lovely. What's your studio called? Clients see this on every invoice.")
-    : names.length === 0 ? tx("Hi{name}! I'm Jo. Tap what you do and I'll set things up.", { name: studio.owner_first_name ? " " + studio.owner_first_name : "" })
+    : names.length === 0 ? tx("Hi{name}! I'm Jo. Tap what you do and I'll set things up.", { name: studio.owner_first_name ? " " + String(studio.owner_first_name || "").split(" ")[0] : "" })
     : names.length === 1 ? tx("Nice, a {what}! I'll get your packages ready.", { what: tx(names[0]).toLowerCase() })
     : tx("Ooh, {n} hats! I'll set up packages for each.", { n: names.length });
 
@@ -81,7 +81,7 @@ export default function Onboarding() {
           <form onSubmit={finish} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <h1 className="h-xl">{tx("Your studio")}</h1>
             <div className="field"><label htmlFor="o-name">{tx("Studio name")}</label><input id="o-name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={tx("e.g. SmithLine Photography")} required /></div>
-            <div className="field"><label htmlFor="o-first">{tx("Your first name")}</label><input id="o-first" value={f.owner_first_name} onChange={(e) => setF({ ...f, owner_first_name: e.target.value })} /></div>
+            <div className="field"><label htmlFor="o-first">{tx("Your full name")}</label><input id="o-first" value={f.owner_first_name} onChange={(e) => setF({ ...f, owner_first_name: e.target.value })} /></div>
             <div className="field"><label htmlFor="o-cur">{tx("Home currency")}</label>
               <select id="o-cur" value={f.home_currency} onChange={(e) => setF({ ...f, home_currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}</select></div>
             <div style={{ display: "flex", gap: 10 }}>

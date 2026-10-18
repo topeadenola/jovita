@@ -5,7 +5,7 @@ import { useActions } from "../lib/actions";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, useToast } from "../components/ui";
-import { ago, daysFrom, dom, dow, fday, first, ftime, invState, money, short, totalLine, totalsBy } from "../lib/format";
+import { ago, balanceOf, daysFrom, dom, dow, fday, first, ftime, invState, money, short, totalLine, totalsBy } from "../lib/format";
 import { summary } from "../lib/accounting";
 import { loadSampleData } from "../lib/sample";
 import { tx, txn } from "../lib/i18n";
@@ -13,7 +13,7 @@ import { tx, txn } from "../lib/i18n";
 export default function Today() {
   const { studio, clients, projects, invoices, bookings, galleries, messages, expenses, subscriptions, client, reload } = useData();
   const { projectAction, invoiceAction } = useActions();
-  const { open, setOpenProject } = useUi();
+  const { open, setOpenProject, setOpenInvoice } = useUi();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const h = new Date().getHours();
@@ -22,7 +22,7 @@ export default function Today() {
   if (!clients.length) {
     return (
       <>
-        <div className="head"><div><p className="eyebrow">{tx("Welcome")}</p><h1 className="h-xl">{greet}, {studio.owner_first_name}</h1>
+        <div className="head"><div><p className="eyebrow">{tx("Welcome")}</p><h1 className="h-xl">{greet}, {String(studio.owner_first_name || "").split(" ")[0]}</h1>
           <p className="sub" style={{ marginTop: 6 }}>{tx("Let's set up")}{" "}{studio.name}{tx(". Add your first client, or explore with example data.")}</p></div></div>
         <div className="grid g-2">
           <section className="card stat hero" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -53,11 +53,17 @@ export default function Today() {
   invoices.forEach((i) => {
     const st = invState(i);
     if (st.k === "Overdue") todos.push({ tone: "danger", pill: "Overdue", icon: "wallet", title: txn(st.late, "{name}'s invoice ({amount}) is {n} day late", "{name}'s invoice ({amount}) is {n} days late", { name: first(client(i.client_id).name), amount: short(i.amount, i.currency) }), sub: tx("Invoice #{number} · {label}", { number: i.number, label: i.label }), btn: tx("Send a nudge"), run: () => invoiceAction(i, "nudge") });
+    // The client opened it in the last 3 days (and hasn't paid yet)
+    if (i.viewed_at && i.status === "sent" && st.k !== "Overdue" && (Date.now() - new Date(i.viewed_at)) < 3 * 864e5)
+      todos.push({ tone: "info", pill: "Viewed", icon: "eye", title: i.kind === "quote" ? tx("{name} opened your quote ({amount})", { name: first(client(i.client_id).name), amount: short(i.amount, i.currency) }) : tx("{name} opened invoice #{number}", { name: first(client(i.client_id).name), number: i.number }),
+        sub: tx("{when} · {label}", { when: ago(i.viewed_at), label: i.label }), btn: tx("Open"), run: () => setOpenInvoice(i.id) });
     if (st.k === "Check payment") todos.push({ tone: "info", pill: "Check payment", icon: "wallet", title: tx("{name} says they've paid {amount}", { name: first(client(i.client_id).name), amount: short(i.amount, i.currency) }), sub: tx("Invoice #{number} · check your account", { number: i.number }), btn: tx("Mark paid"), run: () => invoiceAction(i, "markpaid") });
   });
   projects.forEach((p) => {
     const c = client(p.client_id);
-    if (p.stage === "inquiry") todos.push({ tone: "info", pill: "New inquiry", icon: "chat", title: tx("{name} asked about {title}", { name: c.name, title: p.title.toLowerCase() }), sub: `${fday(p.session_date)} · ${c.city || ""}`, btn: tx("Send quote"), run: () => projectAction(p, "quote") });
+    const sentQuote = p.stage === "inquiry" && invoices.some((i) => i.project_id === p.id && i.kind === "quote" && i.status === "sent");
+    if (sentQuote) { /* waiting for the client to accept */ }
+    else if (p.stage === "inquiry") todos.push({ tone: "info", pill: "New inquiry", icon: "chat", title: tx("{name} asked about {title}", { name: c.name, title: p.title.toLowerCase() }), sub: `${fday(p.session_date)} · ${c.city || ""}`, btn: tx("Send quote"), run: () => projectAction(p, "quote", { open: setOpenInvoice }) });
     else if (!p.contract_signed && p.contract_template_id !== null && p.stage !== "delivered") todos.push({ tone: "warning", pill: "Unsigned", icon: "file", title: tx("{name}'s contract isn't signed yet", { name: first(c.name) }), sub: `${p.title} · ${fday(p.session_date)}`, btn: tx("Share link"), run: () => projectAction(p, "contract") });
   });
   galleries.forEach((g) => {
@@ -66,8 +72,8 @@ export default function Today() {
   });
 
   const home = studio.home_currency;
-  const unpaid = invoices.filter((i) => i.status === "sent");
-  const owed = totalLine(totalsBy(unpaid), home);
+  const unpaid = invoices.filter((i) => i.status === "sent" && i.kind !== "quote");
+  const owed = totalLine(totalsBy(unpaid.map((i) => ({ ...i, amount: balanceOf(i) }))), home);
   const overdue = unpaid.filter((i) => invState(i).k === "Overdue").length;
   const month = summary({ invoices, expenses: expenses || [], subscriptions: subscriptions || [] }, "month", home);
   const upcoming = bookings.filter((b) => new Date(b.starts_at) >= new Date(new Date().toDateString())).sort((a, b) => (a.starts_at < b.starts_at ? -1 : 1));
@@ -78,7 +84,7 @@ export default function Today() {
   return (
     <>
       <div className="head">
-        <div><h1 className="h-xl">{greet}, {studio.owner_first_name}</h1>
+        <div><h1 className="h-xl">{greet}, {String(studio.owner_first_name || "").split(" ")[0]}</h1>
           <p className="sub" style={{ marginTop: 6, fontSize: 17 }}>{fday(new Date().toISOString())} · {todos.length ? txn(todos.length, "{n} thing needs you today", "{n} things need you today") : tx("You're all caught up. Enjoy the shoot!")}</p></div>
         <Link className="btn btn-secondary" to="/projects"><Icon name="folder" />{tx("Open pipeline")}</Link>
       </div>

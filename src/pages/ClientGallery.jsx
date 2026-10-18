@@ -5,6 +5,7 @@ import { GalleryPreview, publicUrl } from "../components/GalleryEditor";
 import StudioLogo from "../components/StudioLogo";
 import Icon from "../components/Icon";
 import { tx } from "../lib/i18n";
+import { fdate } from "../lib/format";
 import { LangSwitch } from "../components/Lang";
 
 const DEF_DESIGN = { cover: "center", font: "sans", palette: "light", grid: { style: "vertical", size: "regular", spacing: "regular" } };
@@ -14,6 +15,7 @@ export default function ClientGallery() {
   const { token } = useParams();
   const [state, setState] = useState({ loading: true });
   const [pw, setPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [setId, setSetId] = useState("all");
   const [open, setOpen] = useState(-1);
 
@@ -22,7 +24,7 @@ export default function ClientGallery() {
     const { data, error } = await supabase.rpc("open_gallery", { p_token: token, p_password: password || null });
     if (error) return setState({ error: "missing" });
     if (!data) return setState({ error: "missing" });
-    if (data.error) return setState({ error: data.error, title: data.title, tried: !!password });
+    if (data.error) return setState({ error: data.error, title: data.title, cover: data.cover_path, date: data.event_date, studio: data.studio, tried: !!password });
     setState({ g: data });
   }, [token]);
   useEffect(() => { load(); }, [load]);
@@ -48,14 +50,19 @@ export default function ClientGallery() {
 
   if (state.loading && !g) return <div className="loading">{tx("Opening the gallery…")}</div>;
   if (state.error === "password") return (
-    <div className="cg-gate">
-      <form className="card" onSubmit={(e) => { e.preventDefault(); load(pw); }}>
-        <Icon name="lock" />
-        <h1 className="h-m">{state.title}</h1>
-        <p className="sub">{tx("This gallery has a password. Your photographer sent it with the link.")}</p>
-        <div className="field"><label htmlFor="cg-pw">{tx("Password")}</label><input id="cg-pw" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} /></div>
+    <div className="cg-lock" style={state.cover ? { "--cg-bg": `url("${publicUrl(state.cover)}")` } : undefined}>
+      <form className="cg-lock-card" onSubmit={(e) => { e.preventDefault(); load(pw); }}>
+        {state.studio && <div className="cg-lock-brand"><StudioLogo studio={state.studio} className="studio-mark" /><span>{state.studio.name}</span></div>}
+        <span className="cg-lock-ic"><Icon name="lock" /></span>
+        <h1>{state.title}</h1>
+        {state.date && <p className="cg-lock-date">{fdate(state.date)}</p>}
+        <p className="sub">{tx("This gallery is private. Enter the password your photographer sent you.")}</p>
+        <div className="cg-lock-field">
+          <input id="cg-pw" type={showPw ? "text" : "password"} autoFocus value={pw} onChange={(e) => setPw(e.target.value)} placeholder={tx("Password")} aria-label={tx("Password")} />
+          <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? tx("Hide password") : tx("Show password")}><Icon name="eye" /></button>
+        </div>
         {state.tried && <p className="err">{tx("That password didn't work. Check it and try again.")}</p>}
-        <button className="btn btn-primary">{tx("Open gallery")}</button>
+        <button className="btn btn-primary">{tx("View gallery")}</button>
       </form>
     </div>
   );

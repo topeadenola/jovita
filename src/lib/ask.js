@@ -131,7 +131,7 @@ export function answer(raw, d) {
     return { text: txn(inq.length, "{n} inquiry waiting for a quote:", "{n} inquiries waiting for a quote:") + "\n" + inq.map((p) => `• ${client(p.client_id).name} · ${p.title}`).join("\n") };
   }
 
-  if (has(q, ["hello", "hi ", "hey", "good morning"])) return { text: tx("Hi {name}! Ask me about money, your week, contracts or messages.", { name: studio.owner_first_name || "" }), mood: "hello" };
+  if (has(q, ["hello", "hi ", "hey", "good morning"])) return { text: tx("Hi {name}! Ask me about money, your week, contracts or messages.", { name: String(studio.owner_first_name || "").split(" ")[0] }), mood: "hello" };
 
   return { text: tx("I'm still learning that one. Right now I can answer from your own data: money owed, your week, contracts, galleries, clients, projects, what you made this month, and replies to clients. You can also ask about a client by name. Try one of these:"), chips: SUGGESTIONS, mood: "think" };
 }

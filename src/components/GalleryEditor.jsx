@@ -7,10 +7,37 @@ import { tx, txn } from "../lib/i18n";
 import { Toggle, useToast } from "./ui";
 import Icon from "./Icon";
 import GalleryShare from "./GalleryShare";
+import { useUi } from "./Shell";
 
 const BUCKET = "gallery-photos";
 const uid = () => Math.random().toString(36).slice(2, 9);
 export const publicUrl = (path) => (path ? supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl : "");
+// Every upload also gets a light 1200px copy (name.thumb.jpg) so grids load fast; originals are kept for downloads
+export const RAW_EXT = ["cr2", "cr3", "nef", "arw", "dng", "raf", "rw2", "orf", "srw", "pef"];
+export const isRaw = (path) => RAW_EXT.includes(String(path || "").split(".").pop().toLowerCase());
+export const thumbPath = (path) => String(path || "").replace(/\.[^./]+$/, ".thumb.jpg");
+export const thumbUrl = (path) => (path ? publicUrl(thumbPath(path)) : "");
+// <Thumb> shows the light copy, and falls back to the original for photos uploaded before thumbnails existed
+export function Thumb({ path, alt = "", ...rest }) {
+  const [src, setSrc] = useState(() => thumbUrl(path));
+  useEffect(() => { setSrc(thumbUrl(path)); }, [path]);
+  if (isRaw(path) && src === publicUrl(path)) return <span className="raw-tile" aria-label={alt}>RAW<small>.{String(path).split(".").pop().toUpperCase()}</small></span>;
+  return <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => { if (src !== publicUrl(path)) setSrc(publicUrl(path)); }} {...rest} />;
+}
+async function makeThumb(file, max = 1200) {
+  try {
+    const probe = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(probe.width, probe.height));
+    const w = Math.round(probe.width * scale), h = Math.round(probe.height * scale);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(probe, 0, 0, w, h);
+    const dims = { width: probe.width, height: probe.height };
+    probe.close?.();
+    const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
+    return { blob, ...dims };
+  } catch { return { blob: null, width: null, height: null }; } // HEIC/RAW may not decode in the browser
+}
+const fmtBytes = (n) => (n >= 1024 ** 3 ? (n / 1024 ** 3).toFixed(1) + " GB" : Math.max(1, Math.round(n / 1024 ** 2)) + " MB");
 
 export const COVERS = [
   ["center", "Centre"], ["left", "Left"], ["novel", "Novel"], ["vintage", "Vintage"], ["frame", "Frame"],
@@ -84,8 +111,8 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
       <div className="gp-nav" style={{ borderColor: pal[2] }}><b style={titleStyle}>{title}</b><span>{studioName}</span><span className="gp-sets">{d.sets.map((s) => <i key={s.id}>{s.name}</i>)}</span></div>
       {photos.length ? (
         g.style === "horizontal"
-          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => <img key={p.id || p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} src={publicUrl(p.path)} alt="" style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} loading="lazy" />)}</div>
-          : <div className="gp-masonry" style={{ columnCount: cols, columnGap: gap, padding: gap }}>{(full ? photos : photos.slice(0, 24)).map((p, i) => <img key={p.id || p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} src={publicUrl(p.path)} alt="" style={{ marginBottom: gap }} loading="lazy" />)}</div>
+          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => <Thumb key={p.id || p.path} path={p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />)}</div>
+          : <div className="gp-masonry" style={{ columnCount: cols, columnGap: gap, padding: gap }}>{(full ? photos : photos.slice(0, 24)).map((p, i) => <Thumb key={p.id || p.path} path={p.path} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />)}</div>
       ) : <p className="gp-empty">{tx("There are no photos here yet.")}</p>}
     </div>
   );
@@ -121,7 +148,12 @@ export default function GalleryEditor({ id, onClose }) {
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
   const [device, setDevice] = useState("desktop");
   const [preview, setPreview] = useState(false);
+  const [picked, setPicked] = useState(() => new Set()); // selected photo ids
+  const [viewer, setViewer] = useState(-1);               // photo open in the large viewer
+  const [menuFor, setMenuFor] = useState(null);           // photo id whose ••• menu is open
   const fileRef = useRef(null);
+  const ui = useUi();
+  const plan = ui?.plan?.plan || "free";
   const [d, setD, status, flush] = useAutosave(g ? toDraft(g) : null, async (v) => {
     await update("galleries", id, { title: v.title.trim() || tx("Untitled gallery"), event_date: v.event_date || null, expires_on: v.expires_on || null, slug: slugify(v.slug) || null, sets: v.sets, cover_path: v.cover_path || null, design: v.design, settings: v.settings, updated_at: new Date().toISOString() });
   });
@@ -132,11 +164,11 @@ export default function GalleryEditor({ id, onClose }) {
   }, [id]);
   useEffect(() => { loadPhotos(); }, [loadPhotos]);
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape" && !setModal && !preview) { flush(); onClose(); } };
+    const h = (e) => { if (e.key === "Escape" && !setModal && !preview && viewer < 0) { flush(); onClose(); } };
     document.addEventListener("keydown", h);
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
-  }, [flush, onClose, setModal, preview]);
+  }, [flush, onClose, setModal, preview, viewer]);
 
   const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos), [photos, sub.photos]);
   if (!g || !d) return null;
@@ -153,42 +185,84 @@ export default function GalleryEditor({ id, onClose }) {
   const close = async () => { await flush(); onClose(); };
 
   async function upload(files) {
-    const list = [...files].filter((f) => /^image\//.test(f.type));
-    if (!list.length) return toast(tx("Add JPG, PNG, WebP or HEIC photos."));
-    setUploading({ done: 0, total: list.length });
-    let pos = photos.length;
-    for (const file of list) {
-      try {
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const path = `${studio.id}/${id}/${crypto.randomUUID ? crypto.randomUUID() : uid() + uid()}.${ext}`;
-        let width = null, height = null;
-        try { const bmp = await createImageBitmap(file); width = bmp.width; height = bmp.height; bmp.close?.(); } catch { /* HEIC may not decode in the browser */ }
-        const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, cacheControl: "31536000" });
-        if (error) throw error;
-        const { error: e2 } = await supabase.from("gallery_photos").insert({ studio_id: studio.id, gallery_id: id, set_id: currentSet.id, path, name: file.name, width, height, position: pos++ });
-        if (e2) throw e2;
-      } catch (e) { toast(tx("Couldn't upload {name}: {err}", { name: file.name, err: e.message })); }
-      setUploading((u) => ({ ...u, done: u.done + 1 }));
+    const all = [...files];
+    const raws = all.filter((f) => isRaw(f.name));
+    if (raws.length && plan !== "studio") {
+      toast(tx("RAW files are part of the Studio plan. Upload JPGs, or upgrade to Studio."));
+      ui?.openUpgrade?.("studio");
     }
+    const list = all.filter((f) => /^image\//.test(f.type) || (plan === "studio" && isRaw(f.name)));
+    if (!list.length) { if (!raws.length) toast(tx("Add JPG, PNG, WebP or HEIC photos.")); return; }
+    // Storage limit for the plan (Free 500 MB, Pro 1000 GB, Studio unlimited)
+    const batch = list.reduce((n, f) => n + f.size, 0);
+    try {
+      const { data: q } = await supabase.rpc("storage_quota");
+      if (q && q.limit != null && Number(q.used) + batch > Number(q.limit)) {
+        toast(tx("Not enough storage: {used} of {limit} used. Upgrade for more space.", { used: fmtBytes(Number(q.used)), limit: fmtBytes(Number(q.limit)) }));
+        ui?.openUpgrade?.(plan === "free" ? "pro" : "studio");
+        return;
+      }
+    } catch { /* limits not switched on yet */ }
+    setUploading({ done: 0, total: list.length, failed: 0 });
+    const start = photos.length;
+    const setId = currentSet.id;
+    const added = [];
+    let next = 0;
+    // Four at a time: much faster than one by one, without choking a slow connection
+    const worker = async () => {
+      while (next < list.length) {
+        const i = next++;
+        const file = list[i];
+        try {
+          const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+          const path = `${studio.id}/${id}/${crypto.randomUUID ? crypto.randomUUID() : uid() + uid()}.${ext}`;
+          const raw = isRaw(file.name);
+          const t = raw ? { blob: null } : await makeThumb(file);
+          const ups = [supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream", cacheControl: "31536000" })];
+          if (t.blob) ups.push(supabase.storage.from(BUCKET).upload(thumbPath(path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000" }));
+          const [r1] = await Promise.all(ups);
+          if (r1.error) throw r1.error;
+          const row = { studio_id: studio.id, gallery_id: id, set_id: setId, path, name: file.name, width: t.width || null, height: t.height || null, position: start + i, bytes: file.size + (t.blob?.size || 0) };
+          let { error: e2 } = await supabase.from("gallery_photos").insert(row);
+          if (e2 && /bytes/.test(e2.message || "")) { delete row.bytes; ({ error: e2 } = await supabase.from("gallery_photos").insert(row)); }
+          if (e2) throw e2;
+          added.push(path);
+          setUploading((u) => ({ ...u, done: u.done + 1 }));
+        } catch (e) {
+          setUploading((u) => ({ ...u, done: u.done + 1, failed: u.failed + 1 }));
+          toast(tx("Couldn't upload {name}: {err}", { name: file.name, err: e.message }));
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, list.length) }, worker));
     await loadPhotos();
     const { count } = await supabase.from("gallery_photos").select("id", { count: "exact", head: true }).eq("gallery_id", id);
-    await update("galleries", id, { photo_count: count ?? pos });
+    const patch = { photo_count: count ?? start + added.length };
+    // First photos in an empty gallery become its cover
+    if (!d.cover_path && added[0]) { set("cover_path", added[0]); patch.cover_path = added[0]; }
+    await update("galleries", id, patch);
     setUploading(null);
-    toast(txn(list.length, "{n} photo added", "{n} photos added"));
+    if (added.length) toast(txn(added.length, "{n} photo added", "{n} photos added"), true);
   }
-  async function deletePhoto(p) {
-    if (!window.confirm(tx("Remove this photo from the gallery?"))) return;
-    await supabase.storage.from(BUCKET).remove([p.path]);
-    await supabase.from("gallery_photos").delete().eq("id", p.id);
-    if (d.cover_path === p.path) set("cover_path", "");
+  async function removePhotos(list) {
+    if (!list.length) return;
+    if (!window.confirm(list.length === 1 ? tx("Remove this photo from the gallery?") : tx("Remove {n} photos from the gallery?", { n: list.length }))) return;
+    const paths = list.flatMap((p) => [p.path, thumbPath(p.path)]);
+    await supabase.storage.from(BUCKET).remove(paths);
+    await supabase.from("gallery_photos").delete().in("id", list.map((p) => p.id));
+    if (list.some((p) => p.path === d.cover_path)) set("cover_path", "");
+    setPicked(new Set()); setViewer(-1);
     await loadPhotos();
-    await update("galleries", id, { photo_count: Math.max(0, photos.length - 1) });
+    await update("galleries", id, { photo_count: Math.max(0, photos.length - list.length) });
+    toast(txn(list.length, "{n} photo removed", "{n} photos removed"));
   }
-  async function movePhoto(p, setId) {
-    await supabase.from("gallery_photos").update({ set_id: setId }).eq("id", p.id);
+  async function movePhotos(list, setId) {
+    await supabase.from("gallery_photos").update({ set_id: setId }).in("id", list.map((p) => p.id));
+    setPicked(new Set());
     await loadPhotos();
     toast(tx("Moved to {name}", { name: d.sets.find((s) => s.id === setId)?.name }));
   }
+  const togglePick = (pid) => setPicked((cur) => { const n = new Set(cur); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
   async function publish(next) {
     await flush();
     await update("galleries", id, next ? { status: "delivered", expires_on: d.expires_on || addDays(60) } : { status: "draft" });
@@ -272,23 +346,37 @@ export default function GalleryEditor({ id, onClose }) {
               {tab === "photos" && (
                 <>
                   <div className="set-head"><div><h2 className="h-m">{currentSet.name}</h2>{currentSet.description && <p className="sub" style={{ fontSize: 13 }}>{currentSet.description}</p>}</div>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos")}</button>
-                    <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {setPhotosInSet.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicked(picked.size === setPhotosInSet.length ? new Set() : new Set(setPhotosInSet.map((p) => p.id)))}>{picked.size === setPhotosInSet.length ? tx("Clear selection") : tx("Select all")}</button>}
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()} disabled={!!uploading}><Icon name="plus" />{tx("Add photos")}</button>
+                    </div>
+                    <input ref={fileRef} type="file" accept={plan === "studio" ? "image/*," + RAW_EXT.map((e) => "." + e).join(",") : "image/*"} multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ""; }} /></div>
                   {uploading && <div className="ge-progress" role="status"><span style={{ width: `${(uploading.done / uploading.total) * 100}%` }} /><b>{tx("Uploading {a} of {b}…", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })}</b></div>}
                   <div className={`ge-drop ${over ? "on" : ""} ${setPhotosInSet.length ? "has" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
                     {setPhotosInSet.length ? (
-                      <div className="ge-grid">
-                        {setPhotosInSet.map((p) => (
-                          <figure key={p.id} className={`ge-photo ${d.cover_path === p.path ? "is-cover" : ""}`}>
-                            <img src={publicUrl(p.path)} alt={p.name} loading="lazy" />
-                            {d.cover_path === p.path && <span className="ge-badge">{tx("Cover")}</span>}
-                            <figcaption>
-                              <button type="button" onClick={() => set("cover_path", p.path)} title={tx("Set as cover")} aria-label={tx("Set as cover")}><Icon name="star" /></button>
-                              {d.sets.length > 1 && <select value={p.set_id} onChange={(e) => movePhoto(p, e.target.value)} aria-label={tx("Move to set")}>{d.sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
-                              <button type="button" onClick={() => deletePhoto(p)} title={tx("Remove")} aria-label={tx("Remove photo")}><Icon name="x" /></button>
-                            </figcaption>
-                          </figure>
-                        ))}
+                      <div className={`ge-grid ${picked.size ? "picking" : ""}`}>
+                        {setPhotosInSet.map((p, i) => {
+                          const on = picked.has(p.id);
+                          return (
+                            <figure key={p.id} className={`ge-photo ${on ? "on" : ""} ${d.cover_path === p.path ? "is-cover" : ""}`}>
+                              <button type="button" className="ge-hit" onClick={() => (picked.size ? togglePick(p.id) : setViewer(i))} aria-label={picked.size ? tx("Select {name}", { name: p.name }) : tx("Open {name}", { name: p.name })}>
+                                <Thumb path={p.path} alt={p.name} />
+                              </button>
+                              <button type="button" className="ge-check" aria-pressed={on} onClick={() => togglePick(p.id)} aria-label={on ? tx("Unselect photo") : tx("Select photo")}><Icon name="check" /></button>
+                              {d.cover_path === p.path && <span className="ge-badge">{tx("Cover")}</span>}
+                              <button type="button" className="ge-more" onClick={() => setMenuFor(menuFor === p.id ? null : p.id)} aria-label={tx("More options")} aria-expanded={menuFor === p.id}>•••</button>
+                              {menuFor === p.id && (
+                                <div className="ge-menu" role="menu" onMouseLeave={() => setMenuFor(null)}>
+                                  <button type="button" role="menuitem" onClick={() => { setMenuFor(null); setViewer(i); }}><Icon name="eye" />{tx("Open")}</button>
+                                  <button type="button" role="menuitem" onClick={() => { setMenuFor(null); set("cover_path", p.path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
+                                  <a role="menuitem" href={publicUrl(p.path)} target="_blank" rel="noreferrer" download onClick={() => setMenuFor(null)}><Icon name="download" />{tx("Download")}</a>
+                                  {d.sets.length > 1 && d.sets.filter((x) => x.id !== p.set_id).map((x) => <button key={x.id} type="button" role="menuitem" onClick={() => { setMenuFor(null); movePhotos([p], x.id); }}><Icon name="folder" />{tx("Move to {name}", { name: x.name })}</button>)}
+                                  <button type="button" role="menuitem" className="danger" onClick={() => { setMenuFor(null); removePhotos([p]); }}><Icon name="x" />{tx("Delete")}</button>
+                                </div>
+                              )}
+                            </figure>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="ge-empty">
@@ -296,10 +384,20 @@ export default function GalleryEditor({ id, onClose }) {
                         <b>{tx("Drag photos here to upload")}</b>
                         <span className="sub">{tx("or")}</span>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>{tx("Choose from your computer")}</button>
-                        <span className="sub" style={{ fontSize: 12 }}>{tx("JPG, PNG, WebP or HEIC · up to 50 MB each")}</span>
+                        <span className="sub" style={{ fontSize: 12 }}>{plan === "studio" ? tx("JPG, PNG, WebP, HEIC or RAW") : tx("JPG, PNG, WebP or HEIC · up to 50 MB each")}</span>
                       </div>
                     )}
                   </div>
+                  {picked.size > 0 && (
+                    <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
+                      <button type="button" className="ge-selx" onClick={() => setPicked(new Set())} aria-label={tx("Clear selection")}><Icon name="x" /></button>
+                      <b>{txn(picked.size, "{n} selected", "{n} selected")}</b>
+                      <span className="spacer" />
+                      {picked.size === 1 && <button type="button" onClick={() => { const p = photos.find((x) => picked.has(x.id)); set("cover_path", p.path); setPicked(new Set()); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>}
+                      {d.sets.length > 1 && <select aria-label={tx("Move to set")} value="" onChange={(e) => e.target.value && movePhotos(photos.filter((x) => picked.has(x.id)), e.target.value)}><option value="">{tx("Move to…")}</option>{d.sets.filter((x) => x.id !== currentSet.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
+                      <button type="button" className="danger" onClick={() => removePhotos(photos.filter((x) => picked.has(x.id)))}><Icon name="x" />{tx("Delete")}</button>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -406,6 +504,21 @@ export default function GalleryEditor({ id, onClose }) {
             <div className="field"><label htmlFor="ge-sd">{tx("Description")}</label><textarea id="ge-sd" maxLength={500} value={setModal.description} onChange={(e) => setSetModal({ ...setModal, description: e.target.value })} placeholder={tx("Optional")} /><span className="help">{setModal.description.length}/500 · {tx("Shown to clients viewing this set.")}</span></div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={() => setSetModal(null)}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Save")}</button></div>
           </form>
+        </div>
+      )}
+
+      {viewer >= 0 && setPhotosInSet[viewer] && (
+        <div className="cg-light" role="dialog" aria-modal="true" aria-label={setPhotosInSet[viewer].name} onClick={(e) => e.target === e.currentTarget && setViewer(-1)}
+          onKeyDown={(e) => { if (e.key === "ArrowRight") setViewer((v) => Math.min(setPhotosInSet.length - 1, v + 1)); if (e.key === "ArrowLeft") setViewer((v) => Math.max(0, v - 1)); if (e.key === "Escape") { e.stopPropagation(); setViewer(-1); } }} tabIndex={-1} ref={(el) => el?.focus()}>
+          {isRaw(setPhotosInSet[viewer].path) ? <span className="raw-tile big">RAW</span> : <img src={publicUrl(setPhotosInSet[viewer].path)} alt={setPhotosInSet[viewer].name} />}
+          <button type="button" className="cg-x" onClick={() => setViewer(-1)} aria-label={tx("Close")}><Icon name="x" /></button>
+          {viewer > 0 && <button type="button" className="cg-prev" onClick={() => setViewer(viewer - 1)} aria-label={tx("Previous photo")}>‹</button>}
+          {viewer < setPhotosInSet.length - 1 && <button type="button" className="cg-next" onClick={() => setViewer(viewer + 1)} aria-label={tx("Next photo")}>›</button>}
+          <div className="ge-lb-bar">
+            <span>{setPhotosInSet[viewer].name} · {viewer + 1} / {setPhotosInSet.length}</span>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", setPhotosInSet[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="x" />{tx("Delete")}</button>
+          </div>
         </div>
       )}
 

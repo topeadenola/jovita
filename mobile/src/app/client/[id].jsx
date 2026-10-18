@@ -38,7 +38,6 @@ function ClientDetail({ c }) {
       </View>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
         {!!c.phone && <Button small title={tx("Call")} icon="phone" variant="secondary" onPress={() => open(`tel:${digits(c.phone)}`)} />}
-        {!!c.phone && <Button small title={tx("WhatsApp")} icon="chat" onPress={() => open(`https://wa.me/${digits(c.phone)}`)} />}
         {!!c.email && <Button small title={tx("Email")} icon="mail" variant="secondary" onPress={() => open(`mailto:${c.email}`)} />}
       </View>
       {owes.length > 0 && <Card style={{ backgroundColor: C.warningTint, borderColor: C.warningTint }}><Txt style={{ fontWeight: "700" }}>{tx("Owes you")}{" "}{owes.map((i) => money(i.amount, i.currency)).join(" + ")}</Txt></Card>}
@@ -55,7 +54,7 @@ function ClientDetail({ c }) {
       <Card>
         <Txt variant="h2">{tx("Details")}</Txt>
         <Field label={tx("Name")} value={f.name} onChangeText={set("name")} />
-        <Field label={tx("Phone / WhatsApp")} value={f.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
+        <Field label={tx("Phone")} value={f.phone} onChangeText={set("phone")} keyboardType="phone-pad" />
         <Field label={tx("Email")} value={f.email} onChangeText={set("email")} keyboardType="email-address" autoCapitalize="none" />
         <Field label={tx("City")} value={f.city} onChangeText={set("city")} />
         <Chips scroll={false} options={[["lead", "Lead"], ["client", "Client"]]} value={f.status} onChange={set("status")} />

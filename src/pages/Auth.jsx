@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabase";
-import { Mark } from "../components/Icon";
+import Icon, { Mark } from "../components/Icon";
 import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
 
 export default function Auth({ initial = "signup" }) {
   const [mode, setMode] = useState(initial);
   const [f, setF] = useState({ first: "", studio: "", email: "", password: "" });
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -66,7 +67,7 @@ export default function Auth({ initial = "signup" }) {
           )}
           <div className="field"><label htmlFor="a-email">{tx("Email")}</label><input id="a-email" type="email" required value={f.email} onChange={set("email")} autoComplete="email" /></div>
           {mode !== "reset" && (
-            <div className="field"><label htmlFor="a-pass">{tx("Password")}</label><input id="a-pass" type="password" required minLength={8} value={f.password} onChange={set("password")} autoComplete={mode === "signup" ? "new-password" : "current-password"} /><span className="help">{tx("At least 8 characters.")}</span></div>
+            <div className="field"><label htmlFor="a-pass">{tx("Password")}</label><div className="pw-field"><input id="a-pass" type={showPw ? "text" : "password"} required minLength={8} value={f.password} onChange={set("password")} autoComplete={mode === "signup" ? "new-password" : "current-password"} /><button type="button" className="pw-eye" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? tx("Hide password") : tx("Show password")} aria-pressed={showPw}><Icon name={showPw ? "eyeoff" : "eye"} /></button></div><span className="help">{tx("At least 8 characters.")}</span></div>
           )}
           {msg && <p className={msg.ok ? "sub" : "err"} role="status">{msg.text}</p>}
           <button className="btn btn-primary" disabled={busy} type="submit">

@@ -4,85 +4,85 @@
       "key": "welcome",
       "name": "Jovita · Welcome",
       "audience": "creative",
-      "subject": "Welcome to Jovita, {{ params.first_name }} 👋",
-      "brevo_id": 1
+      "subject": "Welcome to Jovita, {{ params.first_name }} 👋"
     },
     {
       "key": "trial_started",
       "name": "Jovita · Pro trial started",
       "audience": "creative",
-      "subject": "Your 7-day Pro trial has started ✨",
-      "brevo_id": 2
+      "subject": "Your 7-day Pro trial has started ✨"
     },
     {
       "key": "trial_ending",
       "name": "Jovita · Trial ending",
       "audience": "creative",
-      "subject": "Your Pro trial ends in 2 days",
-      "brevo_id": 3
+      "subject": "Your Pro trial ends in 2 days"
     },
     {
       "key": "payment_received",
       "name": "Jovita · Client paid",
       "audience": "creative",
-      "subject": "💸 {{ params.client_name }} paid {{ params.amount }}",
-      "brevo_id": 4
+      "subject": "💸 {{ params.client_name }} paid {{ params.amount }}"
     },
     {
       "key": "new_inquiry",
       "name": "Jovita · New inquiry",
       "audience": "creative",
-      "subject": "New inquiry from {{ params.client_name }}",
-      "brevo_id": 5
+      "subject": "New inquiry from {{ params.client_name }}"
     },
     {
       "key": "contract_signed",
       "name": "Jovita · Contract signed",
       "audience": "creative",
-      "subject": "✍️ {{ params.client_name }} signed the contract",
-      "brevo_id": 6
+      "subject": "✍️ {{ params.client_name }} signed the contract"
     },
     {
       "key": "invoice",
       "name": "Client · Invoice",
       "audience": "client",
-      "subject": "Invoice #{{ params.invoice_number }} from {{ params.studio_name }}",
-      "brevo_id": 7
+      "subject": "Invoice #{{ params.invoice_number }} from {{ params.studio_name }}"
     },
     {
       "key": "payment_reminder",
       "name": "Client · Payment reminder",
       "audience": "client",
-      "subject": "Friendly reminder: invoice #{{ params.invoice_number }}",
-      "brevo_id": 8
+      "subject": "Friendly reminder: invoice #{{ params.invoice_number }}"
     },
     {
       "key": "receipt",
       "name": "Client · Receipt",
       "audience": "client",
-      "subject": "Receipt from {{ params.studio_name }}: thank you!",
-      "brevo_id": 9
+      "subject": "Receipt from {{ params.studio_name }}: thank you!"
     },
     {
       "key": "contract",
       "name": "Client · Contract to sign",
       "audience": "client",
-      "subject": "Your contract from {{ params.studio_name }} is ready",
-      "brevo_id": 10
+      "subject": "Your contract from {{ params.studio_name }} is ready"
     },
     {
       "key": "gallery",
       "name": "Client · Gallery ready",
       "audience": "client",
-      "subject": "Your photos are ready ✨",
-      "brevo_id": 11
+      "subject": "Your photos are ready ✨"
     },
     {
       "key": "booking",
       "name": "Client · Booking confirmed",
       "audience": "client",
-      "subject": "You're booked with {{ params.studio_name }} 📅",
-      "brevo_id": 12
+      "subject": "You're booked with {{ params.studio_name }} 📅"
+    },
+    {
+      "key": "quote",
+      "name": "Client · Quote",
+      "audience": "client",
+      "subject": "Your quote from {{ params.studio_name }}"
+    },
+    {
+      "key": "quote_accepted",
+      "name": "Jovita · Quote accepted",
+      "audience": "creative",
+      "subject": "🎉 {{ params.client_name }} accepted your quote"
     }
   ],
   "supabase": [

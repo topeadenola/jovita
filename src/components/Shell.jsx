@@ -19,7 +19,7 @@ import { PlanBadge, UpgradeSheet } from "./Upgrade";
 import { loadPlan, planFromStudio } from "../lib/plan";
 import { AskIcon } from "./Jo";
 import { applyTheme, resolve } from "../lib/theme";
-import { mailLink, waLink } from "../lib/voice";
+import { mailLink } from "../lib/voice";
 
 const UiCtx = createContext(null);
 export const useUi = () => useContext(UiCtx);
@@ -57,8 +57,8 @@ export default function Shell({ children }) {
   const thanks = (p) => {
     const c = clients.find((x) => x.id === p.clientId);
     if (!c) return;
-    const text = tx("Hi {name}! Payment received, thank you so much. It was a joy working with you.", { name: c.name.split(" ")[0] }) + (studio.owner_first_name ? "\n" + studio.owner_first_name : "");
-    const url = waLink(c.phone, text) || mailLink(c.email, tx("Thank you!"), text);
+    const text = tx("Hi {name}! Payment received, thank you so much. It was a joy working with you.", { name: c.name.split(" ")[0] }) + (studio.owner_first_name ? "\n" + String(studio.owner_first_name).split(" ")[0] : "");
+    const url = mailLink(c.email, tx("Thank you!"), text);
     if (url) window.open(url, "_blank", "noopener");
   };
   // Announcements from Jovita HQ (dismissed ones stay hidden on this device)
@@ -129,6 +129,7 @@ export default function Shell({ children }) {
                   <button type="button" onClick={() => open("project")}><Icon name="folder" />{tx("Project")}</button>
                   <button type="button" onClick={() => open("client")}><Icon name="users" />{tx("Client")}</button>
                   <button type="button" onClick={() => open("invoice")}><Icon name="receipt" />{tx("Invoice")}</button>
+                  <button type="button" onClick={() => open("quote")}><Icon name="file" />{tx("Quote")}</button>
                   <button type="button" onClick={() => open("session")}><Icon name="calendar" />{tx("Session type")}</button>
                   <button type="button" onClick={() => { setMenu(false); nav("/accounting"); }}><Icon name="chart" />{tx("Expense")}</button>
                   <button type="button" onClick={() => { setMenu(false); nav("/settings?tab=templates"); }}><Icon name="file" />{tx("Template")}</button>
@@ -148,7 +149,7 @@ export default function Shell({ children }) {
       </div>
       {modal?.kind === "client" && <ClientForm onClose={() => setModal(null)} />}
       {modal?.kind === "project" && <ProjectForm pre={modal.pre} onClose={() => setModal(null)} onCreated={(p) => { setModal(null); nav("/projects"); setOpenProject(p.id); }} />}
-      {modal?.kind === "invoice" && <InvoiceForm pre={modal.pre} onClose={() => setModal(null)} onCreated={(iid) => { setModal(null); setOpenInvoice(iid); }} />}
+      {(modal?.kind === "invoice" || modal?.kind === "quote") && <InvoiceForm pre={modal.pre} kind={modal.kind} onClose={() => setModal(null)} onCreated={(iid) => { setModal(null); setOpenInvoice(iid); }} />}
       {openInvoice && <InvoiceEditor key={openInvoice} id={openInvoice} onClose={() => setOpenInvoice(null)} />}
       {openGallery && <GalleryEditor key={openGallery} id={openGallery} onClose={() => setOpenGallery(null)} />}
       {modal?.kind === "session" && <SessionForm onClose={() => setModal(null)} />}

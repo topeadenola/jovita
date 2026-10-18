@@ -81,7 +81,6 @@ function Draft({ d }) {
       <Txt style={{ fontSize: 12, fontFamily: F.bold, color: C.muted }}>{tx("To {name} · in your voice", { name: d.to })}</Txt>
       <Txt style={{ fontSize: 14, lineHeight: 20 }}>{d.text}</Txt>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-        {wa ? <Button small title={tx("WhatsApp")} onPress={() => Linking.openURL(wa).catch(() => {})} /> : null}
         {mail ? <Button small variant="secondary" title={tx("Email")} onPress={() => Linking.openURL(mail).catch(() => {})} /> : null}
         <Button small variant="ghost" title={tx("Share")} onPress={() => Share.share({ message: d.text }).catch(() => {})} />
       </View>

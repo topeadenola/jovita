@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import Icon, { Mark } from "./Icon";
 import { tx } from "../lib/i18n";
+import { groupDigits } from "../lib/format";
 import { askLeave } from "../lib/unsaved";
 
 /* ---------- Toasts ---------- */
@@ -102,4 +103,23 @@ export function Empty({ icon = "folder", title, text, action }) {
       {action}
     </div>
   );
+}
+
+// A money box that shows commas as you type (2,000,000) and hands back a plain number string ("2000000")
+export function MoneyInput({ value, onChange, className, ...rest }) {
+  const ref = useRef(null);
+  const shown = groupDigits(value);
+  const handle = (e) => {
+    const el = e.target, caret = el.selectionStart ?? el.value.length;
+    const keep = el.value.slice(0, caret).replace(/[^\d.]/g, "").length; // digits before the cursor
+    const raw = el.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+    onChange(raw);
+    requestAnimationFrame(() => {
+      const box = ref.current; if (!box) return;
+      let seen = 0, pos = 0;
+      while (pos < box.value.length && seen < keep) { if (/[\d.]/.test(box.value[pos])) seen++; pos++; }
+      try { box.setSelectionRange(pos, pos); } catch { /* not focused */ }
+    });
+  };
+  return <input ref={ref} type="text" inputMode="decimal" autoComplete="off" className={className} value={shown} onChange={handle} {...rest} />;
 }

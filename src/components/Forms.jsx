@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import { CURRENCIES, PROJECT_TYPES, SYM, addDays, first, money } from "../lib/format";
-import { CloseBtn, Modal, useToast } from "./ui";
+import { CloseBtn, Modal, MoneyInput, useToast } from "./ui";
 import { tx } from "../lib/i18n";
 
 function FormModal({ title, onClose, onSubmit, submitLabel, children, wide }) {
@@ -54,7 +54,7 @@ export function ClientForm({ onClose }) {
       </div>
       <div className="form-grid">
         <div className="field"><label htmlFor="c-email">{tx("Email")}</label><input id="c-email" type="email" value={f.email} onChange={set("email")} placeholder={tx("bisi@example.com")} /></div>
-        <div className="field"><label htmlFor="c-phone">{tx("Phone / WhatsApp")}</label><input id="c-phone" value={f.phone} onChange={set("phone")} placeholder="+234 …" /></div>
+        <div className="field"><label htmlFor="c-phone">{tx("Phone")}</label><input id="c-phone" value={f.phone} onChange={set("phone")} placeholder="+234 …" /></div>
       </div>
       <div className="field"><label htmlFor="c-status">{tx("Status")}</label>
         <select id="c-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
@@ -99,7 +99,7 @@ export function ProjectForm({ pre, onClose, onCreated }) {
       </div>
       <div className="form-grid">
         <div className="field"><label htmlFor="p-date">{tx("Session date")}</label><input id="p-date" type="date" value={f.session_date} onChange={set("session_date")} /></div>
-        <div className="field"><label htmlFor="p-amount">{tx("Fee")}</label><input id="p-amount" type="number" min="0" value={f.amount} onChange={set("amount")} placeholder="250000" /></div>
+        <div className="field"><label htmlFor="p-amount">{tx("Fee")}</label><MoneyInput id="p-amount" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} placeholder="250000" /></div>
         <div className="field"><label htmlFor="p-cur">{tx("Currency")}</label><CurrencySelect id="p-cur" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} /></div>
       </div>
       <div className="form-grid">
@@ -113,11 +113,11 @@ export function ProjectForm({ pre, onClose, onCreated }) {
 }
 
 // Step one of a new invoice: who it's for. Then the full editor opens, saving as you type.
-export function InvoiceForm({ pre, onClose, onCreated }) {
+export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreated }) {
   const { insert, clients, projects, templates, studio } = useData();
   const invTemplates = templates.filter((t) => t.kind === "invoice");
   const preProject = projects.find((p) => p.id === pre);
-  const [f, setF] = useState({ client_id: preProject?.client_id || clients[0]?.id || "", project_id: preProject?.id || "", template: "" });
+  const [f, setF] = useState({ client_id: preProject?.client_id || clients[0]?.id || "", project_id: preProject?.id || "", template: "", kind: startKind });
   const clientProjects = useMemo(() => projects.filter((p) => p.client_id === f.client_id), [projects, f.client_id]);
   if (!clients.length) return <FormModal title={tx("New invoice")} onClose={onClose} onSubmit={async () => onClose()} submitLabel="OK"><p className="sub">{tx("Add a client first.")}</p></FormModal>;
   const create = async () => {
@@ -128,14 +128,18 @@ export function InvoiceForm({ pre, onClose, onCreated }) {
       : p ? [{ id: uid(), name: p.title, description: "", qty: 1, price: Number(p.amount) || 0 }] : [{ id: uid(), name: "", description: "", qty: 1, price: 0 }];
     const total = items.reduce((s2, it) => s2 + Number(it.qty || 0) * Number(it.price || 0), 0);
     const inv = await insert("invoices", {
-      client_id: f.client_id, project_id: f.project_id || null, label: t?.name || p?.title || tx("Invoice"), amount: total,
+      client_id: f.client_id, project_id: f.project_id || null, label: t?.name || p?.title || (f.kind === "quote" ? tx("Quote") : tx("Invoice")), amount: total, ...(f.kind === "quote" ? { kind: "quote" } : {}),
       currency: t?.currency || p?.currency || studio.home_currency, due_date: addDays(14), status: "draft", items,
       methods: ["transfer", "paystack", "flutterwave", "stripe", "paypal"].filter((m) => studio["pay_" + m]),
     });
     onCreated ? onCreated(inv.id) : onClose();
   };
   return (
-    <FormModal title={tx("Create a new invoice")} onClose={onClose} submitLabel={tx("Next")} onSubmit={create}>
+    <FormModal title={f.kind === "quote" ? tx("Create a new quote") : tx("Create a new invoice")} onClose={onClose} submitLabel={tx("Next")} onSubmit={create}>
+      <div className="seg" role="group" aria-label={tx("Type")}>
+        {[["invoice", "Invoice"], ["quote", "Quote"]].map(([k, l]) => <button key={k} type="button" aria-pressed={f.kind === k} onClick={() => setF({ ...f, kind: k })}>{tx(l)}</button>)}
+      </div>
+      {f.kind === "quote" && <p className="sub" style={{ fontSize: 13 }}>{tx("Your client accepts the quote on their page. It then turns into an invoice they can pay, and the job is booked.")}</p>}
       <div className="field"><label htmlFor="i-client">{tx("Client")}</label>
         <select id="i-client" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value, project_id: "" })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div className="field"><label htmlFor="i-project">{tx("Project")}</label>
@@ -143,11 +147,11 @@ export function InvoiceForm({ pre, onClose, onCreated }) {
       {invTemplates.length > 0 && (
         <div className="field"><label htmlFor="i-tpl">{tx("Start from a package")}</label>
           <select id="i-tpl" value={f.template} onChange={(e) => setF({ ...f, template: e.target.value })}>
-            <option value="">{tx("Blank invoice")}</option>
+            <option value="">{f.kind === "quote" ? tx("Blank quote") : tx("Blank invoice")}</option>
             {invTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select><span className="help">{tx("Edit packages in Settings › Templates.")}</span></div>
       )}
-      <p className="sub" style={{ fontSize: 13 }}>{tx("Next, the full invoice opens. It saves as you type.")}</p>
+      <p className="sub" style={{ fontSize: 13 }}>{f.kind === "quote" ? tx("Next, the full quote opens. It saves as you type.") : tx("Next, the full invoice opens. It saves as you type.")}</p>
     </FormModal>
   );
 }
@@ -166,7 +170,7 @@ export function SessionForm({ onClose }) {
       <div className="field"><label htmlFor="s-name">{tx("Name")}</label><input id="s-name" autoFocus value={f.name} onChange={set("name")} placeholder={tx("e.g. Headshots")} /></div>
       <div className="form-grid">
         <div className="field"><label htmlFor="s-len">{tx("Length")}</label><input id="s-len" value={f.length_label} onChange={set("length_label")} /></div>
-        <div className="field"><label htmlFor="s-price">{tx("Price")}</label><input id="s-price" type="number" min="0" value={f.price} onChange={set("price")} /></div>
+        <div className="field"><label htmlFor="s-price">{tx("Price")}</label><MoneyInput id="s-price" value={f.price} onChange={(v) => setF({ ...f, price: v })} /></div>
         <div className="field"><label htmlFor="s-cur">{tx("Currency")}</label><CurrencySelect id="s-cur" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} /></div>
       </div>
       <div className="field"><label htmlFor="s-av">{tx("When you're available")}</label><input id="s-av" value={f.availability} onChange={set("availability")} /></div>

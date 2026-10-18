@@ -32,7 +32,7 @@ function ClientDrawer({ c, onClose }) {
           <div className="field"><label htmlFor="cd-name">{tx("Name")}</label><input id="cd-name" value={f.name} onChange={set("name")} /></div>
           <div className="field"><label htmlFor="cd-city">{tx("City")}</label><input id="cd-city" value={f.city} onChange={set("city")} /></div>
           <div className="field"><label htmlFor="cd-email">{tx("Email")}</label><input id="cd-email" type="email" value={f.email} onChange={set("email")} /></div>
-          <div className="field"><label htmlFor="cd-phone">{tx("Phone / WhatsApp")}</label><input id="cd-phone" value={f.phone} onChange={set("phone")} /></div>
+          <div className="field"><label htmlFor="cd-phone">{tx("Phone")}</label><input id="cd-phone" value={f.phone} onChange={set("phone")} /></div>
           <div className="field"><label htmlFor="cd-status">{tx("Status")}</label><select id="cd-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
         </div>
         <button className="btn btn-primary" style={{ alignSelf: "flex-start" }}>{tx("Save")}</button>

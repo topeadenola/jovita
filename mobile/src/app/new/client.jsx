@@ -15,7 +15,7 @@ export default function NewClient() {
   return (
     <Screen refresh={false}>
       <Field label={tx("Full name")} value={f.name} onChangeText={set("name")} placeholder={tx("e.g. Bisi Ojo")} autoFocus />
-      <Field label={tx("Phone / WhatsApp")} value={f.phone} onChangeText={set("phone")} placeholder="+234 …" keyboardType="phone-pad" />
+      <Field label={tx("Phone")} value={f.phone} onChangeText={set("phone")} placeholder="+234 …" keyboardType="phone-pad" />
       <Field label={tx("Email")} value={f.email} onChangeText={set("email")} placeholder={tx("bisi@example.com")} keyboardType="email-address" autoCapitalize="none" />
       <Field label={tx("City")} value={f.city} onChangeText={set("city")} placeholder={tx("Lagos")} />
       <Txt style={{ fontSize: 13, fontWeight: "600" }}>{tx("Status")}</Txt>

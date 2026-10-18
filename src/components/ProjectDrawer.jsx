@@ -5,11 +5,13 @@ import { STAGES, STAGE_LABEL, first, fday, invState, money, nextStep, portalUrl,
 import Icon from "./Icon";
 import { Avatar, CloseBtn, CopyBox, Drawer, Pill, useToast } from "./ui";
 import { tx } from "../lib/i18n";
+import { useUi } from "./Shell";
 
 export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const { project, client, invoices, templates, update, remove } = useData();
   const { projectAction, invoiceAction } = useActions();
   const toast = useToast();
+  const ui = useUi();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const p = project(id);
   if (!p) return null;
@@ -20,7 +22,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const contracts = templates.filter((t) => t.kind === "contract");
   const releases = templates.filter((t) => t.kind === "model_release");
   const steps = [
-    [tx("Inquiry and quote"), p.stage !== "inquiry", p.stage !== "inquiry" ? tx("Quote accepted") : tx("Send the quote link")],
+    [tx("Inquiry and quote"), p.stage !== "inquiry", p.stage !== "inquiry" ? tx("Quote accepted") : tx("Send a quote")],
     [tx("Contract signed"), p.contract_signed, p.contract_signed ? tx("Signed by {name}", { name: p.contract_signed_name || c.name }) : p.contract_template_id ? tx("Waiting for {name}", { name: first(c.name) }) : tx("No contract on this project")],
     ...(p.release_template_id ? [[tx("Model release"), p.release_signed, p.release_signed ? tx("Signed by {name}", { name: p.release_signed_name }) : tx("Optional, signed in the portal")]] : []),
     [tx("Deposit paid"), p.deposit_paid, p.deposit_paid ? tx("Received") : tx("Waiting")],
@@ -39,7 +41,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><Pill c={pill.c}>{pill.k}</Pill><Pill c="p-neutral">{money(p.amount, p.currency)}</Pill></div>
       <div className="card" style={{ background: "var(--lilac)", borderColor: "var(--lilac)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 180 }}><p className="eyebrow">{tx("Next step")}</p><b style={{ fontSize: 17 }}>{n.t}</b></div>
-        <button className="btn btn-primary" onClick={() => projectAction(p, n.a)}>{n.t}</button>
+        <button className="btn btn-primary" onClick={() => projectAction(p, n.a, { open: ui?.setOpenInvoice })}>{n.t}</button>
       </div>
       <section className="card">
         <h3 className="h-m" style={{ marginBottom: 4 }}>{tx("Progress")}</h3>
