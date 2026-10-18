@@ -998,3 +998,8 @@ body{transition:background-color .2s}
 .send-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;color:#fff;background:#2E8B57}
 .send-result.bad .send-ic{background:#b42318}
 .send-ic .ic{width:28px;height:28px}
+/* Name, number and actions sit at the top, so nothing hides behind the Mac Dock or a phone's home bar */
+.cg-view{padding:84px 72px 32px}
+.cg-view>img,.cg-view>video{max-height:calc(100vh - 130px)}
+.cg-view .cg-lb-tools{top:14px;bottom:auto;left:24px;transform:none;max-width:calc(100% - 100px)}
+@media (max-width:700px){.cg-view{padding:120px 10px 24px}.cg-view>img,.cg-view>video{max-height:calc(100vh - 160px)}.cg-view .cg-lb-tools{left:10px;right:60px;max-width:none}.cg-view .cg-prev,.cg-view .cg-next{top:50%;bottom:auto}}
