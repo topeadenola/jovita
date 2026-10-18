@@ -7,10 +7,10 @@ import { CloseBtn, Modal, Pill, useToast } from "../components/ui";
 import { addDays, daysFrom, dom, dow, fday, ftime, money } from "../lib/format";
 import { tx } from "../lib/i18n";
 
-function BookingForm({ onClose }) {
+export function BookingForm({ onClose, initial }) {
   const { clients, projects, session_types, insert } = useData();
   const toast = useToast();
-  const [f, setF] = useState({ client_id: clients[0]?.id || "", project_id: "", title: session_types[0]?.name || "Session", date: addDays(7), time: "10:00", location: "" });
+  const [f, setF] = useState({ client_id: clients[0]?.id || "", project_id: "", title: session_types[0]?.name || "Session", date: addDays(7), time: "10:00", location: "", ...(initial || {}) });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const [err, setErr] = useState("");
   const { bookings, calendar_busy } = useData();

@@ -10,6 +10,7 @@ import Inbox from "./pages/Inbox";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
 import Bookings from "./pages/Bookings";
+import Calendar from "./pages/Calendar";
 import Money from "./pages/Money";
 import Galleries from "./pages/Galleries";
 import Settings from "./pages/Settings";
@@ -41,6 +42,7 @@ function Studio() {
         <Route path="/clients" element={<Clients />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/bookings" element={<Bookings />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/money" element={<Money />} />
         <Route path="/accounting" element={<Accounting />} />
         <Route path="/galleries" element={<Galleries />} />

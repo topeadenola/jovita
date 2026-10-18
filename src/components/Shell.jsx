@@ -26,7 +26,7 @@ export const useUi = () => useContext(UiCtx);
 
 const NAV = [
   ["/", "Today", "today"], ["/inbox", "Inbox", "inbox"], ["/clients", "Clients", "users"], ["/projects", "Projects", "folder"],
-  ["/bookings", "Bookings", "calendar"], ["/money", "Money", "wallet"], ["/accounting", "Accounting", "chart"], ["/galleries", "Galleries", "image"],
+  ["/calendar", "Calendar", "calendar"], ["/bookings", "Bookings", "clock"], ["/money", "Money", "wallet"], ["/accounting", "Accounting", "chart"], ["/galleries", "Galleries", "image"],
   ["/settings", "Settings", "settings"],
 ];
 
