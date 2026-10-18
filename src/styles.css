@@ -1035,3 +1035,8 @@ body{transition:background-color .2s}
 .gp-masonry{display:flex;align-items:flex-start}
 .gp-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
 .gp-col>.gp-item{display:block}
+/* Rename a gallery right in its title */
+.sheet-title input.ge-title-edit{font-family:var(--font-display);font-size:18px;line-height:22px;font-weight:700;color:var(--ink);background:transparent;border:1px solid transparent !important;border-radius:8px;padding:2px 6px;margin:-3px 0 0 -7px;min-height:0;height:auto;max-width:min(52vw,520px);width:auto;box-shadow:none}
+.sheet-title input.ge-title-edit:hover{border-color:var(--line-strong,#D5CBE2) !important}
+.sheet-title input.ge-title-edit:focus{outline:none;border-color:var(--ink) !important;background:var(--surface)}
+.ng-new{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;background:var(--sunken,#F4EFFA)}

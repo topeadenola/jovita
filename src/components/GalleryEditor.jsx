@@ -572,7 +572,7 @@ export default function GalleryEditor({ id, onClose }) {
       <div className="sheet">
         <header className="sheet-bar">
           <button type="button" className="x" onClick={close} aria-label={tx("Close")}><Icon name="x" /></button>
-          <div className="sheet-title"><b>{d.title || tx("Untitled gallery")}</b><span>{c.name}{d.event_date ? " · " + fdate(d.event_date) : ""}</span></div>
+          <div className="sheet-title"><input className="ge-title-edit" value={d.title} onChange={(e) => set("title", e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") { e.stopPropagation(); e.currentTarget.blur(); } }} placeholder={tx("Untitled gallery")} aria-label={tx("Gallery name")} title={tx("Click to rename")} size={Math.max(8, (d.title || "").length + 1)} /><span>{c.name}{d.event_date ? " · " + fdate(d.event_date) : ""}</span></div>
           <select className="ge-status" value={published ? "published" : "draft"} onChange={(e) => publish(e.target.value === "published")} aria-label={tx("Status")}>
             <option value="draft">{tx("Draft")}</option><option value="published">{tx("Published")}</option>
           </select>
