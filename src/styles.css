@@ -1253,3 +1253,5 @@ body{transition:background-color .2s}
 .conn-pill .ic{width:16px;height:16px}
 .conn-pill.on{border-color:transparent;background:var(--success-tint);color:var(--success)}
 .conn-pill:hover{filter:brightness(.97)}
+.sp-work-h{font-family:var(--font-display);font-size:28px;font-weight:800;margin:40px 0 0;scroll-margin-top:90px}
+.sp-photos{columns:3 260px}

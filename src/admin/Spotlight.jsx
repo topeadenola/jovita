@@ -59,14 +59,18 @@ function Editor({ post, onClose }) {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [sure, setSure] = useState(false);
+  const [prog, setProg] = useState(null); // { done, total } while their work uploads
+  const [over, setOver] = useState(false);
   const files = useRef(null);
   const coverIn = useRef(null);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value, ...(k === "title" && !slugTouched ? { slug: slugify(e.target.value) } : {}) }));
 
-  const upload = async (list) => {
+  const upload = async (list, track) => {
     const folder = f.slug || slugify(f.title) || "post";
     const out = [];
+    let done = 0;
     for (const file of list) {
+      if (track) setProg({ done: done++, total: list.length });
       if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { setErr(`${file.name}: use JPG, PNG or WebP.`); continue; }
       if (file.size > 15 * 1024 * 1024) { setErr(`${file.name} is over 15 MB.`); continue; }
       const path = `${folder}/${Date.now()}-${file.name.toLowerCase().replace(/[^a-z0-9.]+/g, "-")}`;
@@ -76,13 +80,16 @@ function Editor({ post, onClose }) {
     }
     return out;
   };
-  const addPhotos = async (e) => {
-    const picked = [...e.target.files]; e.target.value = ""; if (!picked.length) return;
-    setBusy("Uploading photos…"); setErr("");
-    const paths = await upload(picked);
+  // Their work: pick or drop several photos at once, in file-name order
+  const addWork = async (fileList) => {
+    const picked = [...fileList].filter((x) => x.type.startsWith("image/")).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (!picked.length) return;
+    setBusy("Uploading their work…"); setErr("");
+    const paths = await upload(picked, true);
     setF((x) => ({ ...x, photos: [...x.photos, ...paths.map((path) => ({ path, caption: "" }))], cover_path: x.cover_path || paths[0] || null }));
-    setBusy("");
+    setProg(null); setBusy("");
   };
+  const addPhotos = (e) => { const l = [...e.target.files]; e.target.value = ""; addWork(l); };
   const setCover = async (e) => {
     const picked = [...e.target.files]; e.target.value = ""; if (!picked.length) return;
     setBusy("Uploading cover…"); const [path] = await upload(picked); if (path) setF((x) => ({ ...x, cover_path: path })); setBusy("");
@@ -145,8 +152,15 @@ function Editor({ post, onClose }) {
           <div className="card-head"><h2 className="h-m">Cover</h2><button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => coverIn.current?.click()}><Icon name="image" />{f.cover_path ? "Change" : "Add cover"}</button></div>
           <input ref={coverIn} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={setCover} />
           <div className="sp-cover-prev" style={{ backgroundImage: f.cover_path ? `url("${url(f.cover_path)}")` : undefined }}>{!f.cover_path && <span>No cover yet. The first photo you add becomes the cover.</span>}</div>
-          <div className="card-head" style={{ marginTop: 18 }}><h2 className="h-m">Photos <span className="sub">({f.photos.length})</span></h2><button type="button" className="a-btn a-btn-sm a-btn-gold" onClick={() => files.current?.click()}><Icon name="plus" />Add photos</button></div>
+          <div className="card-head" style={{ marginTop: 22, flexWrap: "nowrap", alignItems: "flex-start" }}><div style={{ flex: 1, minWidth: 0 }}><h2 className="h-m">Their work <span className="sub">({f.photos.length})</span></h2><small className="sub">Shown as a gallery on the post. Ask the creative first, and credit them.</small></div>
+            <button type="button" className="a-btn a-btn-sm a-btn-gold" onClick={() => files.current?.click()} disabled={!!prog}><Icon name="plus" />Add work</button></div>
           <input ref={files} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={addPhotos} />
+          <button type="button" className={`sp-drop ${over ? "over" : ""}`} disabled={!!prog} onClick={() => files.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+            onDrop={(e) => { e.preventDefault(); setOver(false); addWork(e.dataTransfer.files); }}>
+            {prog ? <><b>Uploading {Math.min(prog.done + 1, prog.total)} of {prog.total}…</b><span className="sp-bar-track"><i style={{ width: `${Math.round((prog.done / prog.total) * 100)}%` }} /></span></>
+              : <><Icon name="image" /><b>Drop their photos here, or click to choose</b><span>Pick as many as you like. JPG, PNG or WebP, up to 15 MB each.</span></>}
+          </button>
           <div className="sp-photo-list">{f.photos.map((ph, i) => (
             <div key={ph.path} className="sp-ph">
               <span className="sp-ph-img" style={{ backgroundImage: `url("${url(ph.path)}")` }} />
@@ -161,7 +175,6 @@ function Editor({ post, onClose }) {
               </div>
             </div>
           ))}</div>
-          {!f.photos.length && <p className="sub">Add 4 to 12 of their best photos. Ask the creative first, and credit them.</p>}
           {f.id && <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
             <button type="button" className="a-btn a-btn-sm a-btn-danger" onClick={remove} disabled={!!busy}>{sure ? "Yes, delete this post for good" : "Delete post"}</button>
             {sure && <button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => setSure(false)} style={{ marginLeft: 8 }}>Keep it</button>}

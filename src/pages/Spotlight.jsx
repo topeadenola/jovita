@@ -169,11 +169,13 @@ export function SpotlightPost() {
             <span className="spacer" />
             {p.instagram && <a className="btn btn-secondary btn-sm" href={insta(p.instagram)} target="_blank" rel="noreferrer">Instagram</a>}
             {p.website && <a className="btn btn-secondary btn-sm" href={/^https?:/.test(p.website) ? p.website : `https://${p.website}`} target="_blank" rel="noreferrer">{tx("Website")}</a>}
+            {photos.length > 0 && <a className="btn btn-secondary btn-sm" href="#their-work">{tx("See their work ({n})", { n: photos.length })}</a>}
             <button type="button" className="btn btn-ghost btn-sm" onClick={share}><Icon name="link" />{copied ? tx("Link copied") : tx("Share")}</button>
           </div>
           <small className="sub">{day(p.published_at)}</small>
         </div>
         <div className="sp-body">{bodyBlocks(p.body)}</div>
+        {photos.length > 0 && <h2 className="sp-work-h" id="their-work">{p.person_name ? tx("{name}'s work", { name: p.person_name.split(" ")[0] }) : tx("Their work")}</h2>}
         {photos.length > 0 && (
           <div className="sp-photos">{photos.map((ph, i) => (
             <figure key={i}><button type="button" onClick={() => setOpen(i)} aria-label={tx("Open photo {n}", { n: i + 1 })}><img src={spotUrl(ph.path)} alt={ph.caption || ""} loading="lazy" /></button>{ph.caption && <figcaption>{ph.caption}</figcaption>}</figure>
