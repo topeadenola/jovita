@@ -1564,5 +1564,9 @@
   "A visitor": "Um visitante",
   "{name} shared {n} photo they picked": "{name} partilhou {n} foto que escolheu",
   "Anyone with this link sees only the {n} photo you picked, and can heart their own favourites. They can't download.": "Quem tiver este link vê apenas a foto que escolheu e pode marcar as suas favoritas. Não pode descarregar.",
-  "So {studio} knows whose picks these are.": "Para que {studio} saiba de quem são estas escolhas."
+  "So {studio} knows whose picks these are.": "Para que {studio} saiba de quem são estas escolhas.",
+  "{n} photo selected": "{n} foto escolhida",
+  "{n} photos selected": "{n} fotos escolhidas",
+  "{n} with notes": "{n} com notas",
+  "Open {name}": "Abrir {name}"
 }

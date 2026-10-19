@@ -1569,5 +1569,9 @@
   "A visitor": "Mgeni",
   "{name} shared {n} photo they picked": "{name} ameshiriki picha {n} aliyochagua",
   "Anyone with this link sees only the {n} photo you picked, and can heart their own favourites. They can't download.": "Yeyote mwenye kiungo hiki ataona picha {n} uliyochagua tu, na anaweza kuchagua anazopenda. Hawezi kupakua.",
-  "So {studio} knows whose picks these are.": "Ili {studio} ajue haya ni chaguo za nani."
+  "So {studio} knows whose picks these are.": "Ili {studio} ajue haya ni chaguo za nani.",
+  "{n} photo selected": "Picha {n} imechaguliwa",
+  "{n} photos selected": "Picha {n} zimechaguliwa",
+  "{n} with notes": "{n} zenye maoni",
+  "Open {name}": "Fungua {name}"
 }

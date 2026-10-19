@@ -259,6 +259,9 @@ export default function GalleryEditor({ id, onClose }) {
   const [preview, setPreview] = useState(false);
   const [picked, setPicked] = useState(() => new Set()); // selected photo ids
   const [viewer, setViewer] = useState(-1);               // photo open in the large viewer
+  const [viewList, setViewList] = useState(null);         // photos the viewer moves through (one person's picks), else the current set
+  const [openWho, setOpenWho] = useState(null);           // Activity: whose picks are open
+  useEffect(() => { if (viewer < 0) setViewList(null); }, [viewer]);
   const [menuFor, setMenuFor] = useState(null);           // photo id whose ••• menu is open
   const fileRef = useRef(null);
   const ui = useUi();
@@ -325,6 +328,7 @@ export default function GalleryEditor({ id, onClose }) {
   }, [flush, onClose, setModal, delSet, delGal, preview, viewer]);
 
   const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos && (!onlyFavs || favCount[p.id])), [photos, sub.photos, onlyFavs, favCount]);
+  const vlist = viewList || setPhotosInSet;
   if (!g || !d) return null;
   const c = client(g.client_id);
   const published = g.status === "delivered";
@@ -790,16 +794,37 @@ export default function GalleryEditor({ id, onClose }) {
                     </div>
                   ) : sub.activity === "favorites" && favs.length > 0 ? (
                     <div className="ge-picks">
-                      {Object.entries(favs.reduce((m, f) => { (m[f.viewer] ||= []).push(f); return m; }, {})).sort(([, a], [, b]) => (a[0].via ? 1 : 0) - (b[0].via ? 1 : 0)).map(([viewer, list]) => {
-                        const ps = list.map((f) => photos.find((p) => p.id === f.photo_id)).filter(Boolean);
-                        const who = list.find((f) => f.viewer_name)?.viewer_name || (viewer.includes("@") ? viewer : tx("A visitor"));
+                      {Object.entries(favs.reduce((m, f) => { (m[f.viewer] ||= []).push(f); return m; }, {})).sort(([, a], [, b]) => (a[0].via ? 1 : 0) - (b[0].via ? 1 : 0)).map(([who, list]) => {
+                        const ps = photos.filter((p) => list.some((f) => f.photo_id === p.id));
+                        const name = list.find((f) => f.viewer_name)?.viewer_name || "";
+                        const email = who.includes("@") ? who : "";
                         const via = list.find((f) => f.via)?.via;
+                        const withNotes = ps.filter((p) => noteCount[p.id]).length;
+                        const isOpen = openWho === who;
                         return (
-                          <section key={viewer} className="card ge-pick-card">
-                            <div className="set-head"><div className="ge-pick-who"><b>{tx("{name} picked {n}", { name: who, n: ps.length })}</b>
-                              {(viewer.includes("@") && viewer !== who || via) && <small className="sub">{[viewer.includes("@") && viewer !== who ? viewer : "", via ? tx("from {name}'s shared selection", { name: via }) : ""].filter(Boolean).join(" · ")}</small>}</div>
-                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => copyNames(ps)}><Icon name="file" />{tx("Copy file names")}</button></div>
-                            <p className="ge-pick-names">{ps.map((p) => p.name).join(", ")}</p>
+                          <section key={who} className={`card ge-pick-card ${isOpen ? "open" : ""}`}>
+                            <button type="button" className="ge-pick-head" aria-expanded={isOpen} onClick={() => setOpenWho(isOpen ? null : who)}>
+                              <span className="ge-pick-faces">{ps.slice(0, 3).map((p) => <Thumb key={p.id} path={p.path} thumb={p.has_thumb} />)}</span>
+                              <span className="ge-pick-who">
+                                <b>{email || name || tx("A visitor")}</b>
+                                <small className="sub">{[txn(ps.length, "{n} photo selected", "{n} photos selected"), email && name ? name : "", withNotes ? txn(withNotes, "{n} with notes", "{n} with notes") : "", via ? tx("from {name}'s shared selection", { name: via }) : ""].filter(Boolean).join(" · ")}</small>
+                              </span>
+                              <span className="ge-pick-chev"><Icon name="arrow" /></span>
+                            </button>
+                            {isOpen && (
+                              <>
+                                <div className="ge-pick-grid">
+                                  {ps.map((p, i) => (
+                                    <button key={p.id} type="button" className="ge-pick-ph" onClick={() => { setViewList(ps); setViewer(i); }} aria-label={tx("Open {name}", { name: p.name || "" })}>
+                                      <Thumb path={p.path} thumb={p.has_thumb} />
+                                      {noteCount[p.id] > 0 && <span className="ge-pick-note"><Icon name="chat" />{noteCount[p.id]}</span>}
+                                      <small>{p.name}</small>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="ge-pick-actions"><button type="button" className="btn btn-secondary btn-sm" onClick={() => copyNames(ps)}><Icon name="file" />{tx("Copy file names")}</button></div>
+                              </>
+                            )}
                           </section>
                         );
                       })}
@@ -861,14 +886,14 @@ export default function GalleryEditor({ id, onClose }) {
         </div>
       )}
 
-      {viewer >= 0 && setPhotosInSet[viewer] && (
-        <div className="cg-light" role="dialog" aria-modal="true" aria-label={setPhotosInSet[viewer].name} onClick={(e) => e.target === e.currentTarget && setViewer(-1)}
-          onKeyDown={(e) => { if (e.key === "ArrowRight") setViewer((v) => Math.min(setPhotosInSet.length - 1, v + 1)); if (e.key === "ArrowLeft") setViewer((v) => Math.max(0, v - 1)); if (e.key === "Escape") { e.stopPropagation(); setViewer(-1); } }} tabIndex={-1} ref={(el) => el?.focus()}>
-          {isRaw(setPhotosInSet[viewer].path) ? <span className="raw-tile big">RAW</span>
-            : isVideo(setPhotosInSet[viewer].path) ? <video key={setPhotosInSet[viewer].id} src={publicUrl(setPhotosInSet[viewer].path)} controls autoPlay playsInline poster={thumbUrl(setPhotosInSet[viewer].path)} />
-            : <img src={publicUrl(setPhotosInSet[viewer].path)} alt={setPhotosInSet[viewer].name} />}
+      {viewer >= 0 && vlist[viewer] && (
+        <div className="cg-light" role="dialog" aria-modal="true" aria-label={vlist[viewer].name} onClick={(e) => e.target === e.currentTarget && setViewer(-1)}
+          onKeyDown={(e) => { if (e.key === "ArrowRight") setViewer((v) => Math.min(vlist.length - 1, v + 1)); if (e.key === "ArrowLeft") setViewer((v) => Math.max(0, v - 1)); if (e.key === "Escape") { e.stopPropagation(); setViewer(-1); } }} tabIndex={-1} ref={(el) => el?.focus()}>
+          {isRaw(vlist[viewer].path) ? <span className="raw-tile big">RAW</span>
+            : isVideo(vlist[viewer].path) ? <video key={vlist[viewer].id} src={publicUrl(vlist[viewer].path)} controls autoPlay playsInline poster={thumbUrl(vlist[viewer].path)} />
+            : <img src={publicUrl(vlist[viewer].path)} alt={vlist[viewer].name} />}
           {(() => {
-            const p = setPhotosInSet[viewer];
+            const p = vlist[viewer];
             const notes = comments.filter((c) => c.photo_id === p.id);
             const lovers = favs.filter((f) => f.photo_id === p.id);
             return (
@@ -888,12 +913,12 @@ export default function GalleryEditor({ id, onClose }) {
           })()}
           <button type="button" className="cg-x" onClick={() => setViewer(-1)} aria-label={tx("Close")}><Icon name="x" /></button>
           {viewer > 0 && <button type="button" className="cg-prev" onClick={() => setViewer(viewer - 1)} aria-label={tx("Previous photo")}>‹</button>}
-          {viewer < setPhotosInSet.length - 1 && <button type="button" className="cg-next" onClick={() => setViewer(viewer + 1)} aria-label={tx("Next photo")}>›</button>}
+          {viewer < vlist.length - 1 && <button type="button" className="cg-next" onClick={() => setViewer(viewer + 1)} aria-label={tx("Next photo")}>›</button>}
           <div className="ge-lb-bar">
-            <span><b style={{ textTransform: "uppercase" }}>{setPhotosInSet[viewer].name}</b> · {viewer + 1} / {setPhotosInSet.length}</span>
-            <a className="btn btn-secondary btn-sm" href={downloadUrl(setPhotosInSet[viewer].path, setPhotosInSet[viewer].name)} download={setPhotosInSet[viewer].name}><Icon name="download" />{tx("Download")}</a>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", setPhotosInSet[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([setPhotosInSet[viewer]])}><Icon name="trash" />{tx("Delete")}</button>
+            <span><b style={{ textTransform: "uppercase" }}>{vlist[viewer].name}</b> · {viewer + 1} / {vlist.length}</span>
+            <a className="btn btn-secondary btn-sm" href={downloadUrl(vlist[viewer].path, vlist[viewer].name)} download={vlist[viewer].name}><Icon name="download" />{tx("Download")}</a>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { set("cover_path", vlist[viewer].path); toast(tx("Cover photo set")); }}><Icon name="star" />{tx("Set as cover")}</button>
+            {!viewList && <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePhotos([vlist[viewer]])}><Icon name="trash" />{tx("Delete")}</button>}
           </div>
         </div>
       )}
