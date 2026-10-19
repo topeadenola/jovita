@@ -294,3 +294,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sub-periods small { color: var(--muted); font-size: 12px; }
 .dot-k { width: 9px; height: 9px; border-radius: 50%; background: #2E8B57; flex: none; }
 .dot-k.gift { background: #E89A00; } .dot-k.manual { background: #7A4FD6; }
+.sub-amt { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); flex: 1; min-width: 200px; }
+.sub-amt-in { display: flex; border: 1px solid var(--line-2, #ddd); border-radius: 10px; overflow: hidden; background: var(--card); }
+.sub-amt-in select { border: 0; background: transparent; padding: 0 8px; font: 700 13px inherit; color: var(--ink); border-right: 1px solid var(--line-2, #ddd); }
+.sub-amt-in input { border: 0; background: transparent; padding: 9px 10px; font: 700 15px inherit; color: var(--ink); width: 100%; min-width: 0; }
+.sub-amt-in input:focus, .sub-amt-in select:focus { outline: none; }

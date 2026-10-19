@@ -27,7 +27,7 @@ export const api = {
   async cancelGift(id) { must(await supabase.rpc("admin_cancel_gift", { p_gift: id })); },
   async expireGifts() { try { await supabase.rpc("admin_expire_gifts"); } catch { /* before update 10 */ } },
   async periods(id, sample) { if (sample) return []; return must(await supabase.from("subscription_periods").select("*").eq("studio_id", id).order("ends_at", { ascending: false })); },
-  async addPeriod(id, plan, months) { return must(await supabase.rpc("admin_add_period", { p_studio: id, p_plan: plan, p_months: months })); },
+  async addPeriod(id, plan, months, amount = 0, currency = "NGN") { return must(await supabase.rpc("admin_add_period", { p_studio: id, p_plan: plan, p_months: months, p_amount: amount, p_currency: currency })); },
   async removePeriod(pid) { must(await supabase.rpc("admin_remove_period", { p_period: pid })); },
   async updateStudio(id, patch, sample) { if (sample) return; must(await supabase.rpc("admin_update_studio", { p_studio: id, p_patch: patch })); },
   async notifications(sample) { return sample ? sampleNotifications() : must(await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(60)); },

@@ -153,7 +153,12 @@ export function Studios({ ctx }) {
 /* A studio's subscription: months paid, time left, and record more time */
 function Subscription({ s, sample, onChanged }) {
   const [periods, setPeriods] = useState(null);
-  const [f, setF] = useState({ plan: s.plan === "free" ? "pro" : s.plan, months: 1 });
+  const [f, setF] = useState({ plan: s.plan === "free" ? "pro" : s.plan, months: 1, amount: "", currency: s.home_currency || "NGN", touched: false });
+  const [prices, setPrices] = useState([]);
+  useEffect(() => { api.prices().then(setPrices).catch(() => {}); }, []);
+  // Suggested amount: plan price × months (a year is 5% off), in the studio's currency
+  const suggest = (plan, months, cur) => { const m = prices.find((x) => x.plan === plan && x.currency === cur)?.monthly_amount; if (!m) return ""; const v = Number(m) * months * (months === 12 ? 0.95 : 1); return String(v >= 1000 ? Math.round(v / 100) * 100 : Math.round(v * 100) / 100); };
+  useEffect(() => { if (!f.touched) setF((x) => ({ ...x, amount: suggest(x.plan, x.months, x.currency) })); }, [prices, f.plan, f.months, f.currency]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const load = useCallback(() => api.periods(s.id, sample).then(setPeriods).catch(() => setPeriods([])), [s.id, sample]);
@@ -166,7 +171,7 @@ function Subscription({ s, sample, onChanged }) {
   const add = async () => {
     if (sample) return setMsg("Turn off sample data first.");
     setBusy(true); setMsg("");
-    try { const r = await api.addPeriod(s.id, f.plan, f.months); setMsg(`Added. ${PLAN_LABEL[f.plan]} until ${date(r.until)}.`); load(); onChanged(); }
+    try { const r = await api.addPeriod(s.id, f.plan, f.months, Number(f.amount) || 0, f.currency); setMsg(`Added. ${PLAN_LABEL[f.plan]} until ${date(r.until)}${Number(f.amount) ? `, ${money(Number(f.amount), f.currency)} recorded` : ""}.`); setF((x) => ({ ...x, touched: false })); load(); onChanged(); }
     catch (e) { setMsg(/admin_add_period/.test(e.message) ? "Run update 12 in Supabase first." : e.message); }
     setBusy(false);
   };
@@ -189,9 +194,12 @@ function Subscription({ s, sample, onChanged }) {
         <div className="row">
           <div className="seg" role="group" aria-label="Plan"><button type="button" aria-pressed={f.plan === "pro"} onClick={() => setF({ ...f, plan: "pro" })}>Pro</button><button type="button" aria-pressed={f.plan === "studio"} onClick={() => setF({ ...f, plan: "studio" })}>Studio</button></div>
           <div className="seg" role="group" aria-label="Months">{[1, 3, 6, 12].map((m) => <button key={m} type="button" aria-pressed={f.months === m} onClick={() => setF({ ...f, months: m })}>{m === 12 ? "1 year" : `${m} mo`}</button>)}</div>
-          <button type="button" className="a-btn a-btn-primary a-btn-sm" disabled={busy} onClick={add}>{busy ? "Adding…" : "Add"}</button>
         </div>
-        <span className="sub" style={{ fontSize: 12 }}>Adds on top of any time they still have. They get reminder emails 7 days, 3 days and 1 day before it ends.</span>
+        <div className="row">
+          <label className="sub-amt"><span>Amount they paid</span><span className="sub-amt-in"><select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} aria-label="Currency">{Object.keys(SYM).map((c) => <option key={c} value={c}>{c}</option>)}</select><input type="number" min="0" step="any" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value, touched: true })} placeholder="0" /></span></label>
+          <button type="button" className="a-btn a-btn-primary a-btn-sm" disabled={busy} onClick={add}>{busy ? "Adding…" : "Add payment"}</button>
+        </div>
+        <span className="sub" style={{ fontSize: 12 }}>The amount shows in Revenue as money collected. The time adds on top of any they still have, and they get reminder emails before it ends.</span>
         {msg && <span className="sub" style={{ fontSize: 13, fontWeight: 600 }}>{msg}</span>}
       </div>
       {periods?.length > 0 && <ul className="sub-periods">{periods.map((p) => (
@@ -344,15 +352,15 @@ export function Revenue({ ctx }) {
   return (
     <>
       <div className="page-head">
-        <div><p className="eyebrow">Revenue</p><h1 className="h-l" style={{ marginTop: 6 }}>Money made</h1><p className="sub">Jovita's subscription revenue, and whose plan ends soon.</p></div>
+        <div><p className="eyebrow">Revenue</p><h1 className="h-l" style={{ marginTop: 6 }}>Money made</h1><p className="sub">What studios paid Jovita, what to expect each month, and whose plan ends soon.</p></div>
         <RangePicker days={days} setDays={setDays} />
       </div>
       <div className="grid g-kpi">
-        <div className="card kpi hero"><span className="kpi-label">Monthly revenue (estimated)</span><span className="kpi-value">{mrr.length ? money(mrr[0][1], mrr[0][0]) : money(0)}</span><div className="kpi-extra">{mrr.slice(1).map(([c, v]) => <span key={c}>{money(v, c)}</span>)}</div><div className="kpi-foot">Paying studios × your plan prices</div></div>
+        <div className="card kpi hero"><span className="kpi-label">Money collected</span><span className="kpi-value">{byValue(d.billing).length ? money(byValue(d.billing)[0][1], byValue(d.billing)[0][0]) : money(0)}</span><div className="kpi-extra">{byValue(d.billing).slice(1).map(([c, v]) => <span key={c}>{money(v, c)}</span>)}</div><div className="kpi-foot">{d.billing_count ? `${n(d.billing_count)} ${d.billing_count === 1 ? "payment" : "payments"} · ${days ? "last " + RANGES.find((r) => r[0] === days)?.[1].toLowerCase() : "all time"}` : "Record payments on each studio (Studios › click a studio)"}</div></div>
+        <div className="card kpi"><span className="kpi-label">Expected each month</span><span className="kpi-value">{mrr.length ? money(mrr[0][1], mrr[0][0]) : money(0)}</span><div className="kpi-extra">{mrr.slice(1).map(([c, v]) => <span key={c}>{money(v, c)}</span>)}</div><div className="kpi-foot">Paying studios × your plan prices (not you, not gifts)</div></div>
         <div className="card kpi"><span className="kpi-label">Yearly run rate</span><span className="kpi-value">{mrr.length ? money(mrr[0][1] * 12, mrr[0][0]) : money(0)}</span><div className="kpi-foot">Monthly × 12, main currency</div></div>
         <div className="card kpi"><span className="kpi-label">Paying subscribers</span><span className="kpi-value">{n(d.paying)}</span><div className="kpi-foot">{n(d.plans?.pro)} Pro · {n(d.plans?.studio)} Studio</div></div>
         <div className="card kpi"><span className="kpi-label">Average per paying studio</span><span className="kpi-value">{mrr.length ? money(arpu, mrr[0][0]) : "—"}</span><div className="kpi-foot">per month, main currency</div></div>
-        <div className="card kpi"><span className="kpi-label">Collected by billing</span><span className="kpi-value">{byValue(d.billing).length ? money(byValue(d.billing)[0][1], byValue(d.billing)[0][0]) : money(0)}</span><div className="kpi-foot">{d.billing_count ? `${n(d.billing_count)} payments` : "Paystack and Stripe connect later"}</div></div>
       </div>
       <div className="grid g-2">
         <section className="card">
@@ -363,10 +371,6 @@ export function Revenue({ ctx }) {
           )}
         </section>
         <EndingSoon sample={sample} />
-        <section className="card" hidden>
-          <div className="card-head"><div><h2 className="h-m">Paid to studios by their clients</h2><p className="sub">Last {RANGES.find((r) => r[0] === days)?.[1].toLowerCase()}, by currency</p></div></div>
-          {processed.length ? <BarList rows={processed.map(([c, v]) => ({ k: c, n: v }))} labels={{ NGN: "Naira", GBP: "Pounds", USD: "Dollars", EUR: "Euros", XOF: "CFA francs" }} format={(r) => money(r.n, r.k)} /> : <div className="empty">No paid invoices in this period yet.</div>}
-        </section>
       </div>
       <Offers sample={sample} prices={prices} />
       <section className="card table-card">
@@ -374,7 +378,7 @@ export function Revenue({ ctx }) {
         {billing.length ? (
           <div className="tscroll"><table className="t"><thead><tr><th>Studio</th><th>Plan</th><th>Provider</th><th>Status</th><th>Date</th><th className="r">Amount</th></tr></thead>
             <tbody>{billing.map((b) => <tr key={b.id}><td>{b.studios?.name || "—"}</td><td><Pill plan={b.plan} /></td><td style={{ textTransform: "capitalize" }}>{b.provider}</td><td><span className={`pill ${b.status === "paid" ? "p-good" : b.status === "failed" ? "p-bad" : "p-warn"}`}>{b.status}</span></td><td>{date(b.paid_at)}</td><td className="r num">{money(b.amount, b.currency, false)}</td></tr>)}</tbody></table></div>
-        ) : <div className="empty"><SmileMark size={44} /><b>No subscription payments yet</b><span>When you connect Paystack and Stripe, every Pro and Studio payment lands here automatically.</span></div>}
+        ) : <div className="empty"><SmileMark size={44} /><b>No subscription payments yet</b><span>Payments you record on a studio show here. Once Paystack is connected, payments land here automatically too.</span></div>}
       </section>
     </>
   );
