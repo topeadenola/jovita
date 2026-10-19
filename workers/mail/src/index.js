@@ -5,7 +5,11 @@ export default {
   async email(message, env) {
     const raw = await new Response(message.raw).arrayBuffer();
     const mail = await PostalMime.parse(raw);
+    // Newsletters and shop emails (AliExpress, Jumia…) carry list headers; real clients don't
+    const h = (k) => (message.headers.get(k) || "").toLowerCase();
+    const bulk = !!(h("list-unsubscribe") || h("list-id") || /bulk|list|junk/.test(h("precedence")) || /^auto-(generated|replied)/.test(h("auto-submitted")));
     const body = {
+      bulk,
       to: message.to,
       from: (mail.from && mail.from.address) || message.from,
       from_name: (mail.from && mail.from.name) || "",

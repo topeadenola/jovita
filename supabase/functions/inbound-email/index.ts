@@ -59,6 +59,11 @@ Deno.serve(async (req) => {
   const subject = String(m.subject || "").slice(0, 300);
   const text = newPart(m.text || fromHtml(m.html || "")).slice(0, 4000) || "(no text)";
   const system = SYSTEM.test(from);
+  // Newsletters, shops and notifications (e.g. forwarded from Gmail): not client mail, and Gmail already has them
+  const BULK = /(newsletter|marketing|deals|promo|offers|news@|info@.*(shop|store)|mailer|digest|updates@|hello@.*\.(shop|store))/i;
+  if (!system && (m.bulk || BULK.test(from))) return json({ ok: true, ignored: "bulk" });
+  // Other no-reply / notification mail is skipped too; only Google's forwarding confirmation is passed on to you
+  if (system && !/forwarding-noreply@google\.com/.test(from)) return json({ ok: true, ignored: "system" });
   // Jovita's own emails (e.g. the inbox copy we send you) coming back through Gmail forwarding: drop them, so nothing loops
   if (/@getjovita\.com$/.test(from) || /^(new email in your jovita inbox|forwarded by jovita)/i.test(text)) return json({ ok: true, ignored: "own" });
 
