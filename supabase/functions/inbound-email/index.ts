@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
   const subject = String(m.subject || "").slice(0, 300);
   const text = newPart(m.text || fromHtml(m.html || "")).slice(0, 4000) || "(no text)";
   const system = SYSTEM.test(from);
+  // Jovita's own emails (e.g. the inbox copy we send you) coming back through Gmail forwarding: drop them, so nothing loops
+  if (/@getjovita\.com$/.test(from) || /^(new email in your jovita inbox|forwarded by jovita)/i.test(text)) return json({ ok: true, ignored: "own" });
 
   // Same email twice (retries): ignore
   if (m.message_id) {
