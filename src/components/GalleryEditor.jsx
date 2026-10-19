@@ -790,11 +790,15 @@ export default function GalleryEditor({ id, onClose }) {
                     </div>
                   ) : sub.activity === "favorites" && favs.length > 0 ? (
                     <div className="ge-picks">
-                      {Object.entries(favs.reduce((m, f) => { (m[f.viewer_name || f.viewer] ||= []).push(f); return m; }, {})).map(([who, list]) => {
+                      {Object.entries(favs.reduce((m, f) => { (m[f.viewer] ||= []).push(f); return m; }, {})).sort(([, a], [, b]) => (a[0].via ? 1 : 0) - (b[0].via ? 1 : 0)).map(([viewer, list]) => {
                         const ps = list.map((f) => photos.find((p) => p.id === f.photo_id)).filter(Boolean);
+                        const who = list.find((f) => f.viewer_name)?.viewer_name || (viewer.includes("@") ? viewer : tx("A visitor"));
+                        const via = list.find((f) => f.via)?.via;
                         return (
-                          <section key={who} className="card ge-pick-card">
-                            <div className="set-head"><b>{tx("{name} picked {n}", { name: who, n: ps.length })}</b><button type="button" className="btn btn-secondary btn-sm" onClick={() => copyNames(ps)}><Icon name="file" />{tx("Copy file names")}</button></div>
+                          <section key={viewer} className="card ge-pick-card">
+                            <div className="set-head"><div className="ge-pick-who"><b>{tx("{name} picked {n}", { name: who, n: ps.length })}</b>
+                              {(viewer.includes("@") && viewer !== who || via) && <small className="sub">{[viewer.includes("@") && viewer !== who ? viewer : "", via ? tx("from {name}'s shared selection", { name: via }) : ""].filter(Boolean).join(" · ")}</small>}</div>
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => copyNames(ps)}><Icon name="file" />{tx("Copy file names")}</button></div>
                             <p className="ge-pick-names">{ps.map((p) => p.name).join(", ")}</p>
                           </section>
                         );

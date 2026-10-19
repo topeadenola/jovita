@@ -13,6 +13,7 @@ const VKEY = "jv-viewer";
 const readLS = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 function viewerId(g) {
+  if (g?.share) return readLS("jv-guest-email").toLowerCase();   // guests on a shared selection: their email
   if (g?.viewer?.email) return String(g.viewer.email).toLowerCase();
   let v = readLS(VKEY);
   if (!v) { v = "v-" + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()); writeLS(VKEY, v); }
@@ -42,6 +43,9 @@ export default function ClientGallery() {
   const [pin, setPin] = useState(() => readLS("jv-gpin-" + token));
   const [pinAsk, setPinAsk] = useState(null);     // waiting for the download PIN
   const [zipping, setZipping] = useState(null);   // { done, total }
+  const [guest, setGuest] = useState(() => readLS("jv-guest-email"));
+  const [email, setEmail] = useState(() => readLS("jv-guest-email"));
+  const [shareLink, setShareLink] = useState(null); // { url, copied } after "Share my selection"
 
   const forget = useCallback(() => { try { localStorage.removeItem("jv-gpw-" + token); } catch { /* fine */ } }, [token]);
   const load = useCallback(async (password, tried = false) => {
@@ -64,11 +68,12 @@ export default function ClientGallery() {
     sets: Array.isArray(g.sets) && g.sets.length ? g.sets : [{ id: "highlights", name: tx("Highlights") }],
     design: { ...DEF_DESIGN, ...(g.design || {}), grid: { ...DEF_DESIGN.grid, ...(g.design?.grid || {}) } },
   }), [g]);
-  const vid = useMemo(() => (g ? viewerId(g) : ""), [g]);
+  const vid = useMemo(() => (g ? viewerId(g) : ""), [g, guest]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shared = !!g?.share;
   const dl0 = g?.download || {};
   const favOn = g && g.favorite?.on !== false;
   const loadFeedback = useCallback(async () => {
-    if (!g) return;
+    if (!g || !vid) return;
     const { data } = await supabase.rpc("gallery_feedback", { p_token: token, p_password: pass || null, p_viewer: vid });
     if (data) { setMine(new Set(data.favorites || [])); setNotes(data.comments || []); }
   }, [g, token, pass, vid]);
@@ -76,11 +81,12 @@ export default function ClientGallery() {
   const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id))), [g, setId, onlyFavs, mine]);
   const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
   const who = g?.viewer?.name || name;
-  const needName = (fn) => (who ? fn(who) : setAsk(() => fn));
-  const toggleFav = (p) => needName(async (nm) => {
+  // Guests on a shared selection give a name and email, so the studio sees exactly who picked what
+  const needName = (fn) => (shared ? (guest && name ? fn(name, guest) : setAsk(() => fn)) : who ? fn(who) : setAsk(() => fn));
+  const toggleFav = (p) => needName(async (nm, em) => {
     const was = mine.has(p.id);
     setMine((m) => { const n = new Set(m); was ? n.delete(p.id) : n.add(p.id); return n; });
-    const { error } = await supabase.rpc("gallery_toggle_favorite", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: vid, p_name: nm });
+    const { error } = await supabase.rpc("gallery_toggle_favorite", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: em || vid, p_name: nm });
     if (error) { setMine((m) => { const n = new Set(m); was ? n.add(p.id) : n.delete(p.id); return n; }); window.alert?.(error.message); }
   });
   // Downloads: check they're allowed (and the PIN), record who downloaded what, then save the file(s)
@@ -127,6 +133,12 @@ export default function ClientGallery() {
       }
     } catch (e) { window.alert?.(tx("The download stopped: {err}", { err: e.message })); }
     setZipping(null);
+  });
+  // Client: make a link that shows only their picks, for a partner, friend or planner to pick from
+  const shareSelection = () => needName(async (nm) => {
+    const { data, error } = await supabase.rpc("gallery_share_selection", { p_token: token, p_password: pass || null, p_viewer: vid, p_name: nm });
+    if (error || !data) return window.alert?.(error?.message || tx("Couldn't make the link. Try again."));
+    setShareLink({ url: `${location.origin}/g/${data}`, copied: false });
   });
   const addNote = (p) => needName(async (nm) => {
     const body = note.trim(); if (!body) return;
@@ -188,13 +200,22 @@ export default function ClientGallery() {
           {d.sets.map((s) => <button key={s.id} type="button" aria-pressed={setId === s.id} onClick={() => setSetId(s.id)}>{s.name}</button>)}
         </nav>
       )}
+      {shared && (
+        <div className="cg-shared">
+          <Icon name="heart" />
+          <div><b>{txn((g.photos || []).length, "{name} shared {n} photo they picked", "{name} shared {n} photos they picked", { name: g.share.by })}</b>
+            <span>{tx("Tap the heart on the ones you love too. {studio} will see your picks.", { studio: g.studio?.name || tx("The photographer") })}</span></div>
+          {guest && <small className="sub">{tx("Picking as {email}", { email: guest })} · <button type="button" className="linkish" onClick={() => { writeLS("jv-guest-email", ""); setGuest(""); setMine(new Set()); }}>{tx("Not you?")}</button></small>}
+        </div>
+      )}
       {(favOn || dl0.on) && (
         <div className="cg-tools">
           {dl0.on && <button type="button" disabled={!!zipping} onClick={() => saveZip(g.photos || [], tx("All photos"))}><Icon name="download" />{zipping ? tx("Preparing {a} of {b}…", { a: zipping.done, b: zipping.total }) : tx("Download all ({n})", { n: (g.photos || []).length })}</button>}
           {dl0.on && setId !== "all" && !zipping && <button type="button" onClick={() => saveZip(photos, d.sets.find((x) => x.id === setId)?.name || "")}><Icon name="download" />{tx("Download this set")}</button>}
           {dl0.on && onlyFavs && mine.size > 0 && !zipping && <button type="button" onClick={() => saveZip((g.photos || []).filter((p) => mine.has(p.id)), tx("My favourites"))}><Icon name="download" />{tx("Download my favourites")}</button>}
           {favOn && <button type="button" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all photos") : tx("My favourites ({n})", { n: mine.size })}</button>}
-          {favOn && <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>}
+          {favOn && !shared && mine.size > 0 && <button type="button" className="cg-share-btn" onClick={shareSelection}><Icon name="link" />{tx("Share my selection")}</button>}
+          {favOn && !shared && <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>}
         </div>
       )}
       <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen}
@@ -205,7 +226,7 @@ export default function ClientGallery() {
         <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
           {isVideo(cur.path) ? <video key={cur.path} src={publicUrl(cur.path)} controls autoPlay playsInline poster={thumbUrl(cur.path)} />
             : isRaw(cur.path) ? <img src={thumbUrl(cur.path)} alt={cur.name || ""} /> : <img src={publicUrl(cur.path)} alt={cur.name || ""} />}
-          {panel && (
+          {panel && !shared && (
             <aside className="lb-notes" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><b className="lb-file">{cur.name || tx("Photo {n}", { n: open + 1 })}</b><button type="button" className="x" onClick={() => setPanel(false)} aria-label={tx("Close notes")}><Icon name="x" /></button></div>
               <div className="lb-thread">
@@ -224,18 +245,41 @@ export default function ClientGallery() {
           <div className="cg-lb-tools" onClick={(e) => e.stopPropagation()}>
             <span className="cg-lb-name">{cur.name ? <b>{cur.name}</b> : null}<small>{open + 1} / {photos.length}</small></span>
             {favOn && <button type="button" className="btn btn-secondary btn-sm" aria-pressed={mine.has(cur.id)} onClick={() => toggleFav(cur)}><Icon name="heart" />{mine.has(cur.id) ? tx("Favourite") : tx("Add to favourites")}</button>}
-            <button type="button" className="btn btn-secondary btn-sm" aria-pressed={panel} onClick={() => setPanel(!panel)}><Icon name="chat" />{noteCount[cur.id] ? tx("Notes ({n})", { n: noteCount[cur.id] }) : tx("Leave a note")}</button>
+            {!shared && <button type="button" className="btn btn-secondary btn-sm" aria-pressed={panel} onClick={() => setPanel(!panel)}><Icon name="chat" />{noteCount[cur.id] ? tx("Notes ({n})", { n: noteCount[cur.id] }) : tx("Leave a note")}</button>}
             {dl.on && <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveOne(cur)}><Icon name="download" />{tx("Download")}</button>}
+          </div>
+        </div>
+      )}
+      {shareLink && (
+        <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setShareLink(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Share my selection")}>
+            <h2 className="h-m">{tx("Share your selection")}</h2>
+            <p className="sub" style={{ fontSize: 14 }}>{txn(mine.size, "Anyone with this link sees only the {n} photo you picked, and can heart their own favourites. They can't download.", "Anyone with this link sees only the {n} photos you picked, and can heart their own favourites. They can't download.")}</p>
+            <div className="cg-share-link"><input readOnly value={shareLink.url} aria-label={tx("Link")} onFocus={(e) => e.target.select()} />
+              <button type="button" className="btn btn-primary btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(shareLink.url); setShareLink({ ...shareLink, copied: true }); } catch { /* select it instead */ } }}><Icon name="link" />{shareLink.copied ? tx("Copied") : tx("Copy")}</button></div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" }}>
+              <a className="btn btn-secondary btn-sm" href={`https://wa.me/?text=${encodeURIComponent(tx("Help me pick! Here are my favourites from {title}: {url}", { title: d.title, url: shareLink.url }))}`} target="_blank" rel="noreferrer">WhatsApp</a>
+              {navigator.share && <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigator.share({ title: d.title, url: shareLink.url }).catch(() => {})}>{tx("More…")}</button>}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShareLink(null)}>{tx("Done")}</button>
+            </div>
           </div>
         </div>
       )}
       {pinAsk && <PinAsk studio={g.studio?.name} onClose={() => setPinAsk(null)} onTry={pinAsk} />}
       {ask && (
         <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
-          <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Your name")} onSubmit={(e) => { e.preventDefault(); const n = name.trim(); if (!n) return; writeLS("jv-viewer-name", n); const fn = ask; setAsk(null); fn(n); }}>
-            <h2 className="h-m">{tx("What's your name?")}</h2>
-            <p className="sub" style={{ fontSize: 14 }}>{tx("So {studio} knows whose picks and notes these are.", { studio: g.studio?.name || tx("your photographer") })}</p>
+          <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Your name")} onSubmit={(e) => {
+            e.preventDefault(); const n = name.trim(); if (!n) return;
+            const em = email.trim().toLowerCase();
+            if (shared && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return;
+            writeLS("jv-viewer-name", n);
+            if (shared) { writeLS("jv-guest-email", em); setGuest(em); }
+            const fn = ask; setAsk(null); fn(n, shared ? em : undefined);
+          }}>
+            <h2 className="h-m">{shared ? tx("Who's picking?") : tx("What's your name?")}</h2>
+            <p className="sub" style={{ fontSize: 14 }}>{tx(shared ? "So {studio} knows whose picks these are." : "So {studio} knows whose picks and notes these are.", { studio: g.studio?.name || tx("your photographer") })}</p>
             <div className="field"><label htmlFor="cg-name">{tx("Your name")}</label><input id="cg-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
+            {shared && <div className="field"><label htmlFor="cg-email">{tx("Your email")}</label><input id="cg-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="you@example.com" /></div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={() => setAsk(null)}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Continue")}</button></div>
           </form>
         </div>
