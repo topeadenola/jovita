@@ -6,5 +6,7 @@
   "name": "jovita-mail",
   "main": "src/index.js",
   "compatibility_date": "2025-09-01",
+  // Keep anything added in the Cloudflare dashboard (e.g. INBOUND_SECRET) when GitHub pushes redeploy this Worker
+  "keep_vars": true,
   "vars": { "INBOUND_URL": "https://bdyjlmgjtrzqmohkklcg.supabase.co/functions/v1/inbound-email" }
 }
