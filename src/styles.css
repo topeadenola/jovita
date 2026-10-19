@@ -1241,3 +1241,15 @@ body{transition:background-color .2s}
 .inbox-edit:focus-within{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus)}
 .help.err{color:var(--danger)}
 .inbox-edit input:focus-visible{outline:none}
+
+/* Inbox fits the screen: the page stays put, only the conversation list and the chat scroll */
+@media (min-width:761px){
+  .main:has(> .inbox){height:100vh;overflow:hidden;padding-bottom:96px}
+  .main:has(> .inbox) .inbox{flex:1;min-height:0}
+  .inbox .threads,.inbox .convo{min-height:0}
+  .inbox .msgs{min-height:0}
+}
+.conn-pill{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.conn-pill .ic{width:16px;height:16px}
+.conn-pill.on{border-color:transparent;background:var(--success-tint);color:var(--success)}
+.conn-pill:hover{filter:brightness(.97)}

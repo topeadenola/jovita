@@ -86,7 +86,10 @@ function LogMessage({ onClose, pre }) {
 }
 
 export default function Inbox() {
-  const { messages, client, clients, projects, insert, update, reload } = useData();
+  const { messages, client, clients, projects, insert, update, reload, studio, calendar_connections = [] } = useData();
+  const inboxAddr = studio?.inbox_name || studio?.inbox_code ? `inbox+${studio.inbox_name || studio.inbox_code}@getjovita.com` : "";
+  const calOn = calendar_connections.length > 0;
+  const navigate = useNavigate();
   const { setOpenProject } = useUi();
   const toast = useToast();
   const [filter, setFilter] = useState("all");
@@ -148,7 +151,12 @@ export default function Inbox() {
   const head = (
     <div className="head"><div><p className="eyebrow">{tx("Inbox")}</p><h1 className="h-l">{tx("All your client messages")}</h1></div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect email and calendar")}</button>
+        {inboxAddr
+          ? <button type="button" className="conn-pill on" onClick={() => setConnect(true)} title={inboxAddr}><Icon name="check" />{tx("Email connected")}</button>
+          : <button className="btn btn-secondary btn-sm" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect email")}</button>}
+        {calOn
+          ? <button type="button" className="conn-pill on" onClick={() => navigate("/settings?tab=connections")}><Icon name="check" />{tx("Calendar connected")}</button>
+          : <button type="button" className="conn-pill" onClick={() => navigate("/settings?tab=connections")}><Icon name="calendar" />{tx("Connect calendar")}</button>}
         {clients.length > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setLogging(true)}><Icon name="plus" />{tx("Log a message")}</button>}
         <button className="btn btn-ghost btn-sm" onClick={reload}>{tx("Refresh")}</button>
       </div></div>
@@ -169,8 +177,7 @@ export default function Inbox() {
       <div className="card inbox-empty">
         <Icon name="inbox" />
         <b>{messages.length ? tx("No {channel} messages yet", { channel: tx(CH[filter]?.label || "") }) : tx("No messages yet")}</b>
-        <p className="sub">{tx("Messages from your client pages land here now. Email replies come to your own inbox, and you can log them here, each with a badge showing where it came from.")}</p>
-        <button className="btn btn-primary" onClick={() => setConnect(true)}><Icon name="link" />{tx("Connect email and calendar")}</button>
+        <p className="sub">{inboxAddr ? tx("Client emails and messages from your client pages land here, each with a badge showing where it came from. Your inbox address is {addr}.", { addr: inboxAddr }) : tx("Messages from your client pages land here, each with a badge showing where it came from.")}</p>
       </div>{modals}</>
   );
 
