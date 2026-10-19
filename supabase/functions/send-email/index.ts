@@ -125,7 +125,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
   const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
   const owner = ur.ok ? await ur.json() : null;
   const ownerEmail = studio.reply_email || owner?.email || "";
-  const inbox = env("INBOX_DOMAIN") && studio.inbox_code ? `inbox+${studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
+  const inbox = env("INBOX_DOMAIN") && (studio.inbox_name || studio.inbox_code) ? `inbox+${studio.inbox_name || studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
   const logo = studio.logo_path && studio.plan !== "free" ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
   const link = `${APP_URL}/p/${token}`;
   const sent: string[] = [];
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     // Client emails go out in the studio's name; replies go straight to the creative.
     const asStudio = { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` };
     // With the Jovita inbox switched on, client replies come back into Inbox (and a copy goes to the creative)
-    const inbox = env("INBOX_DOMAIN") && studio.inbox_code ? `inbox+${studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
+    const inbox = env("INBOX_DOMAIN") && (studio.inbox_name || studio.inbox_code) ? `inbox+${studio.inbox_name || studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
     const replyToStudio = { email: inbox || studio.reply_email || user.email, name: studio.name || undefined };
     const me = { email: user.email as string, name: studio.owner_first_name || undefined };
     const copy = (body.copy_me ?? studio.copy_me) ? { email: studio.reply_email || user.email, name: studio.name || undefined } : undefined;

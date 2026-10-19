@@ -1,6 +1,6 @@
 // Client emails into the Jovita Inbox.
 //
-// Cloudflare Email Routing sends anything addressed to inbox+<code>@getjovita.com to the jovita-mail Worker,
+// Cloudflare Email Routing sends anything addressed to inbox+<studio name or code>@getjovita.com to the jovita-mail Worker,
 // which posts it here. We find the studio by <code>, match the sender to a client (or add them as a new lead),
 // save it as an Inbox message, and send the creative a copy so nothing is missed.
 //
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   const m = await req.json().catch(() => null);
   if (!m) return json({ error: "Bad request" }, 400);
 
-  const code = String(m.to || "").toLowerCase().match(/\+([a-z0-9]{6,20})@/)?.[1];
+  const code = String(m.to || "").toLowerCase().match(/\+([a-z0-9]{3,30})@/)?.[1];
   if (!code) return json({ error: "Unknown address" }, 404);
 
   const key = env("SUPABASE_SERVICE_ROLE_KEY"), base = env("SUPABASE_URL");
@@ -49,7 +49,9 @@ Deno.serve(async (req) => {
     return j[0];
   };
 
-  const [studio] = await get(`studios?inbox_code=eq.${code}&select=*`);
+  // inbox+<studio name>@ (new) or inbox+<random code>@ (old addresses keep working)
+  let [studio] = await get(`studios?or=(inbox_name.eq.${code},inbox_code.eq.${code})&select=*&limit=1`);
+  if (!studio) [studio] = await get(`studios?inbox_code=eq.${code}&select=*`);
   if (!studio) return json({ error: "Unknown address" }, 404);
 
   const from = String(m.from || "").toLowerCase().trim();

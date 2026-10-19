@@ -1233,3 +1233,11 @@ body{transition:background-color .2s}
 .cg-made a:hover{opacity:1}
 .pro-tag{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:var(--marigold);color:var(--on-marigold);font:800 10.5px var(--font-body);letter-spacing:.06em;vertical-align:middle}
 .logo-up.locked .logo-preview{opacity:.7}
+
+/* Settings › Connections: edit the inbox name */
+.inbox-edit{display:flex;align-items:center;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);overflow:hidden;max-width:520px}
+.inbox-edit span{padding:0 10px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;font-size:14px;white-space:nowrap}
+.inbox-edit input{flex:1;min-width:80px;border:0;outline:none;padding:10px 0;background:transparent;font-family:ui-monospace,Menlo,monospace;font-size:14px;font-weight:700}
+.inbox-edit:focus-within{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus)}
+.help.err{color:var(--danger)}
+.inbox-edit input:focus-visible{outline:none}

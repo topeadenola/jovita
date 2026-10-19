@@ -151,6 +151,73 @@ function RemindersTab() {
   );
 }
 
+// Settings › Connections: inbox+<studio name>@getjovita.com, with a one-time change
+const INBOX_ERR = {
+  too_short: "Use at least 3 letters or numbers.",
+  reserved: "That name is kept for Jovita. Try another.",
+  taken: "Another studio already has that name.",
+  already_changed: "You've already changed your address once.",
+};
+function InboxAddress() {
+  const { studio, reload } = useData();
+  const toast = useToast();
+  const current = studio.inbox_name || studio.inbox_code;
+  const addr = `inbox+${current}@getjovita.com`;
+  const [edit, setEdit] = useState(false);
+  const [val, setVal] = useState(current);
+  const [check, setCheck] = useState(null); // result of the live check
+  const [busy, setBusy] = useState(false);
+  const clean = val.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24);
+  useEffect(() => {
+    if (!edit) return;
+    if (clean.length < 3 || clean === current) { setCheck(null); return; }
+    let live = true;
+    const t = setTimeout(async () => {
+      const { data } = await supabase.rpc("set_inbox_name", { p_name: clean, p_check_only: true });
+      if (live) setCheck(data || null);
+    }, 400);
+    return () => { live = false; clearTimeout(t); };
+  }, [clean, edit, current]);
+  const save = async () => {
+    if (clean === current) { setEdit(false); return; }
+    if (!window.confirm(tx("Change your inbox address to inbox+{name}@getjovita.com? You can only change it once. Your old address keeps working.", { name: clean }))) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("set_inbox_name", { p_name: clean });
+      if (error) throw error;
+      if (!data?.ok) { toast(tx(INBOX_ERR[data?.error] || "That didn't work. Try again.")); setBusy(false); return; }
+      await reload();
+      toast(tx("Your inbox address is now inbox+{name}@getjovita.com", { name: data.name }), true);
+      setEdit(false);
+    } catch (e) { toast(e.message); }
+    setBusy(false);
+  };
+  if (!edit) return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <code className="inbox-addr">{addr}</code>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(addr); toast(tx("Address copied"), true); } catch { /* shown on screen */ } }}><Icon name="link" />{tx("Copy")}</button>
+      {!studio.inbox_name_changed && studio.inbox_name !== undefined && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVal(current); setEdit(true); }}>{tx("Change")}</button>}
+    </div>
+  );
+  const msg = clean.length < 3 ? tx(INBOX_ERR.too_short) : clean === current ? "" : !check ? tx("Checking…") : check.ok ? tx("Available") : check.error === "taken" && check.suggest ? `${tx(INBOX_ERR.taken)} ${tx("Try {name}", { name: check.suggest })}` : tx(INBOX_ERR[check.error] || "That didn't work. Try again.");
+  const okToSave = clean === current || (clean.length >= 3 && check?.ok);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="inbox-edit">
+        <span>inbox+</span>
+        <input autoFocus value={val} onChange={(e) => setVal(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24))} onKeyDown={(e) => { if (e.key === "Enter" && okToSave) save(); if (e.key === "Escape") setEdit(false); }} aria-label={tx("Your inbox name")} maxLength={30} spellCheck={false} autoCapitalize="none" />
+        <span>@getjovita.com</span>
+      </div>
+      {msg && <span className={`help ${check && !check.ok && clean.length >= 3 && clean !== current ? "err" : ""}`} role="status">{msg}</span>}
+      <span className="help">{tx("Letters and numbers only. You can change it once, and your old address keeps working.")}</span>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={busy || !okToSave} onClick={save}>{busy ? tx("Saving…") : tx("Save address")}</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEdit(false)}>{tx("Cancel")}</button>
+      </div>
+    </div>
+  );
+}
+
 // Email and calendar. Anyone can connect their own: email works the moment you sign up, Google Calendar is one click.
 function ConnectionsTab() {
   const { studio, session, updateStudio } = useData();
@@ -172,10 +239,9 @@ function ConnectionsTab() {
           <span className="help">{tx("Leave empty to use your sign-in email. Use your studio's email, e.g. hello@yourstudio.com.")}</span></div>
         <div className="switch"><div><b>{tx("Send me a copy")}</b><span>{tx("A copy of every email Jovita sends your clients, so you always have a record.")}</span></div>
           <Toggle on={!!studio.copy_me} label={tx("Send me a copy")} onChange={async (v) => { try { await updateStudio({ copy_me: v }); toast(v ? tx("You'll get a copy of client emails") : tx("Copies off")); } catch (e) { toast(e.message); } }} /></div>
-        {studio.inbox_code && <>
+        {(studio.inbox_name || studio.inbox_code) && <>
           <div className="field"><label>{tx("Your Jovita inbox address")}</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><code className="inbox-addr">inbox+{studio.inbox_code}@getjovita.com</code>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(`inbox+${studio.inbox_code}@getjovita.com`); toast(tx("Address copied"), true); } catch { /* shown on screen */ } }}><Icon name="link" />{tx("Copy")}</button></div>
+            <InboxAddress />
             <span className="help">{tx("When clients reply to Jovita emails, their answer lands in your Inbox like a chat, and you reply from there. Want other client emails in too? Forward them to this address from Gmail or Outlook.")}</span></div>
           <div className="switch"><div><b>{tx("Also send replies to my own email")}</b><span>{tx("A copy of every client email that lands in your Jovita inbox.")}</span></div>
             <Toggle on={studio.forward_inbox !== false} label={tx("Also send replies to my own email")} onChange={async (v) => { try { await updateStudio({ forward_inbox: v }); } catch (e) { toast(e.message); } }} /></div>
