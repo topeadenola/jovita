@@ -81,7 +81,7 @@ export default function App() {
   const [session, setSession] = useState(undefined);
   const [gate, setGate] = useState(undefined); // two-step code still needed (undefined while checking)
   useEffect(() => { if (session !== undefined) markSignedIn(!!session); }, [session]);
-  useEffect(() => { if (session) { let on = true; needsCode().then((v) => on && setGate(v)); return () => { on = false; }; } setGate(undefined); }, [session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (session) { let on = true; needsCode().then((v) => on && setGate(v)); return () => { on = false; }; } setGate(undefined); }, [!!session, session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));

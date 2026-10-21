@@ -1292,3 +1292,20 @@ body{transition:background-color .2s}
 .twostep-setup ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .twostep-qr { background: #fff; border: 1px solid var(--line, #E4DCEE); border-radius: 14px; padding: 10px; }
 .twostep-key { font-size: 13px; word-break: break-all; background: var(--soft, #F4EFFA); padding: 2px 6px; border-radius: 6px; user-select: all; }
+
+/* Plan: confirm before paying */
+.plan-confirm{display:flex;flex-direction:column;gap:16px;max-width:520px;padding:4px 0}
+.pcf-back{align-self:flex-start}
+.pcf-back svg{transform:rotate(180deg)}
+.pcf-head{display:flex;flex-direction:column;gap:6px}
+.pcf-total{display:flex;flex-direction:column;gap:4px;padding:18px 20px;border-radius:var(--r-lg,18px);background:var(--lilac);border:1px solid var(--line)}
+.pcf-total span{font-size:14px;color:var(--ink-2,#5E5069)}
+.pcf-total b{font-family:var(--font-display,inherit);font-size:34px;line-height:1.1;color:var(--ink)}
+.pcf-points{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:15px}
+.pcf-points li{display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+.pcf-points svg{width:18px;height:18px;flex:none;margin-top:2px;color:var(--success)}
+.pcf-go{justify-content:center;min-height:52px;font-size:16px}
+.pcf-fine{font-size:12px}
+.pc-trial{justify-content:center;text-decoration:underline;text-underline-offset:3px}
+.pc-foot .btn.pc-mine,.pc-foot .btn.pc-mine:disabled{background:rgba(38,20,51,.08);color:var(--muted,#8C7F99);border:1px solid transparent;cursor:default;opacity:1;box-shadow:none}
+.plan-confirm .cycle-switch{align-self:flex-start;margin:0}

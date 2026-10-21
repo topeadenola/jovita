@@ -27,13 +27,14 @@ export function PlanBadge({ plan, onOpen }) {
 }
 
 // The three plans side by side, used in the sheet and in Settings.
-// Plans above yours say Upgrade, plans below say Downgrade.
+// Every plan can be picked except the one you're on. Picking one shows a short summary, then the secure payment page.
 export function PlanCards({ plan, onPlan, compact }) {
   const { studio } = useData();
   const toast = useToast();
   const [prices, setPrices] = useState({});
   const [busy, setBusy] = useState("");
   const [asked, setAsked] = useState("");
+  const [pick, setPick] = useState(null); // plan key being confirmed
   const [cycle, setCycle] = useState(studio.plan_cycle || "month");
   useEffect(() => { loadPrices(studio.home_currency).then(setPrices); }, [studio.home_currency]);
   const trial = plan.status === "trialing";
@@ -41,47 +42,100 @@ export function PlanCards({ plan, onPlan, compact }) {
   const mine = trial ? 0 : rank(plan.plan); // during a trial you're really on Free
   const subscribed = !!(studio.lemon_subscription_id && studio.plan_autorenew && plan.plan !== "free");
 
-  const choose = async (key) => {
-    setBusy(key);
+  const amount = (key, cyc = cycle) => {
+    const price = prices[key];
+    if (!price || !Number(price.monthly_amount)) return null;
+    const offer = prices.offers?.[key];
+    const m = offer ? offerPrice(price.monthly_amount, offer.percent_off) : Number(price.monthly_amount);
+    return { value: cyc === "year" ? yearlyPrice(m) : m, currency: price.currency, offer };
+  };
+
+  const tryFree = async () => {
+    setBusy("trial");
     try {
-      if (key === "pro" && canTrial) {
-        const r = await startTrial();
-        if (r?.error === "trial_used") toast(tx("You've already had your free trial."));
-        else { onPlan?.({ ...plan, plan: "pro", status: "trialing", trial_used: true, trial_ends_at: r?.trial_ends_at || new Date(Date.now() + TRIAL_DAYS * 864e5).toISOString() }); toast(tx("Pro is on for {n} days. Enjoy!", { n: TRIAL_DAYS }), true); }
-      } else if (subscribed) {
-        // Already paying: plan changes, card and cancelling happen on the billing page
-        await openBilling();
-        return;
-      } else if (key !== "free" && (trial || rank(key) > mine)) {
-        await startCheckout(key, cycle);
-        return; // leaving for the checkout page
-      } else {
-        await requestUpgrade(key, cycle);
-        setAsked(key);
-      }
+      const r = await startTrial();
+      if (r?.error === "trial_used") toast(tx("You've already had your free trial."));
+      else { onPlan?.({ ...plan, plan: "pro", status: "trialing", trial_used: true, trial_ends_at: r?.trial_ends_at || new Date(Date.now() + TRIAL_DAYS * 864e5).toISOString() }); toast(tx("Pro is on for {n} days. Enjoy!", { n: TRIAL_DAYS }), true); }
     } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
     setBusy("");
   };
 
-  return (
-    <>
+  const go = async () => {
+    const key = pick;
+    setBusy(key);
+    try {
+      if (subscribed) { await openBilling(); return; } // plan changes, card and cancelling live on the billing page
+      if (key !== "free") { await startCheckout(key, cycle); return; } // off to the payment page
+      await requestUpgrade(key, cycle); // gifted or manually paid plans: we switch them by hand
+      setAsked(key); setPick(null);
+    } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
+    setBusy("");
+  };
+
+  const cycleSwitch = (
     <div className="cycle-switch" role="group" aria-label={tx("How you pay")}>
       <button type="button" aria-pressed={cycle === "month"} onClick={() => setCycle("month")}>{tx("Monthly")}</button>
       <button type="button" aria-pressed={cycle === "year"} onClick={() => setCycle("year")}>{tx("Yearly")} <span className="save">{tx("Save {n}%", { n: YEARLY_OFF })}</span></button>
     </div>
+  );
+
+  // Step 2: what you're about to pay for
+  if (pick) {
+    const P = PLANS.find((x) => x.key === pick);
+    const a = amount(pick);
+    const down = !trial && rank(pick) < mine;
+    return (
+      <div className="plan-confirm">
+        <button type="button" className="btn btn-ghost btn-sm pcf-back" onClick={() => setPick(null)}><Icon name="arrow" />{tx("All plans")}</button>
+        <div className="pcf-head">
+          <p className="eyebrow">{down ? tx("Switch plan") : tx("Upgrade")}</p>
+          <h3 className="h-l">{pick === "free" ? tx("Move to Free") : tx("Jovita {plan}", { plan: tx(P.name) })}</h3>
+          <p className="sub">{tx(P.line)}</p>
+        </div>
+        {pick !== "free" && !subscribed && cycleSwitch}
+        {pick !== "free" && a && !subscribed && (
+          <div className="pcf-total">
+            <span>{cycle === "year" ? tx("You pay today, then every year") : tx("You pay today, then every month")}</span>
+            <b>{money(a.value, a.currency)}</b>
+            {cycle === "year" && <small className="sub">{tx("Like paying {m} a month.", { m: money(Math.round(a.value / 12), a.currency) })}</small>}
+            {a.offer && <small className="sub">{tx("Includes your {n}% offer.", { n: a.offer.percent_off })}</small>}
+          </div>
+        )}
+        <ul className="pcf-points">
+          {pick === "free" ? <>
+            <li><Icon name="check" />{tx("You keep everything you've made.")}</li>
+            <li><Icon name="check" />{tx("Your logo comes off client pages and Ask Jovita goes back to 10 questions.")}</li>
+          </> : subscribed ? <>
+            <li><Icon name="check" />{tx("You'll change your plan on your billing page. You only pay the difference.")}</li>
+          </> : <>
+            <li><Icon name="lock" />{tx("Pay securely by card, Apple Pay or PayPal.")}</li>
+            <li><Icon name="check" />{tx("{plan} switches on the moment your payment goes through.", { plan: tx(P.name) })}</li>
+            <li><Icon name="check" />{tx("Renews automatically. Cancel any time from Settings.")}</li>
+          </>}
+        </ul>
+        <button type="button" className={`btn ${pick === "free" ? "btn-secondary" : "btn-primary"} pcf-go`} disabled={!!busy} onClick={go}>
+          {busy ? tx("One moment…") : pick === "free" ? tx("Move to Free") : subscribed ? tx("Go to billing") : tx("Continue to payment")}
+        </button>
+        {pick !== "free" && !subscribed && <small className="sub pcf-fine">{tx("Payments are handled by Lemon Squeezy. Jovita never sees your card.")}</small>}
+      </div>
+    );
+  }
+
+  return (
+    <>
+    {cycleSwitch}
     <div className={`plans ${compact ? "compact" : ""}`}>
       {PLANS.map((p) => {
+        const a = amount(p.key);
         const price = prices[p.key];
-        const current = !trial && plan.plan === p.key;
+        const current = trial ? false : plan.plan === p.key;
         const onTrial = trial && p.key === "pro";
         const down = !trial && rank(p.key) < mine;
-        const offer = !current && !down && prices.offers?.[p.key];
-        const btn = current ? null
-          : down ? <button type="button" className="btn btn-secondary" disabled={!!busy} onClick={() => choose(p.key)}>{busy === p.key ? tx("One moment…") : tx("Downgrade to {plan}", { plan: tx(p.name) })}</button>
-          : p.key === "free" ? null
-          : onTrial ? <button type="button" className="btn btn-joy" disabled={!!busy} onClick={() => choose("pro")}>{busy === "pro" ? tx("One moment…") : tx("Keep Pro after the trial")}</button>
-          : <button type="button" className={`btn ${p.key === "pro" ? "btn-joy" : "btn-primary"}`} disabled={!!busy} onClick={() => choose(p.key)}>
-              {busy === p.key ? tx("One moment…") : p.key === "pro" && canTrial ? tx("Try Pro free for {n} days", { n: TRIAL_DAYS }) : tx("Upgrade to {plan}", { plan: tx(p.name) })}
+        const freeInTrial = trial && p.key === "free";
+        const btn = current ? <button type="button" className="btn pc-mine" disabled>{tx("Your plan")}</button>
+          : freeInTrial ? <button type="button" className="btn pc-mine" disabled>{tx("After your trial")}</button>
+          : <button type="button" className={`btn ${down ? "btn-secondary" : p.key === "pro" ? "btn-joy" : "btn-primary"}`} disabled={!!busy} onClick={() => setPick(p.key)}>
+              {onTrial ? tx("Pay for Pro now") : down ? tx("Switch to {plan}", { plan: tx(p.name) }) : tx("Upgrade to {plan}", { plan: tx(p.name) })}
             </button>;
         return (
           <article key={p.key} className={`plan-card ${p.key === "pro" ? "featured" : ""} ${current || onTrial ? "is-current" : ""}`}>
@@ -89,17 +143,16 @@ export function PlanCards({ plan, onPlan, compact }) {
               <h3>{tx(p.name)}</h3>
               {current ? <span className="pill p-neutral">{tx("Your plan")}</span> : onTrial ? <span className="pill p-joy">{txn(daysLeft(plan.trial_ends_at), "Trial · {n} day left", "Trial · {n} days left")}</span> : p.badge && !down ? <span className="pill p-joy">{tx(p.badge)}</span> : null}
             </div>
-            <p className="pc-price">{!price ? <b>&nbsp;</b>
-              : cycle === "year" && Number(price.monthly_amount) > 0 ? <><b>{money(yearlyPrice(offer ? offerPrice(price.monthly_amount, offer.percent_off) : price.monthly_amount), price.currency)}</b><span>{tx("/ year")}</span></>
-              : offer ? <><b>{money(offerPrice(price.monthly_amount, offer.percent_off), price.currency)}</b><span>{tx("/ month")}</span></> : <><b>{money(price.monthly_amount, price.currency)}</b><span>{tx("/ month")}</span></>}</p>
-            {cycle === "year" && price && Number(price.monthly_amount) > 0 && <p className="pc-year sub">{tx("Like paying {m} a month. You save {s}.", { m: money(Math.round(yearlyPrice(price.monthly_amount) / 12), price.currency), s: money(Number(price.monthly_amount) * 12 - yearlyPrice(price.monthly_amount), price.currency) })}</p>}
-            {offer && price && cycle === "month" && <OfferNote offer={offer} full={money(price.monthly_amount, price.currency)} />}
+            <p className="pc-price">{!price ? <b>&nbsp;</b> : !a ? <><b>{money(0, price.currency)}</b><span>{tx("/ month")}</span></> : <><b>{money(a.value, a.currency)}</b><span>{cycle === "year" ? tx("/ year") : tx("/ month")}</span></>}</p>
+            {cycle === "year" && a && <p className="pc-year sub">{tx("Like paying {m} a month. You save {s}.", { m: money(Math.round(yearlyPrice(price.monthly_amount) / 12), price.currency), s: money(Number(price.monthly_amount) * 12 - yearlyPrice(price.monthly_amount), price.currency) })}</p>}
+            {a?.offer && cycle === "month" && !current && !down && <OfferNote offer={a.offer} full={money(price.monthly_amount, price.currency)} />}
             <p className="sub">{tx(p.line)}</p>
             <ul>{p.features.map((f) => <li key={f}><Icon name="check" />{tx(f)}</li>)}</ul>
             <div className="pc-foot">
-              {asked === p.key ? <p className="pc-asked"><Icon name="check" />{down ? tx("Got it. We'll confirm the change by email. You keep everything until then.") : tx("Thanks! Paid plans open very soon. We'll email you the moment you can upgrade.")}</p> : btn}
-              {p.key === "pro" && canTrial && !asked && <small className="sub">{tx("No card needed. You go back to Free after, unless you upgrade.")}</small>}
-              {down && !asked && <small className="sub">{p.key === "free" ? tx("You'd lose your branding and most Jovita questions.") : tx("You can come back to {plan} any time.", { plan: tx(NAME[plan.plan]) })}</small>}
+              {asked === p.key ? <p className="pc-asked"><Icon name="check" />{tx("Got it. We'll confirm the change by email. You keep everything until then.")}</p> : btn}
+              {p.key === "pro" && canTrial && !asked && (
+                <button type="button" className="btn btn-ghost btn-sm pc-trial" disabled={!!busy} onClick={tryFree}>{busy === "trial" ? tx("One moment…") : tx("Or try it free for {n} days, no card", { n: TRIAL_DAYS })}</button>
+              )}
             </div>
           </article>
         );
