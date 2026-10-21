@@ -6,7 +6,7 @@
 // Supabase Storage (USE_R2 = false): the old way, kept until every photo has been moved across.
 import { supabase } from "../supabase";
 
-export const USE_R2 = false;
+export const USE_R2 = true;
 export const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || "https://media.getjovita.com";
 const BUCKET = "gallery-photos";
 const live = () => typeof location !== "undefined" && /getjovita\.com$/.test(location.hostname);
