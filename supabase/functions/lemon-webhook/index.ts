@@ -3,6 +3,7 @@
 // subscription_created / updated / resumed / cancelled / expired → plan on, renewal date, or back to Free
 // subscription_payment_success → money recorded in HQ › Revenue (once per invoice) and the plan extended
 // subscription_payment_failed  → "Payment failed" in HQ
+// The "Extra storage" product adds 250 GB per subscription (storage_addons) instead of changing the plan.
 //
 // Every request is checked against the signing secret, so nobody else can switch plans on.
 // Secrets: LEMONSQUEEZY_WEBHOOK_SECRET, LEMONSQUEEZY_API_KEY. Provided automatically: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
@@ -39,8 +40,12 @@ async function rpc(fn: string, args: Record<string, unknown>) {
 async function studioFor(custom: Record<string, string> | undefined, subId: string) {
   if (custom?.studio_id) return custom.studio_id;
   const k = env("SUPABASE_SERVICE_ROLE_KEY");
-  const r = await fetch(`${env("SUPABASE_URL")}/rest/v1/studios?select=id&lemon_subscription_id=eq.${encodeURIComponent(subId)}&limit=1`, { headers: { Authorization: `Bearer ${k}`, apikey: k } });
-  return r.ok ? (await r.json())[0]?.id || null : null;
+  const h = { Authorization: `Bearer ${k}`, apikey: k };
+  const r = await fetch(`${env("SUPABASE_URL")}/rest/v1/studios?select=id&lemon_subscription_id=eq.${encodeURIComponent(subId)}&limit=1`, { headers: h });
+  const id = r.ok ? (await r.json())[0]?.id : null;
+  if (id) return id;
+  const a = await fetch(`${env("SUPABASE_URL")}/rest/v1/storage_addons?select=studio_id&lemon_subscription_id=eq.${encodeURIComponent(subId)}&limit=1`, { headers: h });
+  return a.ok ? (await a.json())[0]?.studio_id || null : null;
 }
 
 // plan + cycle from the variant they're on now (they may have switched on their billing page), else from the checkout
@@ -51,6 +56,10 @@ async function planOf(variantId: unknown, custom: Record<string, string> | undef
 
 async function sync(studio: string, subId: string, a: Record<string, unknown>, custom: Record<string, string> | undefined) {
   const { plan, cycle } = await planOf(a.variant_id, custom);
+  if (plan === "storage") {
+    // Extra storage: 250 GB per add-on (or the number in the checkout's custom data)
+    return rpc("lemon_addon_sync", { p_studio: studio, p_sub: subId, p_status: String(a.status || "active"), p_ends: a.ends_at || null, p_gb: Number(custom?.gb) || 250 });
+  }
   return rpc("lemon_sync", {
     p_studio: studio, p_plan: plan, p_cycle: cycle, p_status: String(a.status || "active"),
     p_renews: a.renews_at || null, p_ends: a.ends_at || null, p_sub: subId, p_customer: a.customer_id != null ? String(a.customer_id) : null,
@@ -79,6 +88,10 @@ Deno.serve(async (req) => {
       const sub = (await ls(`/subscriptions/${subId}`)).data?.attributes || {};
       await sync(studio, subId, sub, custom);
       const { plan, cycle } = await planOf(sub.variant_id, custom);
+      if (plan === "storage") {
+        await rpc("lemon_addon_paid", { p_studio: studio, p_amount: Number(a.total || 0) / 100, p_currency: String(a.currency || "USD"), p_invoice: String(body.data?.id || "") });
+        return json({ ok: true });
+      }
       await rpc("lemon_paid", {
         p_studio: studio, p_plan: plan, p_cycle: cycle,
         p_amount: Number(a.total || 0) / 100, p_currency: String(a.currency || "NGN"),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useData } from "../lib/data";
-import { PLANS, TRIAL_DAYS, YEARLY_OFF, changePlan, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, undoChange, waitForPaidPlan, waitForPlan, yearlyPrice } from "../lib/plan";
+import { PLANS, TRIAL_DAYS, YEARLY_OFF, STORAGE_ADDON, buyStorage, changePlan, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, stopStorage, undoChange, waitForPaidPlan, waitForPlan, yearlyPrice } from "../lib/plan";
 import { money } from "../lib/format";
 import { locale, tx, txn } from "../lib/i18n";
 import { supabase } from "../supabase";
@@ -262,6 +262,7 @@ export function PlanTab({ plan, onPlan }) {
   const trial = plan.status === "trialing";
   const [, sub] = sheetText(plan, !!studio.plan_autorenew);
   return (
+    <>
     <section className="card set-card">
       <div className="set-head"><h2 className="h-m">{tx("Your plan")}</h2></div>
       <div className="plan-now">
@@ -283,6 +284,58 @@ export function PlanTab({ plan, onPlan }) {
       )}
       {studio.lemon_subscription_id && <p><button type="button" className="btn btn-secondary" disabled={opening} onClick={billing}>{opening ? tx("One moment…") : tx("Card and receipts")}</button></p>}
       <PlanCards plan={plan} onPlan={onPlan} />
+    </section>
+    <StorageCard plan={plan} />
+    </>
+  );
+}
+
+const gbText = (b) => { const g = Number(b) / 1024 ** 3; return g >= 1000 ? `${(g / 1024).toFixed(g % 1024 ? 1 : 0)} TB` : g >= 1 ? `${Math.round(g)} GB` : `${Math.round(Number(b) / 1024 ** 2)} MB`; };
+
+// Settings › Plan: how much gallery space is used, and extra storage (250 GB for $5 a month)
+export function StorageCard({ plan }) {
+  const toast = useToast();
+  const [q, setQ] = useState(null);
+  const [addons, setAddons] = useState([]);
+  const [busy, setBusy] = useState("");
+  const load = () => {
+    supabase.rpc("storage_quota").then(({ data }) => data && setQ(data)).catch(() => {});
+    supabase.from("storage_addons").select("*").order("created_at").then(({ data }) => setAddons((data || []).filter((a) => a.status !== "expired"))).catch(() => {});
+  };
+  useEffect(load, [plan.plan, plan.status]);
+  const paid = plan.plan !== "free" && plan.status !== "trialing";
+  const buy = async () => { setBusy("buy"); try { await buyStorage(); } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); setBusy(""); } };
+  const stop = async (a) => {
+    if (!window.confirm(tx("Stop this extra {gb} GB? You keep it until the end of the month you've paid for.", { gb: a.gb }))) return;
+    setBusy(a.id);
+    try { await stopStorage(a.lemon_subscription_id); toast(tx("Done. You keep the extra space until the end of this month."), true); setTimeout(load, 2500); }
+    catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
+    setBusy("");
+  };
+  if (!q) return null;
+  const used = Number(q.used) || 0, limit = Number(q.limit) || 0;
+  const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  return (
+    <section className="card set-card">
+      <div className="set-head"><h2 className="h-m">{tx("Gallery storage")}</h2></div>
+      <div className="plan-use storage-use">
+        <span className="sub">{tx("{used} of {limit} used", { used: gbText(used), limit: gbText(limit) })}</span>
+        <span className={`meter ${pct >= 90 ? "is-full" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={tx("Gallery storage")}><i style={{ width: pct + "%" }} /></span>
+      </div>
+      <p className="sub" style={{ fontSize: 14 }}>{tx("Photos and videos are kept exactly as you upload them, at full quality. Clients download the originals.")}</p>
+      {addons.length > 0 && (
+        <ul className="addon-list">
+          {addons.map((a) => (
+            <li key={a.id}>
+              <span><b>{tx("+{gb} GB extra", { gb: a.gb })}</b> <span className="sub">{a.status === "cancelled" && a.ends_at ? tx("until {date}", { date: longDate(a.ends_at) }) : tx("{price} a month", { price: STORAGE_ADDON.price })}</span></span>
+              {a.status !== "cancelled" && <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => stop(a)}>{busy === a.id ? tx("One moment…") : tx("Remove")}</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {paid
+        ? <p><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={buy}><Icon name="plus" />{busy === "buy" ? tx("One moment…") : tx("Add {gb} GB for {price} a month", { gb: STORAGE_ADDON.gb, price: STORAGE_ADDON.price })}</button></p>
+        : <p className="sub" style={{ fontSize: 14 }}>{plan.plan === "free" ? tx("Need more space? Pro has 600 GB and Studio has 1 TB.") : tx("Extra storage can be added once your trial becomes a paid plan.")}</p>}
     </section>
   );
 }

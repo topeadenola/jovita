@@ -13,7 +13,7 @@ export async function ls(path: string, init: RequestInit = {}) {
   return body;
 }
 
-// Which variant is Pro monthly, Studio yearly, etc. Worked out from the product names and billing intervals.
+// Which variant is Pro monthly, Studio yearly, Extra storage, etc. Worked out from the product names and billing intervals.
 let cache: { at: number; map: Record<string, string> } | null = null;
 export async function variants() {
   if (cache && Date.now() - cache.at < 10 * 60e3) return cache.map;
@@ -21,7 +21,7 @@ export async function variants() {
   const map: Record<string, string> = {};
   for (const p of prods.data || []) {
     const name = String(p.attributes?.name || "").toLowerCase();
-    const plan = name.includes("studio") ? "studio" : name.includes("pro") ? "pro" : "";
+    const plan = name.includes("storage") ? "storage" : name.includes("studio") ? "studio" : name.includes("pro") ? "pro" : "";
     if (!plan || p.attributes?.status !== "published") continue;
     const vs = await ls(`/variants?filter[product_id]=${p.id}&page[size]=50`);
     for (const v of vs.data || []) {

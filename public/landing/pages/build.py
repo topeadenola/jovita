@@ -153,7 +153,8 @@ HELP = [
 <li>Add a password if you want the gallery private, then <b>Publish</b> and share the link.</li>
 </ol>
 <h3>Storage on each plan</h3>
-<ul><li><b>Free:</b> 500 MB</li><li><b>Pro:</b> 1 TB</li><li><b>Studio:</b> unlimited, with RAW photo support (CR2, CR3, NEF, ARW, DNG, RAF and more)</li></ul>
+<ul><li><b>Free:</b> 500 MB</li><li><b>Pro:</b> 600 GB</li><li><b>Studio:</b> 1 TB, with RAW photo support (CR2, CR3, NEF, ARW, DNG, RAF and more)</li></ul>
+<p>Need more room on Pro or Studio? Add 250 GB for $5 a month in <b>Settings › Plan</b>. Your photos are stored exactly as you upload them, at full quality.</p>
 <div class="tip">Tip: export JPGs at full quality (around 3,000 to 4,000 px on the long edge) for the fastest uploads and the best-looking galleries.</div>"""),
  ("templates", "Contracts and templates", """
 <p>In <b>Settings › Templates</b> you'll find ready-made contracts (wedding, portrait, family and couple sessions), a model release, client emails and packages. Press <b>Add ready-made templates</b> any time to bring in ones you don't have yet.</p>

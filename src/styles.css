@@ -1314,3 +1314,6 @@ body{transition:background-color .2s}
 .plan-next span{flex:1;min-width:200px}
 .pcf-note{display:flex;gap:8px;align-items:center;margin:0;font-size:14px;color:#8F5A00}
 .pcf-note svg{width:18px;height:18px;flex:none}
+.storage-use .meter.is-full i{background:var(--danger,#B42318)}
+.addon-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.addon-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px}

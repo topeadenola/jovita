@@ -9,17 +9,17 @@ import Icon from "./Icon";
 import GalleryShare, { galleryLink } from "./GalleryShare";
 import { sendEmail } from "../lib/email";
 import { useUi } from "./Shell";
+import { mediaDownloadUrl, mediaPut, mediaRemove, mediaUrl } from "../lib/media";
 
-const BUCKET = "gallery-photos";
 const uid = () => Math.random().toString(36).slice(2, 9);
-export const publicUrl = (path) => (path ? supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl : "");
+export const publicUrl = (path) => mediaUrl(path);
 // Every upload also gets a light 1200px copy (name.thumb.jpg) so grids load fast; originals are kept for downloads
 export const RAW_EXT = ["cr2", "cr3", "nef", "arw", "dng", "raf", "rw2", "orf", "srw", "pef"];
 export const isRaw = (path) => RAW_EXT.includes(String(path || "").split(".").pop().toLowerCase());
 export const VIDEO_EXT = ["mp4", "mov", "m4v", "webm"];
 export const isVideo = (path) => VIDEO_EXT.includes(String(path || "").split(".").pop().toLowerCase());
 // Download with the original file name (IMG_0123.jpg), not the storage name
-export const downloadUrl = (path, name) => (path ? publicUrl(path) + (name ? "?download=" + encodeURIComponent(name) : "") : "");
+export const downloadUrl = (path, name) => mediaDownloadUrl(path, name);
 export const thumbPath = (path) => String(path || "").replace(/\.[^./]+$/, ".thumb.jpg");
 // Delete a whole gallery: its photos, sets, favourites, notes and invites go with it (database cascade); files are cleared in the background
 export async function deleteGalleryAll(gid, remove) {
@@ -31,7 +31,7 @@ export async function deleteGalleryAll(gid, remove) {
     if (data.length < 1000) break;
   }
   await remove("galleries", gid);
-  (async () => { for (let i = 0; i < paths.length; i += 500) await supabase.storage.from(BUCKET).remove(paths.slice(i, i + 500)).catch(() => {}); })();
+  mediaRemove(paths);
   return paths.length / 2;
 }
 export const thumbUrl = (path) => (path ? publicUrl(thumbPath(path)) : "");
@@ -54,33 +54,6 @@ export function Thumb({ path, alt = "", thumb, ...rest }) {
     );
   }
   return <img src={src} alt={alt} loading="lazy" decoding="async" onLoad={(e) => e.currentTarget.classList.add("in")} onError={() => { if (src !== publicUrl(path)) setSrc(publicUrl(path)); }} {...rest} />;
-}
-// Upload with live progress (bytes sent), straight to Supabase Storage
-async function putWithProgress(path, file, contentType, onProgress) {
-  const url = import.meta.env.VITE_SUPABASE_URL, key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key || typeof XMLHttpRequest === "undefined") {
-    const r = await supabase.storage.from(BUCKET).upload(path, file, { contentType, cacheControl: "31536000" });
-    onProgress?.(file.size);
-    return r;
-  }
-  const { data } = await supabase.auth.getSession();
-  return new Promise((resolve) => {
-    const x = new XMLHttpRequest();
-    x.open("POST", `${url}/storage/v1/object/${BUCKET}/${path.split("/").map(encodeURIComponent).join("/")}`);
-    x.setRequestHeader("Authorization", `Bearer ${data?.session?.access_token || key}`);
-    x.setRequestHeader("apikey", key);
-    x.setRequestHeader("x-upsert", "false");
-    x.setRequestHeader("cache-control", "max-age=31536000");
-    x.setRequestHeader("Content-Type", contentType);
-    x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(e.loaded); };
-    x.onload = () => {
-      if (x.status >= 200 && x.status < 300) { onProgress?.(file.size); return resolve({ error: null }); }
-      let msg = `Upload failed (${x.status})`; try { msg = JSON.parse(x.responseText).message || msg; } catch { /* keep */ }
-      resolve({ error: new Error(msg) });
-    };
-    x.onerror = () => resolve({ error: new Error("Network problem. Check your connection and try again.") });
-    x.send(file);
-  });
 }
 // First frame of a video, as a small JPG for grids
 async function makeVideoThumb(file, max = 1200) {
@@ -299,7 +272,7 @@ export default function GalleryEditor({ id, onClose }) {
           if (!head?.ok) {
             const blob = await (await fetch(publicUrl(p.path))).blob();
             const t = await makeThumb(blob);
-            if (t.blob) await supabase.storage.from(BUCKET).upload(thumbPath(p.path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000", upsert: true });
+            if (t.blob) await mediaPut(thumbPath(p.path), t.blob, "image/jpeg");
             await supabase.from("gallery_photos").update({ has_thumb: !!t.blob, ...(t.width && !p.width ? { width: t.width, height: t.height } : {}) }).eq("id", p.id);
           } else await supabase.from("gallery_photos").update({ has_thumb: true }).eq("id", p.id);
         } catch { /* try again next time */ }
@@ -360,7 +333,7 @@ export default function GalleryEditor({ id, onClose }) {
     const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
     list.sort((a, b) => byName.compare(a.name, b.name));
     if (!list.length) { if (!raws.length) toast(tx("Add photos (JPG, PNG, WebP, HEIC) or videos (MP4, MOV).")); return; }
-    // Storage limit for the plan (Free 500 MB, Pro 1 TB, Studio unlimited)
+    // Storage limit for the plan (Free 500 MB, Pro 600 GB, Studio 1 TB, plus any extra storage)
     const batch = list.reduce((n, f) => n + f.size, 0);
     try {
       const { data: q } = await supabase.rpc("storage_quota");
@@ -398,8 +371,8 @@ export default function GalleryEditor({ id, onClose }) {
           const raw = isRaw(file.name);
           const vid = isVideo(file.name) || /^video\//.test(file.type);
           const t = raw ? { blob: null } : vid ? await makeVideoThumb(file) : await makeThumb(file);
-          const ups = [putWithProgress(path, file, file.type || "application/octet-stream", (n) => { sentBy[i] = n; })];
-          if (t.blob) ups.push(supabase.storage.from(BUCKET).upload(thumbPath(path), t.blob, { contentType: "image/jpeg", cacheControl: "31536000" }));
+          const ups = [mediaPut(path, file, file.type || "application/octet-stream", (n) => { sentBy[i] = n; })];
+          if (t.blob) ups.push(mediaPut(thumbPath(path), t.blob, "image/jpeg"));
           const [r1] = await Promise.all(ups);
           if (r1.error) throw r1.error;
           const row = { studio_id: studio.id, gallery_id: id, set_id: setId, path, name: file.name, width: t.width || null, height: t.height || null, position: start + i, bytes: file.size + (t.blob?.size || 0), has_thumb: !!t.blob };
@@ -457,7 +430,7 @@ export default function GalleryEditor({ id, onClose }) {
       done += ids.length; setDeleting({ done, total: list.length });
     });
     // Files are removed in the background; the photos are already gone from the gallery
-    pool(chunks(list.flatMap((p) => [p.path, thumbPath(p.path)]), 500), 3, (ps) => supabase.storage.from(BUCKET).remove(ps)).catch(() => {});
+    mediaRemove(list.flatMap((p) => [p.path, thumbPath(p.path)]));
     const fresh = await loadPhotos();
     await update("galleries", id, { photo_count: fresh.length });
     setDeleting(null);

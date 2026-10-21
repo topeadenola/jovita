@@ -5,6 +5,8 @@
 // POST { action: "change", plan: "pro" | "studio" | "free" } → already subscribed: upgrades start now (you pay the difference),
 //      downgrades and Free wait for the next renewal date. { mode: "now" | "later", at }
 // POST { action: "undo" } → cancel a waiting downgrade, or un-cancel before the end date
+// POST { action: "addon" } → { url } checkout for 250 GB of extra storage ($5 a month), paid plans only
+// POST { action: "addon_cancel", sub } → stop an extra-storage add-on at the end of its paid month
 //
 // The signed-in user's studio is sent along as custom data, so the webhook (lemon-webhook) knows whose plan to switch on.
 // Secrets: LEMONSQUEEZY_API_KEY. Optional: LEMONSQUEEZY_STORE_ID (defaults to the Jovita store), APP_URL.
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
   if (!ur.ok) return json({ error: "Please sign in again" }, 401);
   const user = await ur.json();
   const sk = env("SUPABASE_SERVICE_ROLE_KEY");
-  const sr = await fetch(`${base}/rest/v1/studios?select=id,name,owner_first_name,plan,plan_next,plan_next_at,lemon_subscription_id,plan_autorenew&owner_id=eq.${user.id}&limit=1`, {
+  const sr = await fetch(`${base}/rest/v1/studios?select=id,name,owner_first_name,plan,plan_status,plan_next,plan_next_at,lemon_subscription_id,plan_autorenew&owner_id=eq.${user.id}&limit=1`, {
     headers: { Authorization: `Bearer ${sk}`, apikey: sk },
   });
   const studio = sr.ok ? (await sr.json())[0] : null;
@@ -48,6 +50,28 @@ Deno.serve(async (req) => {
       const s = await ls(`/subscriptions/${studio.lemon_subscription_id}`);
       const url = s.data?.attributes?.urls?.customer_portal;
       return url ? json({ url }) : json({ error: "Billing page not available" }, 502);
+    }
+
+    if (body.action === "addon" || body.action === "addon_cancel") {
+      if (body.action === "addon_cancel") {
+        const sub = String((body as { sub?: string }).sub || "");
+        const ar = await fetch(`${base}/rest/v1/storage_addons?select=id&studio_id=eq.${studio.id}&lemon_subscription_id=eq.${encodeURIComponent(sub)}`, { headers: { Authorization: `Bearer ${sk}`, apikey: sk } });
+        if (!ar.ok || !(await ar.json()).length) return json({ error: "Not found" }, 404);
+        await ls(`/subscriptions/${encodeURIComponent(sub)}`, { method: "DELETE" });
+        return json({ ok: true });
+      }
+      if (!["pro", "studio"].includes(studio.plan) || studio.plan_status === "trialing") return json({ error: "Extra storage is for Pro and Studio. Upgrade first." }, 400);
+      const v = (await variants())["storage:month"];
+      if (!v) return json({ error: "Extra storage isn't set up in Lemon Squeezy yet" }, 404);
+      const co = await ls("/checkouts", {
+        method: "POST",
+        body: JSON.stringify({ data: { type: "checkouts",
+          attributes: { checkout_data: { email: user.email, name: studio.owner_first_name || undefined, custom: { studio_id: studio.id, plan: "storage", gb: "250" } },
+            product_options: { redirect_url: `${APP_URL}/settings?tab=plan&storage=1`, receipt_button_text: "Open Jovita", receipt_link_url: APP_URL } },
+          relationships: { store: { data: { type: "stores", id: STORE } }, variant: { data: { type: "variants", id: v } } } } }),
+      });
+      const url = co.data?.attributes?.url;
+      return url ? json({ url }) : json({ error: "Couldn't open the checkout" }, 502);
     }
 
     const rank = (p: string) => ["free", "pro", "studio"].indexOf(p);

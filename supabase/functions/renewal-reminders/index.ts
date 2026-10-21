@@ -23,8 +23,8 @@ function email(o: { first: string; plan: string; gift: boolean; days: number; un
     ? `Your ${o.gift ? "free " : ""}${plan} plan ended, so your studio is on Free now. Everything you made is safe.`
     : `Your ${o.gift ? "free " : ""}${plan} plan ends on <b>${esc(date)}</b>.${o.gift ? " We hope you enjoyed it." : ""}`;
   const keep = ended
-    ? `Renew to bring back your logo on client pages, ${plan === "Studio" ? "unlimited Ask Jovita, unlimited storage and RAW photos" : "300 Ask Jovita questions a month and 1 TB of storage"}.`
-    : `To keep your logo on client pages, ${plan === "Studio" ? "unlimited Ask Jovita and unlimited storage" : "300 Ask Jovita questions a month and 1 TB of storage"}, renew before then. It takes a minute.`;
+    ? `Renew to bring back your logo on client pages, ${plan === "Studio" ? "unlimited Ask Jovita, 1 TB of storage and RAW photos" : "300 Ask Jovita questions a month and 600 GB of storage"}.`
+    : `To keep your logo on client pages, ${plan === "Studio" ? "unlimited Ask Jovita and 1 TB of storage" : "300 Ask Jovita questions a month and 600 GB of storage"}, renew before then. It takes a minute.`;
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F4EFFA">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4EFFA"><tr><td align="center" style="padding:32px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px"><tr><td style="padding:0 8px 18px;font:800 22px/1 ${B};color:#261433">jovita</td></tr>
@@ -57,7 +57,7 @@ export function renewEmail(o: { first: string; plan: string; cycle: string; date
 <h1 style="margin:0 0 16px;font:800 28px/1.15 ${B};color:#261433">Hi ${esc(o.first)}, your ${plan} renews on ${esc(date)}</h1>
 <p style="margin:0 0 14px;font:400 16px/1.6 ${F};color:#261433">Your ${plan} plan renews automatically for another ${every}. If you'd like to keep it, there's nothing to do.</p>
 <p style="margin:0 0 22px;font:400 16px/1.6 ${F};color:#261433">${pro
-    ? "Busy season coming? <b>Studio</b> gives you unlimited Ask Jovita, smarter answers for long requests, priority help and unlimited storage with RAW photos. Upgrade now and you only pay the difference."
+    ? "Busy season coming? <b>Studio</b> gives you unlimited Ask Jovita, smarter answers for long requests, priority help and 1 TB of storage with RAW photos. Upgrade now and you only pay the difference."
     : "Want to spend less? You can move to <b>Pro</b> from your next payment. You keep everything in Studio until then."}</p>
 <table role="presentation" cellpadding="0" cellspacing="0"><tr>${pro ? btn(plans, "Upgrade to Studio", true) : btn(plans, `Keep ${plan}`, true)}<td style="width:10px"></td>${pro ? btn(plans, "See my plan", false) : btn(plans, "Switch to Pro", false)}</tr></table>
 <p style="margin:22px 0 0;font:400 14px/1.6 ${F};color:#5E5069">Want to stop? You can move to Free in Settings › Plan before ${esc(date)} and you won't be charged. Questions? Just reply to this email.</p></td></tr>

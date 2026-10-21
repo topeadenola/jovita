@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "../supabase";
 import { api } from "./api";
 import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
@@ -518,6 +519,7 @@ export function Settings({ ctx, session }) {
           </ul>
         </section>
       </div>
+      {!sample && <MoveToR2 />}
       <section className="card table-card">
         <div className="card-head" style={{ padding: "20px 22px 0" }}><div><h2 className="h-m">Audit trail</h2><p className="sub">Changes made in HQ</p></div></div>
         {audit.length ? <div className="tscroll"><table className="t"><thead><tr><th>When</th><th>Action</th><th>Studio</th><th>Details</th></tr></thead>
@@ -525,5 +527,34 @@ export function Settings({ ctx, session }) {
           : <div className="empty"><b>No changes yet</b><span>Plan changes, suspensions and notes appear here.</span></div>}
       </section>
     </>
+  );
+}
+
+// One-time move of gallery photos from Supabase Storage to Cloudflare R2 (safe to run again: it copies, it never deletes)
+function MoveToR2() {
+  const [st, setSt] = useState(null); // { copied, failed, total, done, err }
+  const run = async () => {
+    let after = "", copied = 0, failed = 0, total = 0;
+    setSt({ copied, failed, total, done: false });
+    try {
+      for (;;) {
+        const { data, error } = await supabase.functions.invoke("media", { body: { action: "migrate", after } });
+        if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch { /* keep */ } throw new Error(m); }
+        copied += data.copied; failed += data.failed; total = data.total || total; after = data.next;
+        setSt({ copied, failed, total, done: data.done });
+        if (data.done) break;
+      }
+    } catch (e) { setSt((x) => ({ ...(x || {}), err: e.message })); }
+  };
+  const pct = st?.total ? Math.min(100, Math.round(((st.copied + st.failed) / st.total) * 100)) : 0;
+  return (
+    <section className="card">
+      <div className="card-head"><div><h2 className="h-m">Move photos to Cloudflare R2</h2><p className="sub">Copies every gallery file from Supabase to R2 at full quality. Nothing is deleted, so it's safe to run again.</p></div></div>
+      {st && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <div className="bar" style={{ height: 8, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: pct + "%", background: "var(--plum, #261433)" }} /></div>
+        <span className="sub">{st.err ? `Stopped: ${st.err}` : st.done ? `Done. ${st.copied} files copied${st.failed ? `, ${st.failed} failed (run again to retry)` : ""}.` : `Copying… ${st.copied} of ${st.total || "?"} files`}</span>
+      </div>}
+      <button type="button" className="btn btn-primary" disabled={st && !st.done && !st.err} onClick={run}>{st?.done ? "Run again" : "Start moving photos"}</button>
+    </section>
   );
 }
