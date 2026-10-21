@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import { DataProvider, useData } from "./lib/data";
 import Shell from "./components/Shell";
 import Auth from "./pages/Auth";
+import { TwoStepGate, needsCode } from "./components/TwoStep";
 import Portal from "./pages/Portal";
 import Today from "./pages/Today";
 import Inbox from "./pages/Inbox";
@@ -70,8 +71,17 @@ function SignedOut() {
   return pathname === "/" ? <div className="loading">{tx("Loading…")}</div> : <Navigate to="/login" replace />;
 }
 
+// Lets getjovita.com know you're signed in, so it shows "Open Jovita" instead of "Sign in" (no account details in it)
+function markSignedIn(on) {
+  if (!/getjovita\.com$/.test(location.hostname)) return;
+  document.cookie = on ? "jv_in=1; domain=.getjovita.com; path=/; max-age=2592000; secure; samesite=lax" : "jv_in=; domain=.getjovita.com; path=/; max-age=0; secure; samesite=lax";
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined);
+  const [gate, setGate] = useState(undefined); // two-step code still needed (undefined while checking)
+  useEffect(() => { if (session !== undefined) markSignedIn(!!session); }, [session]);
+  useEffect(() => { if (session) { let on = true; needsCode().then((v) => on && setGate(v)); return () => { on = false; }; } setGate(undefined); }, [session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -93,8 +103,9 @@ export default function App() {
       <Route
         path="/*"
         element={
-          session === undefined ? <div className="loading">{tx("Loading…")}</div>
+          session === undefined || (session && gate === undefined) ? <div className="loading">{tx("Loading…")}</div>
           : !session ? <SignedOut />
+          : gate ? <TwoStepGate onDone={() => needsCode().then(setGate)} />
           : <DataProvider session={session}><Studio /></DataProvider>
         }
       />

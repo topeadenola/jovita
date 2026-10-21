@@ -585,6 +585,12 @@ a:hover .jo-logo .jo-wink{animation:logoWink .6s ease 1}
 // Where the Jovita app runs: the local address on this laptop, app.getjovita.com when live.
 const APP_URL = location.port === "5174" ? "http://localhost:5173" : "https://app.getjovita.com";
 document.querySelectorAll("[data-app]").forEach((a) => { a.href = APP_URL + a.dataset.app; });
+// Signed in already (set by the app): the header offers "Open Jovita" instead of Sign in / Start free
+if (/(^|; )jv_in=1/.test(document.cookie)) {
+  document.querySelectorAll('a[data-app="/login"]').forEach((a) => { a.style.display = "none"; });
+  const top = document.querySelector('a[data-app="/signup"]');
+  if (top) { top.dataset.app = "/"; top.href = APP_URL + "/"; top.textContent = "Open Jovita"; }
+}
 const state = { career: 0, cur: "NGN", cycle: "month" };
 // Built-in monthly prices (HQ prices replace these when they load). Yearly = 12 months less 5%.
 const BASE = { NGN: { free: 0, pro: 19500, studio: 39000 }, GBP: { free: 0, pro: 15, studio: 32 }, USD: { free: 0, pro: 19, studio: 39 }, EUR: { free: 0, pro: 18, studio: 36 }, XOF: { free: 0, pro: 11500, studio: 23000 } };

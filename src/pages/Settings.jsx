@@ -16,6 +16,7 @@ import { LogoUploader } from "../components/StudioLogo";
 import { guardLeave } from "../lib/unsaved";
 import PaymentAccounts from "../components/PaymentAccounts";
 import { PlanTab } from "../components/Upgrade";
+import { TwoStepCard } from "../components/TwoStep";
 import { useUi } from "../components/Shell";
 import { GoogleCard } from "./Bookings";
 
@@ -280,11 +281,14 @@ function AppearanceTab() {
 function AccountTab() {
   const { session } = useData();
   return (
+    <>
     <section className="card set-card">
       <h2 className="h-m">{tx("Account")}</h2>
       <p className="sub">{tx("Signed in as")}{" "}<b style={{ color: "var(--ink)" }}>{session.user.email}</b></p>
       <p className="sub" style={{ fontSize: 13 }}>{tx("Use the same email and password on the web app and the phone app.")}</p>
     </section>
+    <TwoStepCard />
+    </>
   );
 }
 

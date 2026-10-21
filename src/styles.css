@@ -1285,3 +1285,10 @@ body{transition:background-color .2s}
 .ge-pick-note svg{width:12px;height:12px}
 .ge-pick-actions{display:flex;justify-content:flex-end;padding:0 16px 14px}
 @media (max-width:600px){.ge-pick-grid{grid-template-columns:repeat(3,1fr)}.ge-pick-faces > *{width:34px;height:34px}}
+
+/* Two-step sign-in */
+.code-input { font: 700 28px/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 10px; text-align: center; max-width: 240px; padding: 14px 12px; }
+.twostep-setup { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.twostep-setup ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.twostep-qr { background: #fff; border: 1px solid var(--line, #E4DCEE); border-radius: 14px; padding: 10px; }
+.twostep-key { font-size: 13px; word-break: break-all; background: var(--soft, #F4EFFA); padding: 2px 6px; border-radius: 6px; user-select: all; }
