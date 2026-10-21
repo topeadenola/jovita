@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useData } from "../lib/data";
-import { PLANS, TRIAL_DAYS, YEARLY_OFF, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, waitForPaidPlan, yearlyPrice } from "../lib/plan";
+import { PLANS, TRIAL_DAYS, YEARLY_OFF, changePlan, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, undoChange, waitForPaidPlan, waitForPlan, yearlyPrice } from "../lib/plan";
 import { money } from "../lib/format";
 import { locale, tx, txn } from "../lib/i18n";
 import { supabase } from "../supabase";
@@ -29,7 +29,7 @@ export function PlanBadge({ plan, onOpen }) {
 // The three plans side by side, used in the sheet and in Settings.
 // Every plan can be picked except the one you're on. Picking one shows a short summary, then the secure payment page.
 export function PlanCards({ plan, onPlan, compact }) {
-  const { studio } = useData();
+  const { studio, reload } = useData();
   const toast = useToast();
   const [prices, setPrices] = useState({});
   const [busy, setBusy] = useState("");
@@ -41,6 +41,8 @@ export function PlanCards({ plan, onPlan, compact }) {
   const canTrial = plan.plan === "free" && !plan.trial_used;
   const mine = trial ? 0 : rank(plan.plan); // during a trial you're really on Free
   const subscribed = !!(studio.lemon_subscription_id && studio.plan_autorenew && plan.plan !== "free");
+  const next = subscribed && studio.plan_next && studio.plan_next !== plan.plan ? studio.plan_next : null;
+  const renewDate = studio.plan_until ? longDate(new Date(new Date(studio.plan_until).getTime() - 3 * 864e5).toISOString()) : "";
 
   const amount = (key, cyc = cycle) => {
     const price = prices[key];
@@ -64,7 +66,19 @@ export function PlanCards({ plan, onPlan, compact }) {
     const key = pick;
     setBusy(key);
     try {
-      if (subscribed) { await openBilling(); return; } // plan changes, card and cancelling live on the billing page
+      if (subscribed) {
+        const r = await changePlan(key);
+        if (r.mode === "now") {
+          toast(tx("Upgrading you to {plan}…", { plan: tx(NAME[key]) }));
+          const p = await waitForPlan(key);
+          if (p) onPlan?.(p);
+          toast(p ? tx("You're on {plan} now. Enjoy!", { plan: tx(NAME[key]) }) : tx("Payment is going through. Refresh in a minute to see {plan}.", { plan: tx(NAME[key]) }), true);
+        } else {
+          toast(key === "free" ? tx("Done. You keep {plan} until {date}, and you won't be charged again.", { plan: tx(NAME[plan.plan]), date: longDate(r.at) })
+            : tx("Done. You keep {plan} until {date}, then move to {next}.", { plan: tx(NAME[plan.plan]), date: longDate(r.at), next: tx(NAME[key]) }), true);
+        }
+        await reload?.(); setPick(null); setBusy(""); return;
+      }
       if (key !== "free") { await startCheckout(key, cycle); return; } // off to the payment page
       await requestUpgrade(key, cycle); // gifted or manually paid plans: we switch them by hand
       setAsked(key); setPick(null);
@@ -93,9 +107,10 @@ export function PlanCards({ plan, onPlan, compact }) {
           <p className="sub">{tx(P.line)}</p>
         </div>
         {pick !== "free" && !subscribed && cycleSwitch}
-        {pick !== "free" && a && !subscribed && (
+        {subscribed && down && <p className="pcf-note"><Icon name="clock" />{tx("Changes to a smaller plan start at your next payment, on {date}.", { date: renewDate })}</p>}
+        {pick !== "free" && a && (
           <div className="pcf-total">
-            <span>{cycle === "year" ? tx("You pay today, then every year") : tx("You pay today, then every month")}</span>
+            <span>{subscribed ? (cycle === "year" ? tx("New price, every year") : tx("New price, every month")) : cycle === "year" ? tx("You pay today, then every year") : tx("You pay today, then every month")}</span>
             <b>{money(a.value, a.currency)}</b>
             {cycle === "year" && <small className="sub">{tx("Like paying {m} a month.", { m: money(Math.round(a.value / 12), a.currency) })}</small>}
             {a.offer && <small className="sub">{tx("Includes your {n}% offer.", { n: a.offer.percent_off })}</small>}
@@ -103,10 +118,16 @@ export function PlanCards({ plan, onPlan, compact }) {
         )}
         <ul className="pcf-points">
           {pick === "free" ? <>
+            {subscribed && <li><Icon name="check" />{tx("You keep {plan} until {date}. After that, you won't be charged again.", { plan: tx(NAME[plan.plan]), date: renewDate })}</li>}
             <li><Icon name="check" />{tx("You keep everything you've made.")}</li>
             <li><Icon name="check" />{tx("Your logo comes off client pages and Ask Jovita goes back to 10 questions.")}</li>
+          </> : subscribed && !down ? <>
+            <li><Icon name="check" />{tx("{plan} starts right away.", { plan: tx(P.name) })}</li>
+            <li><Icon name="wallet" />{tx("Today you only pay the difference for the rest of this billing period.")}</li>
+            <li><Icon name="check" />{tx("From your next renewal, you pay the {plan} price.", { plan: tx(P.name) })}</li>
           </> : subscribed ? <>
-            <li><Icon name="check" />{tx("You'll change your plan on your billing page. You only pay the difference.")}</li>
+            <li><Icon name="check" />{tx("You keep {plan} until {date}. Nothing changes before then.", { plan: tx(NAME[plan.plan]), date: renewDate })}</li>
+            <li><Icon name="check" />{tx("From {date}, you pay the {plan} price instead.", { date: renewDate, plan: tx(P.name) })}</li>
           </> : <>
             <li><Icon name="lock" />{tx("Pay securely by card, Apple Pay or PayPal.")}</li>
             <li><Icon name="check" />{tx("{plan} switches on the moment your payment goes through.", { plan: tx(P.name) })}</li>
@@ -114,9 +135,9 @@ export function PlanCards({ plan, onPlan, compact }) {
           </>}
         </ul>
         <button type="button" className={`btn ${pick === "free" ? "btn-secondary" : "btn-primary"} pcf-go`} disabled={!!busy} onClick={go}>
-          {busy ? tx("One moment…") : pick === "free" ? tx("Move to Free") : subscribed ? tx("Go to billing") : tx("Continue to payment")}
+          {busy ? tx("One moment…") : pick === "free" ? (subscribed ? tx("Move to Free on {date}", { date: renewDate }) : tx("Move to Free")) : subscribed && down ? tx("Switch to {plan} on {date}", { plan: tx(P.name), date: renewDate }) : subscribed ? tx("Upgrade now") : tx("Continue to payment")}
         </button>
-        {pick !== "free" && !subscribed && <small className="sub pcf-fine">{tx("Payments are handled by Lemon Squeezy. Jovita never sees your card.")}</small>}
+        {pick !== "free" && (!subscribed || !down) && <small className="sub pcf-fine">{tx("Payments are handled by Lemon Squeezy. Jovita never sees your card.")}</small>}
       </div>
     );
   }
@@ -132,7 +153,9 @@ export function PlanCards({ plan, onPlan, compact }) {
         const onTrial = trial && p.key === "pro";
         const down = !trial && rank(p.key) < mine;
         const freeInTrial = trial && p.key === "free";
-        const btn = current ? <button type="button" className="btn pc-mine" disabled>{tx("Your plan")}</button>
+        const waiting = next === p.key;
+        const btn = waiting ? <button type="button" className="btn pc-mine" disabled>{tx("Starts {date}", { date: renewDate })}</button>
+          : current ? <button type="button" className="btn pc-mine" disabled>{tx("Your plan")}</button>
           : freeInTrial ? <button type="button" className="btn pc-mine" disabled>{tx("After your trial")}</button>
           : <button type="button" className={`btn ${down ? "btn-secondary" : p.key === "pro" ? "btn-joy" : "btn-primary"}`} disabled={!!busy} onClick={() => setPick(p.key)}>
               {onTrial ? tx("Pay for Pro now") : down ? tx("Switch to {plan}", { plan: tx(p.name) }) : tx("Upgrade to {plan}", { plan: tx(p.name) })}
@@ -233,6 +256,8 @@ export function PlanTab({ plan, onPlan }) {
     return () => { gone = true; };
   }, [waiting]); // eslint-disable-line react-hooks/exhaustive-deps
   const subscribed = !!(studio.lemon_subscription_id && studio.plan_autorenew && plan.plan !== "free");
+  const { reload } = useData();
+  const keep = async () => { setOpening(true); try { await undoChange(); await reload?.(); toast(tx("Done. You're staying on {plan}.", { plan: tx(NAME[plan.plan]) }), true); } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); } setOpening(false); };
   const billing = async () => { setOpening(true); try { await openBilling(); } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); setOpening(false); } };
   const trial = plan.status === "trialing";
   const [, sub] = sheetText(plan, !!studio.plan_autorenew);
@@ -247,7 +272,16 @@ export function PlanTab({ plan, onPlan }) {
         <QuotaMeter quota={quota} />
       </div>
       {waiting && <p className="pc-asked"><Icon name="check" />{tx("Thanks! Confirming your payment…")}</p>}
-      {(subscribed || studio.lemon_subscription_id) && <p><button type="button" className="btn btn-secondary" disabled={opening} onClick={billing}>{opening ? tx("One moment…") : tx("Manage billing and receipts")}</button></p>}
+      {studio.lemon_subscription_id && studio.plan_next && studio.plan_next !== plan.plan && plan.plan !== "free" && (
+        <div className="plan-next">
+          <Icon name="clock" />
+          <span>{studio.plan_next === "free"
+            ? tx("Your {plan} ends on {date}. You won't be charged again.", { plan: tx(NAME[plan.plan]), date: longDate(studio.plan_next_at || plan.until) })
+            : tx("You move to {next} on {date}. Until then you keep {plan}.", { next: tx(NAME[studio.plan_next]), plan: tx(NAME[plan.plan]), date: longDate(studio.plan_next_at || plan.until) })}</span>
+          <button type="button" className="btn btn-secondary btn-sm" disabled={opening} onClick={keep}>{opening ? tx("One moment…") : tx("Keep {plan}", { plan: tx(NAME[plan.plan]) })}</button>
+        </div>
+      )}
+      {studio.lemon_subscription_id && <p><button type="button" className="btn btn-secondary" disabled={opening} onClick={billing}>{opening ? tx("One moment…") : tx("Card and receipts")}</button></p>}
       <PlanCards plan={plan} onPlan={onPlan} />
     </section>
   );

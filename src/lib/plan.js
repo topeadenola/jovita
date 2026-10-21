@@ -63,6 +63,28 @@ async function lemon(body) {
 export const startCheckout = (plan, cycle = "month") => lemon({ action: "checkout", plan, cycle });
 export const openBilling = () => lemon({ action: "portal" });
 
+// Already subscribed: upgrade now, or downgrade at the next renewal
+async function call(body) {
+  const { data, error } = await supabase.functions.invoke("lemon-checkout", { body });
+  if (error) {
+    let msg = error.message;
+    try { msg = (await error.context.json()).error || msg; } catch { /* keep message */ }
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+export const changePlan = (plan) => call({ action: "change", plan });
+export const undoChange = () => call({ action: "undo" });
+export async function waitForPlan(key, tries = 8) {
+  for (let i = 0; i < tries; i++) {
+    const { data } = await supabase.rpc("my_plan").catch(() => ({}));
+    if (data?.plan === key) return data;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  return null;
+}
+
 // After paying, the webhook switches the plan on within a few seconds; check a few times
 export async function waitForPaidPlan(tries = 8) {
   for (let i = 0; i < tries; i++) {

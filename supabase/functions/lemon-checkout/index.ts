@@ -1,13 +1,16 @@
 // Lemon Squeezy checkout for Jovita plans.
 //
 // POST { action: "checkout", plan: "pro" | "studio", cycle: "month" | "year" } → { url } to the Lemon Squeezy checkout page
-// POST { action: "portal" } → { url } to the customer's own billing page (change plan, card, cancel, receipts)
+// POST { action: "portal" } → { url } to the customer's own billing page (card, receipts)
+// POST { action: "change", plan: "pro" | "studio" | "free" } → already subscribed: upgrades start now (you pay the difference),
+//      downgrades and Free wait for the next renewal date. { mode: "now" | "later", at }
+// POST { action: "undo" } → cancel a waiting downgrade, or un-cancel before the end date
 //
 // The signed-in user's studio is sent along as custom data, so the webhook (lemon-webhook) knows whose plan to switch on.
 // Secrets: LEMONSQUEEZY_API_KEY. Optional: LEMONSQUEEZY_STORE_ID (defaults to the Jovita store), APP_URL.
 // Provided automatically: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
 
-import { ls, STORE, variants } from "../_shared/lemon.ts";
+import { ls, STORE, variantInfo, variants } from "../_shared/lemon.ts";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 const APP_URL = env("APP_URL") || "https://app.getjovita.com";
@@ -30,7 +33,7 @@ Deno.serve(async (req) => {
   if (!ur.ok) return json({ error: "Please sign in again" }, 401);
   const user = await ur.json();
   const sk = env("SUPABASE_SERVICE_ROLE_KEY");
-  const sr = await fetch(`${base}/rest/v1/studios?select=id,name,owner_first_name,lemon_subscription_id,plan_autorenew&owner_id=eq.${user.id}&limit=1`, {
+  const sr = await fetch(`${base}/rest/v1/studios?select=id,name,owner_first_name,plan,plan_next,plan_next_at,lemon_subscription_id,plan_autorenew&owner_id=eq.${user.id}&limit=1`, {
     headers: { Authorization: `Bearer ${sk}`, apikey: sk },
   });
   const studio = sr.ok ? (await sr.json())[0] : null;
@@ -45,6 +48,52 @@ Deno.serve(async (req) => {
       const s = await ls(`/subscriptions/${studio.lemon_subscription_id}`);
       const url = s.data?.attributes?.urls?.customer_portal;
       return url ? json({ url }) : json({ error: "Billing page not available" }, 502);
+    }
+
+    const rank = (p: string) => ["free", "pro", "studio"].indexOf(p);
+    const patchStudio = (patch: Record<string, unknown>) => fetch(`${base}/rest/v1/studios?id=eq.${studio.id}`, {
+      method: "PATCH", headers: { Authorization: `Bearer ${sk}`, apikey: sk, "Content-Type": "application/json" }, body: JSON.stringify(patch),
+    });
+    const setVariant = (id: string, attrs: Record<string, unknown>) => ls(`/subscriptions/${studio.lemon_subscription_id}`, {
+      method: "PATCH", body: JSON.stringify({ data: { type: "subscriptions", id: String(studio.lemon_subscription_id), attributes: { variant_id: Number(id), ...attrs } } }),
+    });
+
+    if (body.action === "change" || body.action === "undo") {
+      if (!studio.lemon_subscription_id) return json({ error: "No subscription yet" }, 404);
+      const sub = (await ls(`/subscriptions/${studio.lemon_subscription_id}`)).data?.attributes || {};
+      const now = await variantInfo(sub.variant_id);
+      const cycle = now?.cycle || "month";
+      const map = await variants();
+
+      if (body.action === "undo") {
+        if (sub.cancelled) { await ls(`/subscriptions/${studio.lemon_subscription_id}`, { method: "PATCH", body: JSON.stringify({ data: { type: "subscriptions", id: String(studio.lemon_subscription_id), attributes: { cancelled: false } } }) }); }
+        else if (studio.plan_next && now?.plan !== studio.plan) { await setVariant(map[`${studio.plan}:${cycle}`], { disable_prorations: true }); }
+        await patchStudio({ plan_next: null, plan_next_at: null, plan_autorenew: true });
+        return json({ ok: true });
+      }
+
+      const want = body.plan === "studio" ? "studio" : body.plan === "pro" ? "pro" : body.plan === "free" ? "free" : "";
+      if (!want) return json({ error: "Pick a plan" }, 400);
+      const renews = sub.renews_at || sub.ends_at;
+      if (want === "free") {
+        // Cancels at the end of what they've paid for; nothing more is charged
+        await patchStudio({ plan_next: "free", plan_next_at: renews });
+        await ls(`/subscriptions/${studio.lemon_subscription_id}`, { method: "DELETE" });
+        return json({ ok: true, mode: "later", at: renews });
+      }
+      const target = map[`${want}:${cycle}`];
+      if (!target) return json({ error: `The ${want} price isn't set up in Lemon Squeezy yet` }, 404);
+      if (rank(want) > rank(studio.plan)) {
+        // Upgrade now: they pay the difference for the rest of this period today
+        await patchStudio({ plan_next: null, plan_next_at: null });
+        await setVariant(target, { invoice_immediately: true });
+        return json({ ok: true, mode: "now" });
+      }
+      // Downgrade at the next renewal: keep the higher plan until then, then charge the lower price
+      await patchStudio({ plan_next: want, plan_next_at: renews });
+      try { await setVariant(target, { disable_prorations: true }); }
+      catch (e) { await patchStudio({ plan_next: null, plan_next_at: null }); throw e; }
+      return json({ ok: true, mode: "later", at: renews });
     }
 
     const plan = body.plan === "studio" ? "studio" : body.plan === "pro" ? "pro" : "";

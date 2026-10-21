@@ -1309,3 +1309,8 @@ body{transition:background-color .2s}
 .pc-trial{justify-content:center;text-decoration:underline;text-underline-offset:3px}
 .pc-foot .btn.pc-mine,.pc-foot .btn.pc-mine:disabled{background:rgba(38,20,51,.08);color:var(--muted,#8C7F99);border:1px solid transparent;cursor:default;opacity:1;box-shadow:none}
 .plan-confirm .cycle-switch{align-self:flex-start;margin:0}
+.plan-next{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;background:#FFF4DB;border:1px solid #F5D58A;color:var(--ink);font-size:15px}
+.plan-next svg{width:20px;height:20px;flex:none;color:#8F5A00}
+.plan-next span{flex:1;min-width:200px}
+.pcf-note{display:flex;gap:8px;align-items:center;margin:0;font-size:14px;color:#8F5A00}
+.pcf-note svg{width:18px;height:18px;flex:none}
