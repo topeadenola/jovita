@@ -3,8 +3,11 @@
 // POST { action: "sign", files: [{ path, type, size }] } → { urls } short-lived links the browser uploads to directly.
 //      Only paths inside the signed-in studio's own folder, and only while there's room in their plan.
 // POST { action: "delete", paths } → removes the studio's own files.
+// POST { action: "check" } → HQ only: is the R2 connection working? { ok, error }
 // POST { action: "migrate", after } → HQ only: copies the next batch of files from Supabase Storage to R2.
-//      { copied, next, done, total } — call again with next until done.
+//      { copied, failed, error, next, done, total } — call again with next until done.
+// POST { action: "cleanup", after } → HQ only: deletes Supabase copies that are safely in R2 (same size), to free space.
+//      { removed, kept, next, done, total }
 //
 // Files are stored exactly as uploaded: nothing is resized or compressed.
 // Secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY. Optional: R2_BUCKET (default jovita-media).
@@ -47,14 +50,54 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* empty */ }
   const aws = r2();
 
+  // Errors without hostnames or keys in them, so nothing secret reaches the browser
+  const why = (e: unknown) => String((e as Error)?.message || e).replace(/https?:\/\/\S+/g, "the R2 address").slice(0, 200);
+  const admin = async () => {
+    const ar = await fetch(`${base}/rest/v1/rpc/is_admin`, { method: "POST", headers: { Authorization: auth, apikey: env("SUPABASE_ANON_KEY"), "Content-Type": "application/json" }, body: "{}" });
+    return ar.ok && (await ar.json()) === true;
+  };
+
+  if (body.action === "check") {
+    if (!(await admin())) return json({ error: "Admins only" }, 403);
+    if (!/^[0-9a-f]{32}$/i.test(env("R2_ACCOUNT_ID"))) return json({ ok: false, error: "R2_ACCOUNT_ID should be the 32-letter Account ID from the R2 overview page (letters a–f and numbers)." });
+    try {
+      const r = await aws.fetch(`https://${env("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com/${BUCKET}?list-type=2&max-keys=1`);
+      if (r.status === 403) return json({ ok: false, error: "R2 refused the keys. Check R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY, and that the token can read and write jovita-media." });
+      if (r.status === 404) return json({ ok: false, error: "No bucket called jovita-media in this account." });
+      return json({ ok: r.ok, error: r.ok ? null : `R2 said ${r.status}` });
+    } catch (e) { return json({ ok: false, error: why(e) }); }
+  }
+
+  // HQ: delete Supabase copies of files that are already in R2 (checked one by one, same size), to free space
+  if (body.action === "cleanup") {
+    if (!(await admin())) return json({ error: "Admins only" }, 403);
+    const lr = await fetch(`${base}/rest/v1/rpc/admin_media_list`, { method: "POST", headers: svc, body: JSON.stringify({ p_after: body.after || "", p_n: 100 }) });
+    if (!lr.ok) return json({ error: "Run update 20 in Supabase first" }, 500);
+    const rows: { name: string; size: number; total: number }[] = await lr.json();
+    const safe: string[] = [];
+    let kept = 0;
+    await pool(rows, 8, async (o) => {
+      try {
+        const h = await aws.fetch(objUrl(o.name), { method: "HEAD" });
+        if (h.ok && Number(h.headers.get("content-length")) === Number(o.size)) safe.push(o.name); else kept++;
+      } catch { kept++; }
+    });
+    if (safe.length) {
+      const d = await fetch(`${base}/storage/v1/object/gallery-photos`, { method: "DELETE", headers: svc, body: JSON.stringify({ prefixes: safe }) });
+      if (!d.ok) return json({ error: `Supabase wouldn't delete: ${d.status}` }, 502);
+    }
+    // Deleted names drop out of the list, so carry on after the last one we kept
+    const next = rows.length ? rows[rows.length - 1].name : body.after || "";
+    return json({ removed: safe.length, kept, next, done: rows.length < 100, total: rows[0]?.total ?? 0 });
+  }
+
   // HQ: copy existing photos from Supabase Storage to R2, a batch at a time
   if (body.action === "migrate") {
-    const ar = await fetch(`${base}/rest/v1/rpc/is_admin`, { method: "POST", headers: { Authorization: auth, apikey: env("SUPABASE_ANON_KEY"), "Content-Type": "application/json" }, body: "{}" });
-    if (!ar.ok || (await ar.json()) !== true) return json({ error: "Admins only" }, 403);
+    if (!(await admin())) return json({ error: "Admins only" }, 403);
     const lr = await fetch(`${base}/rest/v1/rpc/admin_media_list`, { method: "POST", headers: svc, body: JSON.stringify({ p_after: body.after || "", p_n: 25 }) });
     if (!lr.ok) return json({ error: "Run update 20 in Supabase first" }, 500);
     const rows: { name: string; size: number; mimetype: string; total: number }[] = await lr.json();
-    let copied = 0, failed = 0;
+    let copied = 0, failed = 0, error = "";
     await pool(rows, 4, async (o) => {
       try {
         const src = await fetch(`${base}/storage/v1/object/gallery-photos/${enc(o.name)}`, { headers: { Authorization: `Bearer ${sk}`, apikey: sk } });
@@ -63,10 +106,10 @@ Deno.serve(async (req) => {
         const put = await aws.fetch(objUrl(o.name), { method: "PUT", body: data, headers: { "Content-Type": o.mimetype, "Cache-Control": "public, max-age=31536000, immutable" } });
         if (!put.ok) throw new Error(`write ${put.status}`);
         copied++;
-      } catch (e) { failed++; console.error("migrate", o.name, (e as Error).message); }
+      } catch (e) { failed++; error = error || why(e); console.error("migrate", o.name, why(e)); }
     });
     const next = rows.length ? rows[rows.length - 1].name : body.after || "";
-    return json({ copied, failed, next, done: rows.length < 25, total: rows[0]?.total ?? 0 });
+    return json({ copied, failed, error, next, done: rows.length < 25, total: rows[0]?.total ?? 0 });
   }
 
   // Everyone else acts only inside their own studio's folder

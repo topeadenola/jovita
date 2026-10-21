@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
+import { USE_R2 } from "../lib/media";
 import { api } from "./api";
 import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
@@ -530,31 +531,59 @@ export function Settings({ ctx, session }) {
   );
 }
 
-// One-time move of gallery photos from Supabase Storage to Cloudflare R2 (safe to run again: it copies, it never deletes)
+// One-time move of gallery photos from Supabase Storage to Cloudflare R2 (safe to run again: it copies, it never deletes),
+// then, once the app shows photos from R2, free the Supabase copies.
+async function mediaCall(body) {
+  const { data, error } = await supabase.functions.invoke("media", { body });
+  if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch { /* keep */ } throw new Error(m); }
+  if (data?.error && data.ok === undefined && data.copied === undefined && data.removed === undefined) throw new Error(data.error);
+  return data;
+}
 function MoveToR2() {
   const [st, setSt] = useState(null); // { copied, failed, total, done, err }
+  const [cl, setCl] = useState(null); // { removed, kept, total, done, err }
   const run = async () => {
     let after = "", copied = 0, failed = 0, total = 0;
     setSt({ copied, failed, total, done: false });
     try {
+      const c = await mediaCall({ action: "check" });
+      if (!c.ok) throw new Error(c.error || "R2 isn't reachable");
       for (;;) {
-        const { data, error } = await supabase.functions.invoke("media", { body: { action: "migrate", after } });
-        if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch { /* keep */ } throw new Error(m); }
-        copied += data.copied; failed += data.failed; total = data.total || total; after = data.next;
-        setSt({ copied, failed, total, done: data.done });
-        if (data.done) break;
+        const d = await mediaCall({ action: "migrate", after });
+        copied += d.copied; failed += d.failed; total = d.total || total; after = d.next;
+        if (!d.copied && d.failed) throw new Error(d.error || "Files couldn't be copied");
+        setSt({ copied, failed, total, done: d.done });
+        if (d.done) break;
       }
     } catch (e) { setSt((x) => ({ ...(x || {}), err: e.message })); }
   };
+  const clean = async () => {
+    if (!window.confirm("Delete the Supabase copies of photos that are safely in R2? Each one is checked first. Photos not found in R2 are kept.")) return;
+    let after = "", removed = 0, kept = 0, total = 0;
+    setCl({ removed, kept, total, done: false });
+    try {
+      for (;;) {
+        const d = await mediaCall({ action: "cleanup", after });
+        removed += d.removed; kept += d.kept; total = Math.max(total, d.total || 0); after = d.next;
+        setCl({ removed, kept, total, done: d.done });
+        if (d.done) break;
+      }
+    } catch (e) { setCl((x) => ({ ...(x || {}), err: e.message })); }
+  };
   const pct = st?.total ? Math.min(100, Math.round(((st.copied + st.failed) / st.total) * 100)) : 0;
+  const busy = (st && !st.done && !st.err) || (cl && !cl.done && !cl.err);
   return (
     <section className="card">
-      <div className="card-head"><div><h2 className="h-m">Move photos to Cloudflare R2</h2><p className="sub">Copies every gallery file from Supabase to R2 at full quality. Nothing is deleted, so it's safe to run again.</p></div></div>
+      <div className="card-head"><div><h2 className="h-m">Photo storage: Cloudflare R2</h2><p className="sub">1. Copy every gallery file to R2 at full quality (nothing is deleted, safe to run again). 2. Once the app shows photos from R2, free the Supabase copies.</p></div></div>
       {st && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-        <div className="bar" style={{ height: 8, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: pct + "%", background: "var(--plum, #261433)" }} /></div>
+        <div style={{ height: 8, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: pct + "%", background: "var(--plum, #261433)" }} /></div>
         <span className="sub">{st.err ? `Stopped: ${st.err}` : st.done ? `Done. ${st.copied} files copied${st.failed ? `, ${st.failed} failed (run again to retry)` : ""}.` : `Copying… ${st.copied} of ${st.total || "?"} files`}</span>
       </div>}
-      <button type="button" className="btn btn-primary" disabled={st && !st.done && !st.err} onClick={run}>{st?.done ? "Run again" : "Start moving photos"}</button>
+      {cl && <p className="sub" style={{ marginBottom: 12 }}>{cl.err ? `Stopped: ${cl.err}` : cl.done ? `Freed ${cl.removed} files from Supabase${cl.kept ? `. ${cl.kept} kept because they aren't in R2 yet (copy again first)` : ""}.` : `Freeing space… ${cl.removed} removed`}</p>}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" className="btn btn-primary" disabled={!!busy} onClick={run}>{st?.done ? "Copy again" : "1. Copy photos to R2"}</button>
+        <button type="button" className="btn btn-secondary" disabled={!!busy || !USE_R2} title={USE_R2 ? "" : "Available once the app shows photos from R2"} onClick={clean}>2. Free Supabase space</button>
+      </div>
     </section>
   );
 }

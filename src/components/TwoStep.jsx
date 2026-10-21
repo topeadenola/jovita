@@ -74,8 +74,10 @@ export function TwoStepCard() {
   const [confirmOff, setConfirmOff] = useState(false);
   const live = useRef(true);
   const load = async () => {
-    const { data } = await supabase.auth.mfa.listFactors();
-    if (live.current) setFactor(data?.totp?.find((x) => x.status === "verified") || null);
+    try {
+      const { data } = await supabase.auth.mfa.listFactors();
+      if (live.current) setFactor(data?.totp?.find((x) => x.status === "verified") || null);
+    } catch { if (live.current) setFactor(null); }
   };
   useEffect(() => { live.current = true; load(); return () => { live.current = false; }; }, []);
 

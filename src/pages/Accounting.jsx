@@ -223,7 +223,7 @@ export default function Accounting() {
         </div>
         <div className="todo">
           {subs.map((x) => { const n = renewsIn(x); return (
-            <div className="todo-item" key={x.id}>
+            <div className="todo-item sub-row" key={x.id}>
               <span className="dot d-joy"><Icon name="clock" /></span>
               <div className="todo-text"><b>{x.name}</b><span>{money(x.amount, x.currency)} {x.cycle === "yearly" ? tx("a year") : tx("a month")}{x.cycle === "yearly" ? tx(" · {money}/month", {
                 money: money(Math.round(monthly(x)), x.currency)
@@ -231,7 +231,7 @@ export default function Accounting() {
               <Pill c={n < 0 ? "p-danger" : n <= 7 ? "p-warning" : "p-neutral"}>{n < 0 ? tx("Renewed {n}d ago?", { n: -n }) : n === 0 ? tx("Renews today") : tx("Renews {fdate}", {
                 fdate: fdate(x.next_renewal)
               })}</Pill>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="sub-acts" style={{ display: "flex", gap: 6 }}>
                 {n <= 7 && <button className="btn btn-primary btn-sm" onClick={() => markRenewed(x)}><Icon name="check" />{tx("Paid")}</button>}
                 <button className="btn btn-ghost btn-sm" onClick={() => setForm({ kind: "sub", sub: x })}>{tx("Edit")}</button>
                 <button className="btn btn-ghost btn-sm" onClick={async () => { await update("subscriptions", x.id, { active: false }); toast(tx("{name} cancelled", {

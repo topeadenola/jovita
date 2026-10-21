@@ -1317,3 +1317,4 @@ body{transition:background-color .2s}
 .storage-use .meter.is-full i{background:var(--danger,#B42318)}
 .addon-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .addon-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px}
+@media (max-width:600px){.todo-item.sub-row{flex-wrap:wrap}.todo-item.sub-row .sub-acts{width:100%;justify-content:flex-end}}
