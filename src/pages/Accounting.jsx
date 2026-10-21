@@ -164,6 +164,12 @@ export default function Accounting() {
   const s = useMemo(() => summary(data, period, cur), [data, period, cur]);
   const months = useMemo(() => lastMonths(data, cur), [data, cur]);
   const subs = subscriptions.filter((x) => x.active).sort((a, b) => (a.next_renewal < b.next_renewal ? -1 : 1));
+  // Every active subscription counts, in its own currency (the one you're viewing first)
+  const subTotals = useMemo(() => {
+    const m = {};
+    subs.forEach((x) => { m[x.currency] = (m[x.currency] || 0) + monthly(x); });
+    return Object.entries(m).sort(([a, va], [b, vb]) => (a === cur ? -1 : b === cur ? 1 : vb - va));
+  }, [subs, cur]);
   const periodLabel = tx(PERIODS.find((p) => p[0] === period)[1]).toLowerCase();
   const maxCat = Math.max(1, ...s.byCategory.map((c) => c[1]));
 
@@ -202,7 +208,12 @@ export default function Accounting() {
         <div className="card stat"><p className="label" style={{ color: s.profit < 0 ? "var(--danger)" : "var(--success)" }}>{s.profit < 0 ? tx("▼ Loss") : tx("▲ Profit")}</p><p className="val num">{money(Math.abs(s.profit), cur)}</p><p className="note">{s.margin === null ? tx("No income yet in this period") : tx("You keep {margin}% of what you earn", {
           margin: s.margin
         })}</p></div>
-        <div className="card stat"><p className="label">{tx("Subscriptions")}</p><p className="val num">{money(Math.round(s.subsMonthly), cur)}<small style={{ fontSize: 14, color: "var(--muted)" }}>{" "}{tx("/month")}</small></p><p className="note">{tx("{n} active · {amount} a year", { n: s.subsCount, amount: money(Math.round(s.subsMonthly * 12), cur) })}</p></div>
+        <div className="card stat"><p className="label">{tx("Subscriptions")}</p>
+          {subTotals.length ? <>
+            <p className="val num">{money(Math.round(subTotals[0][1]), subTotals[0][0])}<small style={{ fontSize: 14, color: "var(--muted)" }}>{" "}{tx("/month")}</small></p>
+            <p className="note">{subTotals.slice(1).map(([c, v]) => "+ " + money(Math.round(v), c) + tx("/month")).join(" ")}{subTotals.length > 1 ? " · " : ""}{txn(subs.length, "{n} active", "{n} active")} · {tx("{amount} a year", { amount: money(Math.round(subTotals[0][1] * 12), subTotals[0][0]) })}</p>
+          </> : <><p className="val num">{money(0, cur)}<small style={{ fontSize: 14, color: "var(--muted)" }}>{" "}{tx("/month")}</small></p><p className="note">{tx("None yet. Add Adobe, Evoto and the rest below.")}</p></>}
+        </div>
       </div>
       {s.owed > 0 && <p className="sub" style={{ fontSize: 14 }}>{tx("Plus {amount} still owed to you on sent invoices.", { amount: money(s.owed, cur) })}</p>}
       <div className="split">
