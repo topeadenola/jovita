@@ -45,7 +45,10 @@ export default function ClientGallery() {
   const [zipping, setZipping] = useState(null);   // { done, total }
   const [guest, setGuest] = useState(() => readLS("jv-guest-email"));
   const [email, setEmail] = useState(() => readLS("jv-guest-email"));
-  const [shareLink, setShareLink] = useState(null); // { url, copied } after "Share my selection"
+  const [shareLink, setShareLink] = useState(null); // { step: "name" | "link", title, url, copied, busy } for "Share my selection"
+  const [shareInfo, setShareInfo] = useState(null); // the client's own shared selection and the picks sent back
+  const [replyView, setReplyView] = useState(null); // showing one person's picks
+  const [sendBack, setSendBack] = useState(null);   // guest: { msg, busy, sent }
 
   const forget = useCallback(() => { try { localStorage.removeItem("jv-gpw-" + token); } catch { /* fine */ } }, [token]);
   const load = useCallback(async (password, tried = false) => {
@@ -78,7 +81,14 @@ export default function ClientGallery() {
     if (data) { setMine(new Set(data.favorites || [])); setNotes(data.comments || []); }
   }, [g, token, pass, vid]);
   useEffect(() => { loadFeedback(); }, [loadFeedback]);
-  const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id))), [g, setId, onlyFavs, mine]);
+  const loadShare = useCallback(async () => {
+    if (!g || !vid || g.share) return;
+    const { data } = await supabase.rpc("gallery_share_info", { p_token: token, p_password: pass || null, p_viewer: vid }).catch(() => ({}));
+    setShareInfo(data || null);
+  }, [g, token, pass, vid]);
+  useEffect(() => { loadShare(); }, [loadShare]);
+  const replyPicks = useMemo(() => new Set(shareInfo?.replies?.find((r) => r.id === replyView)?.picks || []), [shareInfo, replyView]);
+  const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id)) && (!replyView || replyPicks.has(p.id))), [g, setId, onlyFavs, mine, replyView, replyPicks]);
   const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
   const who = g?.viewer?.name || name;
   // Guests on a shared selection give a name and email, so the studio sees exactly who picked what
@@ -134,12 +144,43 @@ export default function ClientGallery() {
     } catch (e) { window.alert?.(tx("The download stopped: {err}", { err: e.message })); }
     setZipping(null);
   });
-  // Client: make a link that shows only their picks, for a partner, friend or planner to pick from
-  const shareSelection = () => needName(async (nm) => {
-    const { data, error } = await supabase.rpc("gallery_share_selection", { p_token: token, p_password: pass || null, p_viewer: vid, p_name: nm });
-    if (error || !data) return window.alert?.(error?.message || tx("Couldn't make the link. Try again."));
-    setShareLink({ url: `${location.origin}/g/${data}`, copied: false });
+  // Client: name their selection, then get a link that shows only their picks, for a partner, friend or planner to pick from
+  const shareUrl = (t) => `${location.origin}/g/${t}`;
+  const shareSelection = () => needName(() => {
+    if (shareInfo?.token) setShareLink({ step: "link", title: shareInfo.title || "", url: shareUrl(shareInfo.token), copied: false });
+    else setShareLink({ step: "name", title: tx("Our favourites"), url: "", copied: false });
   });
+  const saveShare = async (title) => {
+    setShareLink((x) => ({ ...x, busy: true }));
+    const args = { p_token: token, p_password: pass || null, p_viewer: vid, p_name: who || name || "" };
+    let { data, error } = await supabase.rpc("gallery_share_selection", { ...args, p_title: title.trim() });
+    if (error && /function|schema cache/i.test(error.message || "")) ({ data, error } = await supabase.rpc("gallery_share_selection", args)); // before update 22
+    if (error || !data) { setShareLink((x) => ({ ...x, busy: false })); return window.alert?.(error?.message || tx("Couldn't make the link. Try again.")); }
+    setShareLink({ step: "link", title: title.trim(), url: shareUrl(data), copied: false, busy: false, renaming: false });
+    loadShare();
+  };
+  // Guest: send their hearts back to the person who shared
+  const sendPicksBack = () => needName(() => setSendBack({ msg: "", busy: false, sent: false }));
+  const submitBack = async () => {
+    setSendBack((x) => ({ ...x, busy: true }));
+    const { data, error } = await supabase.rpc("gallery_share_reply", { p_token: token, p_viewer: guest, p_name: name, p_message: sendBack.msg });
+    if (error) { setSendBack((x) => ({ ...x, busy: false })); return window.alert?.(error.message); }
+    writeLS("jv-sent-" + token, "1");
+    setSendBack((x) => ({ ...x, busy: false, sent: true, n: data?.picks }));
+  };
+  const sentBefore = shared && readLS("jv-sent-" + token) === "1";
+  // Client: narrow their selection down to what someone sent back
+  const keepOnly = async (r) => {
+    const drop = [...mine].filter((id) => !r.picks.includes(id));
+    if (!drop.length) return;
+    if (!window.confirm(txn(drop.length, "Remove {n} photo from your favourites, keeping only the {k} {name} picked?", "Remove {n} photos from your favourites, keeping only the {k} {name} picked?", { k: r.picks.length, name: r.name }))) return;
+    for (const id of drop) await supabase.rpc("gallery_toggle_favorite", { p_token: token, p_password: pass || null, p_photo: id, p_viewer: vid, p_name: who || name || "" });
+    await loadFeedback(); await loadShare(); setReplyView(null);
+  };
+  const viewReply = (r) => {
+    setReplyView(r.id); setOnlyFavs(false); setSetId("all");
+    if (!r.seen) supabase.rpc("gallery_share_seen", { p_token: token, p_password: pass || null, p_viewer: vid }).then(loadShare).catch(() => {});
+  };
   const addNote = (p) => needName(async (nm) => {
     const body = note.trim(); if (!body) return;
     const { data, error } = await supabase.rpc("gallery_add_comment", { p_token: token, p_password: pass || null, p_photo: p.id, p_viewer: vid, p_name: nm, p_body: body });
@@ -203,9 +244,30 @@ export default function ClientGallery() {
       {shared && (
         <div className="cg-shared">
           <Icon name="heart" />
-          <div><b>{txn((g.photos || []).length, "{name} shared {n} photo they picked", "{name} shared {n} photos they picked", { name: g.share.by })}</b>
-            <span>{tx("Tap the heart on the ones you love too. {studio} will see your picks.", { studio: g.studio?.name || tx("The photographer") })}</span></div>
+          <div>{g.share.title && <b className="cg-share-title">{g.share.title}</b>}
+            <b>{txn((g.photos || []).length, "{name} shared {n} photo they picked", "{name} shared {n} photos they picked", { name: g.share.by })}</b>
+            <span>{tx("Heart the ones you love, then send your picks back to {name}.", { name: g.share.by })}</span></div>
           {guest && <small className="sub">{tx("Picking as {email}", { email: guest })} · <button type="button" className="linkish" onClick={() => { writeLS("jv-guest-email", ""); setGuest(""); setMine(new Set()); }}>{tx("Not you?")}</button></small>}
+        </div>
+      )}
+      {!shared && shareInfo?.replies?.length > 0 && (
+        <div className="cg-replies">
+          {shareInfo.replies.map((r) => (
+            <div key={r.id} className={`cg-reply ${r.seen ? "" : "is-new"}`}>
+              <Icon name="heart" />
+              <div>
+                <b>{txn(r.picks.length, "{name} sent back {n} pick", "{name} sent back {n} picks", { name: r.name })}{!r.seen && <span className="pill p-joy">{tx("New")}</span>}</b>
+                {r.message && <span className="cg-reply-msg">“{r.message}”</span>}
+                <small className="sub">{txn(mine.size, "From your {n} favourite", "From your {n} favourites", {})}{shareInfo.title ? ` · ${shareInfo.title}` : ""}</small>
+              </div>
+              <div className="cg-reply-acts">
+                {replyView === r.id
+                  ? <button type="button" className="btn btn-secondary btn-sm" onClick={() => setReplyView(null)}>{tx("Show all photos")}</button>
+                  : <button type="button" className="btn btn-primary btn-sm" disabled={!r.picks.length} onClick={() => viewReply(r)}>{tx("See {name}'s picks", { name: r.name })}</button>}
+                {r.picks.length > 0 && r.picks.length < mine.size && <button type="button" className="btn btn-ghost btn-sm" onClick={() => keepOnly(r)}>{tx("Keep only these")}</button>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {(favOn || dl0.on) && (
@@ -214,13 +276,19 @@ export default function ClientGallery() {
           {dl0.on && setId !== "all" && !zipping && <button type="button" onClick={() => saveZip(photos, d.sets.find((x) => x.id === setId)?.name || "")}><Icon name="download" />{tx("Download this set")}</button>}
           {dl0.on && onlyFavs && mine.size > 0 && !zipping && <button type="button" onClick={() => saveZip((g.photos || []).filter((p) => mine.has(p.id)), tx("My favourites"))}><Icon name="download" />{tx("Download my favourites")}</button>}
           {favOn && <button type="button" aria-pressed={onlyFavs} onClick={() => setOnlyFavs(!onlyFavs)}><Icon name="heart" />{onlyFavs ? tx("Show all photos") : tx("My favourites ({n})", { n: mine.size })}</button>}
-          {favOn && !shared && mine.size > 0 && <button type="button" className="cg-share-btn" onClick={shareSelection}><Icon name="link" />{tx("Share my selection")}</button>}
+          {favOn && !shared && mine.size > 0 && <button type="button" className="cg-share-btn" onClick={shareSelection}><Icon name="link" />{shareInfo?.token ? tx("Shared: {title}", { title: shareInfo.title || tx("My selection") }) : tx("Share my selection")}</button>}
           {favOn && !shared && <span className="sub" style={{ fontSize: 13 }}>{tx("Tap the heart to pick your favourites. Open a photo to leave a note for your photographer.")}</span>}
         </div>
       )}
       <GalleryPreview d={d} photos={photos} studioName={g.studio?.name} device={window.innerWidth < 700 ? "phone" : "desktop"} full onPhoto={setOpen}
         favs={mine} onFav={favOn ? toggleFav : undefined} notes={noteCount} />
       {onlyFavs && !photos.length && <p className="gp-empty">{tx("No favourites yet. Tap the heart on the photos you love.")}</p>}
+      {shared && favOn && mine.size > 0 && (
+        <div className="cg-sendbar" role="region" aria-label={tx("Send your picks")}>
+          <span><b>{txn(mine.size, "{n} pick", "{n} picks")}</b>{sentBefore ? ` · ${tx("sent to {name}", { name: g.share.by })}` : ""}</span>
+          <button type="button" className="btn btn-primary" onClick={sendPicksBack}><Icon name="send" />{sentBefore ? tx("Send again") : tx("Send my picks to {name}", { name: g.share.by })}</button>
+        </div>
+      )}
       {g.studio && g.studio.branded === false && <p className="cg-made"><a href="https://getjovita.com" target="_blank" rel="noreferrer">{tx("Made with")} <Mark dot="currentColor" style={{ width: 9, height: 13 }} /> jovita</a></p>}
       {cur && (
         <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
@@ -252,17 +320,58 @@ export default function ClientGallery() {
       )}
       {shareLink && (
         <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setShareLink(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Share my selection")}>
-            <h2 className="h-m">{tx("Share your selection")}</h2>
-            <p className="sub" style={{ fontSize: 14 }}>{txn(mine.size, "Anyone with this link sees only the {n} photo you picked, and can heart their own favourites. They can't download.", "Anyone with this link sees only the {n} photos you picked, and can heart their own favourites. They can't download.")}</p>
-            <div className="cg-share-link"><input readOnly value={shareLink.url} aria-label={tx("Link")} onFocus={(e) => e.target.select()} />
-              <button type="button" className="btn btn-primary btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(shareLink.url); setShareLink({ ...shareLink, copied: true }); } catch { /* select it instead */ } }}><Icon name="link" />{shareLink.copied ? tx("Copied") : tx("Copy")}</button></div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" }}>
-              <a className="btn btn-secondary btn-sm" href={`https://wa.me/?text=${encodeURIComponent(tx("Help me pick! Here are my favourites from {title}: {url}", { title: d.title, url: shareLink.url }))}`} target="_blank" rel="noreferrer">WhatsApp</a>
-              {navigator.share && <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigator.share({ title: d.title, url: shareLink.url }).catch(() => {})}>{tx("More…")}</button>}
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShareLink(null)}>{tx("Done")}</button>
+          {shareLink.step === "name" || shareLink.renaming ? (
+            <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Name your selection")} onSubmit={(e) => { e.preventDefault(); if (shareLink.title.trim()) saveShare(shareLink.title); }}>
+              <h2 className="h-m">{shareLink.renaming ? tx("Rename your selection") : tx("Name your selection")}</h2>
+              <p className="sub" style={{ fontSize: 14 }}>{tx("Give it a name so everyone knows what they're picking for.")}</p>
+              <div className="field"><label htmlFor="cg-sel-name">{tx("Selection name")}</label>
+                <input id="cg-sel-name" autoFocus maxLength={80} value={shareLink.title} onChange={(e) => setShareLink({ ...shareLink, title: e.target.value })} placeholder={tx("e.g. Album picks, Prints for Mum")} /></div>
+              <div className="cg-name-ideas">{[tx("Album picks"), tx("Prints for the wall"), tx("Ones for Mum")].map((t) => <button key={t} type="button" onClick={() => setShareLink({ ...shareLink, title: t })}>{t}</button>)}</div>
+              <p className="sub" style={{ fontSize: 13 }}>{txn(mine.size, "{n} photo in this selection.", "{n} photos in this selection.")}</p>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => (shareLink.renaming ? setShareLink({ ...shareLink, renaming: false, title: shareInfo?.title || shareLink.title }) : setShareLink(null))}>{tx("Cancel")}</button>
+                <button className="btn btn-primary" disabled={shareLink.busy || !shareLink.title.trim()}>{shareLink.busy ? tx("One moment…") : shareLink.renaming ? tx("Save name") : tx("Create link")}</button>
+              </div>
+            </form>
+          ) : (
+            <div className="modal" role="dialog" aria-modal="true" aria-label={tx("Share my selection")}>
+              <div className="cg-share-head">
+                <div><p className="eyebrow">{tx("Your selection")}</p><h2 className="h-m">{shareLink.title || tx("My selection")}</h2></div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShareLink({ ...shareLink, renaming: true })}><Icon name="edit" />{tx("Rename")}</button>
+              </div>
+              <p className="sub" style={{ fontSize: 14 }}>{txn(mine.size, "Anyone with this link sees only the {n} photo you picked, hearts their favourites and sends them back to you. They can't download.", "Anyone with this link sees only the {n} photos you picked, hearts their favourites and sends them back to you. They can't download.")}</p>
+              <div className="cg-share-link"><input readOnly value={shareLink.url} aria-label={tx("Link")} onFocus={(e) => e.target.select()} />
+                <button type="button" className="btn btn-primary btn-sm" onClick={async () => { try { await navigator.clipboard.writeText(shareLink.url); setShareLink({ ...shareLink, copied: true }); } catch { /* select it instead */ } }}><Icon name="link" />{shareLink.copied ? tx("Copied") : tx("Copy")}</button></div>
+              <p className="sub" style={{ fontSize: 13 }}>{tx("When they send their picks back, you'll see them here in your gallery.")}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "flex-end" }}>
+                {navigator.share && <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigator.share({ title: shareLink.title || d.title, text: tx("Help me pick! {title}", { title: shareLink.title || d.title }), url: shareLink.url }).catch(() => {})}>{tx("Share…")}</button>}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShareLink(null)}>{tx("Done")}</button>
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+      )}
+      {sendBack && (
+        <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setSendBack(null)}>
+          {sendBack.sent ? (
+            <div className="modal cg-sent" role="dialog" aria-modal="true" aria-label={tx("Sent")}>
+              <span className="cg-sent-ic"><Icon name="check" /></span>
+              <h2 className="h-m">{tx("Sent to {name}!", { name: g.share.by })}</h2>
+              <p className="sub" style={{ fontSize: 14 }}>{txn(sendBack.n || mine.size, "{name} can now see your {n} pick in their gallery. Change your hearts any time and send again.", "{name} can now see your {n} picks in their gallery. Change your hearts any time and send again.", { name: g.share.by })}</p>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}><button type="button" className="btn btn-primary" onClick={() => setSendBack(null)}>{tx("Done")}</button></div>
+            </div>
+          ) : (
+            <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Send your picks")} onSubmit={(e) => { e.preventDefault(); submitBack(); }}>
+              <h2 className="h-m">{tx("Send your picks to {name}", { name: g.share.by })}</h2>
+              <p className="sub" style={{ fontSize: 14 }}>{txn(mine.size, "{n} photo you hearted.", "{n} photos you hearted.")}</p>
+              <div className="field"><label htmlFor="cg-back-msg">{tx("Add a note (optional)")}</label>
+                <textarea id="cg-back-msg" rows={3} maxLength={500} value={sendBack.msg} onChange={(e) => setSendBack({ ...sendBack, msg: e.target.value })} placeholder={tx("e.g. Love the ones by the lake!")} /></div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setSendBack(null)}>{tx("Cancel")}</button>
+                <button className="btn btn-primary" disabled={sendBack.busy}><Icon name="send" />{sendBack.busy ? tx("Sending…") : tx("Send")}</button>
+              </div>
+            </form>
+          )}
         </div>
       )}
       {pinAsk && <PinAsk studio={g.studio?.name} onClose={() => setPinAsk(null)} onTry={pinAsk} />}

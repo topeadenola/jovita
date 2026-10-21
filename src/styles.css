@@ -1318,3 +1318,24 @@ body{transition:background-color .2s}
 .addon-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .addon-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px}
 @media (max-width:600px){.todo-item.sub-row{flex-wrap:wrap}.todo-item.sub-row .sub-acts{width:100%;justify-content:flex-end}}
+/* Shared selections: names, picks sent back */
+.cg-share-title{font-size:17px}
+.cg-share-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.cg-share-head .eyebrow{margin:0 0 4px}
+.cg-name-ideas{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 4px}
+.cg-name-ideas button{font:inherit;font-size:13px;border:1px solid var(--line-strong,#D9CCE6);background:var(--surface,#fff);color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer}
+.cg-replies{display:flex;flex-direction:column;gap:10px;max-width:760px;margin:14px auto 0}
+.cg-reply{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 18px;border-radius:16px;background:#FCE8EE;color:#5A1027}
+.cg-reply.is-new{box-shadow:0 0 0 2px #C0264B inset}
+.cg-reply > svg{width:22px;height:22px;color:#C0264B;flex:none}
+.cg-reply > div:nth-child(2){display:flex;flex-direction:column;gap:3px;flex:1;min-width:200px}
+.cg-reply b{display:flex;align-items:center;gap:8px}
+.cg-reply-msg{font-size:15px;font-style:italic}
+.cg-reply small{font-size:13px;color:inherit;opacity:.8}
+.cg-reply-acts{display:flex;gap:8px;flex-wrap:wrap}
+.cg-sendbar{position:sticky;bottom:16px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:620px;margin:20px auto;padding:12px 12px 12px 20px;border-radius:999px;background:#261433;color:#fff;box-shadow:0 10px 30px rgba(38,20,51,.25)}
+.cg-sendbar .btn-primary{background:#FFB320;color:#261433;border-color:#FFB320}
+.cg-sent{text-align:center;align-items:center}
+.cg-sent-ic{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 4px;border-radius:50%;background:#E5F6EC;color:#1E7B46}
+.cg-sent-ic svg{width:26px;height:26px}
+@media (max-width:760px){.cg-replies{margin:12px 16px 0}.cg-sendbar{margin:16px;border-radius:20px;flex-wrap:wrap;padding:12px 14px}.cg-sendbar .btn{flex:1;justify-content:center}}
