@@ -3,7 +3,7 @@ import { api } from "./api";
 import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
 import { AreaChart, Bars, BarList, Donut, Funnel, Sparkline } from "./charts";
-import { COUNTRY, EVENT, ago, byValue, delta, eventText, greeting, money, n } from "./util";
+import { COUNTRY, EVENT, ago, byValue, delta, eventText, greeting, money, n, dropTrialEcho } from "./util";
 
 export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "12 months"], [0, "All time"]];
 
@@ -183,7 +183,7 @@ export default function Overview({ ctx }) {
       <section className="card">
         <div className="card-head"><div><h2 className="h-m">Latest across Jovita</h2><p className="sub">Live activity from every studio</p></div><button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => go("activity")}>See all<Icon name="arrow" /></button></div>
         <ul className="feed">
-          {(d.recent || []).map((e, i) => {
+          {(dropTrialEcho(d.recent) || []).map((e, i) => {
             const [label, icon, cls] = EVENT[e.kind] || [e.kind, "pulse", ""];
             return (
               <li key={i} onClick={() => { if (e.studio_id) { setOpenStudio(e.studio_id); go("studios"); } }} style={{ cursor: e.studio_id ? "pointer" : "default" }}>

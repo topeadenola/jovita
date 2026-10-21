@@ -52,6 +52,18 @@ export function eventText(e) {
   return "";
 }
 
+// Starting a Pro trial also logs a Free → Pro plan change at the same moment. That isn't a payment, so hide it.
+export function dropTrialEcho(list) {
+  if (!Array.isArray(list)) return list;
+  const key = (e) => e.studio_id || e.studios?.name || e.studio || "";
+  const at = (e) => new Date(e.at || e.created_at).getTime();
+  const trials = list.filter((e) => e.kind === "trial_started");
+  return list.filter((e) => !(e.kind === "upgrade" && (e.meta?.from || "free") === "free" && trials.some((t) => key(t) === key(e) && Math.abs(at(t) - at(e)) < 120000)));
+}
+
+// When a studio's current plan ends: the trial end for trials, otherwise the paid/gift end
+export const planEnd = (s) => (s?.plan_status === "trialing" ? s.trial_ends_at || null : s?.plan_until || null);
+
 // Time left on a plan with an end date: { text, tone, days }
 export function timeLeft(until) {
   if (!until) return null;

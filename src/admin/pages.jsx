@@ -4,7 +4,7 @@ import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
 import { BarList } from "./charts";
 import { useOverview, RangePicker, RANGES } from "./Overview";
-import { COUNTRY, EVENT, LANG, PLANS, PLAN_LABEL, SYM, ago, byValue, date, download, eventText, initials, money, n, timeLeft, toCSV } from "./util";
+import { COUNTRY, EVENT, LANG, PLANS, PLAN_LABEL, SYM, ago, byValue, date, download, eventText, initials, money, n, timeLeft, toCSV, dropTrialEcho, planEnd } from "./util";
 
 const PAGE = 50;
 const Pill = ({ plan }) => <span className={`pill p-${plan}`}><i />{PLAN_LABEL[plan] || plan}</span>;
@@ -12,6 +12,7 @@ function Status({ s }) {
   if (s.suspended) return <span className="pill p-bad">Suspended</span>;
   if (s.plan_status === "past_due") return <span className="pill p-warn">Payment due</span>;
   if (s.plan_status === "cancelled") return <span className="pill p-bad">Cancelled</span>;
+  if (s.plan_status === "trialing") return <span className="pill p-warn" title="Free trial, nothing paid yet">Trial{s.trial_ends_at ? ` · ends ${date(s.trial_ends_at)}` : ""}</span>;
   if (s.plan_status === "gift") return <span className="pill p-info" title="Free access you gave">Gift{s.plan_until ? ` · until ${date(new Date(new Date(s.plan_until).getTime() - 864e5))}` : ""}</span>;
   if (!s.onboarded) return <span className="pill p-info">Setting up</span>;
   return <span className="pill p-good">Active</span>;
@@ -122,7 +123,7 @@ export function Studios({ ctx }) {
               <thead><tr><th>Studio</th><th>Plan</th><th>Status</th><th>Where</th><th>Joined</th><th>Last seen</th><th className="r">Months paid</th><th>Time left</th><th className="r">Actions (30d)</th></tr></thead>
               <tbody>
                 {res.rows.map((s) => {
-                  const left = timeLeft(s.plan_until);
+                  const left = timeLeft(planEnd(s));
                   return (
                     <tr key={s.id} onClick={() => setOpenStudio(s.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpenStudio(s.id)}>
                       <td><div className="st"><span className="lg">{initials(s.name)}</span><div><b>{s.name}</b><small>{s.email}</small></div></div></td>
@@ -163,10 +164,11 @@ function Subscription({ s, sample, onChanged }) {
   const [msg, setMsg] = useState("");
   const load = useCallback(() => api.periods(s.id, sample).then(setPeriods).catch(() => setPeriods([])), [s.id, sample]);
   useEffect(() => { load(); }, [load]);
-  const left = timeLeft(s.plan_until);
+  const trial = s.plan_status === "trialing";
+  const left = timeLeft(planEnd(s));
   const paid = (periods || []).filter((p) => p.source !== "gift").reduce((a, p) => a + p.months, 0);
   const first = (periods || []).length ? periods[periods.length - 1].starts_at : null;
-  const total = left && s.plan_until && first ? Math.max(1, (new Date(s.plan_until) - new Date(first)) / 864e5) : 0;
+  const total = trial ? 7 : left && s.plan_until && first ? Math.max(1, (new Date(s.plan_until) - new Date(first)) / 864e5) : 0;
   const pct = left && total ? Math.max(0, Math.min(100, (left.days / total) * 100)) : 0;
   const add = async () => {
     if (sample) return setMsg("Turn off sample data first.");
@@ -180,12 +182,13 @@ function Subscription({ s, sample, onChanged }) {
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div><small className="sub" style={{ fontSize: 12, fontWeight: 700 }}>SUBSCRIPTION</small>
           <h3 className="h-m" style={{ margin: "4px 0 0" }}>{s.plan === "free" ? "Free plan" : `${PLAN_LABEL[s.plan]}${s.plan_status === "gift" ? " (gift)" : s.plan_status === "trialing" ? " (trial)" : ""}`}</h3></div>
-        {s.plan !== "free" && (left ? <span className={`pill ${left.tone}`}>{left.text}</span> : <span className="pill p-info">No end date</span>)}
+        {s.plan !== "free" && (left ? <span className={`pill ${left.tone}`}>{trial ? `Trial · ${left.text}` : left.text}</span> : <span className="pill p-info">{trial ? "Trial" : "No end date"}</span>)}
       </div>
       {left && <div className="sub-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} className={left.tone} /></div>}
       <div className="stat-grid" style={{ marginTop: 12 }}>
         <div><small>Months paid</small><b className="num">{paid}</b></div>
-        <div><small>Paid until</small><b style={{ fontSize: 15 }}>{s.plan_until ? date(s.plan_until) : "—"}</b></div>
+        {trial ? <div><small>Trial ends</small><b style={{ fontSize: 15 }}>{s.trial_ends_at ? date(s.trial_ends_at) : "—"}</b></div>
+          : <div><small>Paid until</small><b style={{ fontSize: 15 }}>{s.plan_until ? date(s.plan_until) : "—"}</b></div>}
         <div><small>Customer since</small><b style={{ fontSize: 15 }}>{first ? date(first) : "—"}</b></div>
         <div><small>Actions (30 days)</small><b className="num">{s.actions_30d != null ? n(s.actions_30d) : "—"}</b></div>
       </div>
@@ -213,12 +216,12 @@ function Subscription({ s, sample, onChanged }) {
 /* Revenue: plans that end in the next 14 days (to follow up) */
 function EndingSoon({ sample }) {
   const [rows, setRows] = useState(null);
-  useEffect(() => { api.allStudios(sample).then((all) => setRows(all.filter((s) => s.plan !== "free" && s.plan_until && new Date(s.plan_until) - Date.now() < 14 * 864e5).sort((a, b) => new Date(a.plan_until) - new Date(b.plan_until)))).catch(() => setRows([])); }, [sample]);
+  useEffect(() => { api.allStudios(sample).then((all) => setRows(all.filter((s) => s.plan !== "free" && planEnd(s) && new Date(planEnd(s)) - Date.now() < 14 * 864e5).sort((a, b) => new Date(planEnd(a)) - new Date(planEnd(b))))).catch(() => setRows([])); }, [sample]);
   return (
     <section className="card">
       <div className="card-head"><div><h2 className="h-m">Ending soon</h2><p className="sub">Plans that end in the next 14 days. Reminder emails go out on their own.</p></div></div>
-      {rows === null ? <p className="sub">Loading…</p> : rows.length ? rows.map((s) => { const left = timeLeft(s.plan_until); return (
-        <div key={s.id} className="switch" style={{ marginBottom: 8 }}><div style={{ minWidth: 0 }}><b>{s.name}</b><p className="sub" style={{ fontSize: 13 }}>{PLAN_LABEL[s.plan]}{s.plan_status === "gift" ? " gift" : ""} · ends {date(s.plan_until)}</p></div><span className={`pill ${left.tone}`}>{left.text}</span></div>
+      {rows === null ? <p className="sub">Loading…</p> : rows.length ? rows.map((s) => { const left = timeLeft(planEnd(s)); return (
+        <div key={s.id} className="switch" style={{ marginBottom: 8 }}><div style={{ minWidth: 0 }}><b>{s.name}</b><p className="sub" style={{ fontSize: 13 }}>{PLAN_LABEL[s.plan]}{s.plan_status === "gift" ? " gift" : s.plan_status === "trialing" ? " trial" : ""} · ends {date(planEnd(s))}</p></div><span className={`pill ${left.tone}`}>{left.text}</span></div>
       ); }) : <div className="empty"><b>Nothing ending soon</b><span>Studios whose plan ends in the next 14 days show here.</span></div>}
     </section>
   );
@@ -231,7 +234,7 @@ function StudioDrawer({ studio: given, id, sample, onClose, onSaved }) {
   const [saved, setSaved] = useState("");
   useEffect(() => { if (!given) api.allStudios(sample).then((all) => setS(all.find((x) => x.id === id) || null)); }, [given, id, sample]);
   useEffect(() => { if (s) setF({ plan: s.plan, plan_status: s.plan_status, suspended: s.suspended, admin_note: s.admin_note || "" }); }, [s]);
-  useEffect(() => { api.studioEvents(id, sample).then(setEvents).catch(() => setEvents([])); }, [id, sample]);
+  useEffect(() => { api.studioEvents(id, sample).then((x) => setEvents(dropTrialEcho(x))).catch(() => setEvents([])); }, [id, sample]);
   useEffect(() => { const k = (e) => e.key === "Escape" && onClose(); addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [onClose]);
   const save = async (patch) => {
     const next = { ...f, ...patch }; setF(next);
@@ -389,7 +392,7 @@ export function Activity({ ctx }) {
   const { sample, setOpenStudio, go } = ctx;
   const [kind, setKind] = useState("");
   const [rows, setRows] = useState(null);
-  useEffect(() => { setRows(null); api.events(kind, sample).then(setRows).catch(() => setRows([])); }, [kind, sample]);
+  useEffect(() => { setRows(null); api.events(kind, sample).then((x) => setRows(dropTrialEcho(x))).catch(() => setRows([])); }, [kind, sample]);
   const list = useMemo(() => (rows || []).filter((e) => !kind || e.kind === kind), [rows, kind]);
   return (
     <>
