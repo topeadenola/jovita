@@ -60,14 +60,14 @@ const onLive = () => /getjovita\.com$/.test(location.hostname);
 export const siteUrl = (path = "/") => (onLive() ? "https://getjovita.com" + path : "/landing" + path + (path.endsWith("/") ? "index.html" : ""));
 function ToSite() {
   const { pathname } = useLocation();
-  useEffect(() => { window.location.replace(pathname.startsWith("/pricing") ? siteUrl("/") + "#pricing" : siteUrl(pathname.replace(/\/?$/, "/"))); }, [pathname]);
+  useEffect(() => { window.location.replace(pathname.startsWith("/pricing") ? siteUrl("/") + "?site=1#pricing" : siteUrl(pathname.replace(/\/?$/, "/"))); }, [pathname]);
   return <div className="loading">{tx("Loading…")}</div>;
 }
 
 // Signed out: the home page is the Jovita landing page (public/landing), with Sign in and Start free
 function SignedOut() {
   const { pathname } = useLocation();
-  useEffect(() => { if (pathname === "/") window.location.replace(siteUrl("/")); if (pathname.startsWith("/admin")) window.location.replace("/admin/"); }, [pathname]);
+  useEffect(() => { markSignedIn(false); if (pathname === "/") window.location.replace(siteUrl("/")); if (pathname.startsWith("/admin")) window.location.replace("/admin/"); }, [pathname]);
   return pathname === "/" ? <div className="loading">{tx("Loading…")}</div> : <Navigate to="/login" replace />;
 }
 

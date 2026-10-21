@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+// Signed in already (the app sets jv_in): go straight to your dashboard. ?site=1 stays on the website.
+if (/(^|; )jv_in=1/.test(document.cookie) && !/[?&]site=1/.test(location.search)) location.replace((location.port === "5174" ? "http://localhost:5173" : "https://app.getjovita.com") + "/");
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Jovita is the friendly business assistant for photographers, videographers, makeup artists and content creators. Clients, bookings, invoices and galleries in one place.">

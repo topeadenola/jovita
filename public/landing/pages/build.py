@@ -82,6 +82,7 @@ def page(slug, title, desc, body, current):
 <nav aria-label="Footer"><a href="/">Home</a>{foot}<a href="mailto:hello@getjovita.com">hello@getjovita.com</a></nav>
 <span>© 2026 Jovita</span>
 </div></footer>
+<script>if (/(^|; )jv_in=1/.test(document.cookie)) {{ var n = document.querySelector(".top nav"), l = n.querySelector('a[href$="/login"]'), u = n.querySelector('a[href$="/signup"]'); if (l) l.remove(); if (u) {{ u.href = "{APP}/"; u.textContent = "Open Jovita"; }} }}</script>
 </body>
 </html>
 """
