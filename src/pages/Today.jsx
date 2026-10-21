@@ -89,7 +89,7 @@ export default function Today() {
         <Link className="btn btn-secondary" to="/projects"><Icon name="folder" />{tx("Open pipeline")}</Link>
       </div>
       <div className="grid g-4">
-        <Link to="/money" className="card stat hero" style={{ textDecoration: "none" }}><p className="label">{tx("Owed to you")}</p><p className="val num">{owed.main}</p>
+        <Link to="/money?tab=invoices" className="card stat hero" style={{ textDecoration: "none" }}><p className="label">{tx("Owed to you")}</p><p className="val num">{owed.main}</p>
           <p className="note">{txn(unpaid.length, "{n} invoice", "{n} invoices")}{overdue ? " · " + txn(overdue, "{n} late", "{n} late") : ""}{owed.others.startsWith("+") ? " · " + owed.others : ""}</p></Link>
         <div className="card stat"><p className="label">{tx("Paid this month")}</p><p className="val num">{money(month.income, home)}</p><p className="note">{txn(month.incomeRows.length, "{n} payment", "{n} payments")}</p></div>
         <div className="card stat"><p className="label">{tx("Profit this month")}</p><p className="val num">{money(month.profit, home)}</p><p className="note">{tx("After {amount} spent", { amount: money(month.spent, home) })}</p></div>

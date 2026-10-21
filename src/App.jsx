@@ -15,7 +15,6 @@ import Calendar from "./pages/Calendar";
 import Money from "./pages/Money";
 import Galleries from "./pages/Galleries";
 import Settings from "./pages/Settings";
-import Accounting from "./pages/Accounting";
 import { tx } from "./lib/i18n";
 import { useLang } from "./components/Lang";
 import Onboarding from "./pages/Onboarding";
@@ -45,7 +44,7 @@ function Studio() {
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/money" element={<Money />} />
-        <Route path="/accounting" element={<Accounting />} />
+        <Route path="/accounting" element={<Navigate to="/money" replace />} />
         <Route path="/galleries" element={<Galleries />} />
         <Route path="/templates" element={<Navigate to="/settings?tab=templates" replace />} />
         <Route path="/settings" element={<Settings />} />

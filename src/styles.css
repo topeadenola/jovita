@@ -1339,3 +1339,15 @@ body{transition:background-color .2s}
 .cg-sent-ic{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 4px;border-radius:50%;background:#E5F6EC;color:#1E7B46}
 .cg-sent-ic svg{width:26px;height:26px}
 @media (max-width:760px){.cg-replies{margin:12px 16px 0}.cg-sendbar{margin:16px;border-radius:20px;flex-wrap:wrap;padding:12px 14px}.cg-sendbar .btn{flex:1;justify-content:center}}
+/* Money: Overview · Invoices · Expenses */
+.page-tabs{display:flex;gap:6px;padding:5px;border-radius:16px;background:var(--surface-2,#F1EAF8);align-self:flex-start;flex-wrap:wrap}
+.page-tabs button{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;padding:10px 16px;border-radius:12px;font:inherit;font-weight:700;font-size:15px;color:var(--muted);cursor:pointer}
+.page-tabs button svg{width:18px;height:18px}
+.page-tabs button[aria-selected="true"]{background:var(--surface,#fff);color:var(--ink);box-shadow:0 1px 3px rgba(38,20,51,.12)}
+.page-tabs .tab-count{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--danger,#B42318);color:#fff;font-size:12px;display:inline-grid;place-items:center}
+.money-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.owed-link{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);border-radius:14px;padding:12px 16px;font:inherit;font-size:15px;cursor:pointer}
+.owed-link svg{width:18px;height:18px;color:var(--muted)}
+.owed-link b{margin-left:auto;white-space:nowrap}
+.owed-link:hover{border-color:var(--line-strong,#D9CCE6)}
+@media (max-width:600px){.page-tabs{align-self:stretch;flex-wrap:nowrap}.page-tabs button{flex:1 1 0;min-width:0;justify-content:center;padding:10px 4px;font-size:14px;gap:6px}.page-tabs button svg{display:none}.owed-link{flex-wrap:wrap}.owed-link b{margin-left:0}}

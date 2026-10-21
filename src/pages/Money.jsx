@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import Accounting from "./Accounting";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { useUi } from "../components/Shell";
@@ -12,7 +13,7 @@ import { receipts } from "../lib/accounting";
 const TABS = ["All", "Overdue", "Due soon", "Part paid", "Check payment", "Sent", "Paid", "Draft", "Quotes"];
 const inTab = (i, tab) => tab === "All" || (tab === "Quotes" ? i.kind === "quote" : i.kind !== "quote" && (invState(i).k === tab || (tab === "Sent" && invState(i).k === "Viewed") || (tab === "Draft" && i.status === "draft")));
 
-export default function Money() {
+function Invoices() {
   const { invoices, studio, client, project, updateStudio } = useData();
   const { invoiceAction } = useActions();
   const { q, open, setOpenInvoice } = useUi();
@@ -32,7 +33,7 @@ export default function Money() {
 
   return (
     <>
-      <div className="head"><div><p className="eyebrow">{tx("Money")}</p><h1 className="h-l">{tx("Invoices and payments")}</h1></div>
+      <div className="money-bar"><span className="sub">{tx("Quotes, invoices and what clients have paid.")}</span>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-secondary" onClick={() => open("quote")}><Icon name="file" />{tx("New quote")}</button>
           <button className="btn btn-primary" onClick={() => open("invoice")}><Icon name="plus" />{tx("New invoice")}</button></div></div>
       <div className="grid g-4">
@@ -81,6 +82,32 @@ export default function Money() {
         </>
       )}
       <p className="sub" style={{ fontSize: 13 }}>{tx("Payment methods and reminder rules live in")}{" "}<Link to="/settings?tab=payments">{tx("Settings › Payments")}</Link>.</p>
+    </>
+  );
+}
+
+// Money: one place for everything about money, in three tabs.
+// Overview (earned, spent, profit), Invoices (quotes and invoices), Expenses (subscriptions and costs).
+const MONEY_TABS = [["overview", "Overview", "chart"], ["invoices", "Invoices", "receipt"], ["expenses", "Expenses", "wallet"]];
+export default function Money() {
+  const [params, setParams] = useSearchParams();
+  const { invoices } = useData();
+  const { q } = useUi();
+  const picked = MONEY_TABS.some(([k]) => k === params.get("tab")) ? params.get("tab") : "overview";
+  const tab = q && picked === "overview" ? "invoices" : picked; // searching shows the invoices it finds
+  const go = (k) => setParams(k === "overview" ? {} : { tab: k }, { replace: true });
+  const overdue = invoices.filter((i) => i.kind !== "quote" && invState(i).k === "Overdue").length;
+  return (
+    <>
+      <div className="head"><div><p className="eyebrow">{tx("Money")}</p><h1 className="h-l">{tab === "invoices" ? tx("Invoices and payments") : tab === "expenses" ? tx("What you spend") : tx("What you made and spent")}</h1></div></div>
+      <div className="page-tabs" role="tablist" aria-label={tx("Money")}>
+        {MONEY_TABS.map(([k, label, icon]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => go(k)}>
+            <Icon name={icon} />{tx(label)}{k === "invoices" && overdue > 0 && <span className="tab-count">{overdue}</span>}
+          </button>
+        ))}
+      </div>
+      {tab === "invoices" ? <Invoices /> : <Accounting part={tab} onInvoices={() => go("invoices")} />}
     </>
   );
 }

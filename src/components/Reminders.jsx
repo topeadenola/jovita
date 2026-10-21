@@ -32,7 +32,7 @@ export default function Reminders() {
         id: `sub-${s.id}-${s.next_renewal}`, tone: d < 0 ? "bad" : d <= 2 ? "warn" : "info", icon: "clock",
         title: d < 0 ? tx("{name} has expired", { name: s.name }) : d === 0 ? tx("{name} renews today", { name: s.name }) : txn(d, "{name} renews tomorrow", "{name} renews in {n} days", { name: s.name }),
         body: tx("{amount} · {cycle}. Top up your card or cancel it if you don't need it.", { amount: money(s.amount, s.currency), cycle: tx(s.cycle === "yearly" ? "yearly" : "monthly") }),
-        action: [tx("Open subscriptions"), () => nav("/accounting")], weight: d < 0 ? 0 : 1,
+        action: [tx("Open subscriptions"), () => nav("/money?tab=expenses")], weight: d < 0 ? 0 : 1,
       });
     });
     // Late invoices
@@ -41,7 +41,7 @@ export default function Reminders() {
       id: `late-${late.map((i) => i.id).join(".")}`, tone: "bad", icon: "wallet",
       title: late.length === 1 ? tx("{name}'s invoice is {n} days late", { name: first(client(late[0].client_id).name), n: invState(late[0]).late }) : tx("{n} invoices are late", { n: late.length }),
       body: late.length === 1 ? money(late[0].amount, late[0].currency) : late.slice(0, 3).map((i) => first(client(i.client_id).name)).join(", "),
-      action: [tx("Send a nudge"), () => (late.length === 1 ? ui?.setOpenInvoice(late[0].id) : nav("/money"))], weight: 2,
+      action: [tx("Send a nudge"), () => (late.length === 1 ? ui?.setOpenInvoice(late[0].id) : nav("/money?tab=invoices"))], weight: 2,
     });
     // Sessions today and tomorrow
     bookings.filter((b) => [0, 1].includes(daysFrom(b.starts_at))).forEach((b) => {

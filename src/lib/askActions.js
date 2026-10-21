@@ -63,8 +63,8 @@ function labelIn(q) {
 }
 
 const NAV = [
-  [["money", "invoice list", "payments page"], "/money", "Money"], [["inbox", "messages"], "/inbox", "Inbox"], [["client list", "clients page", "clients"], "/clients", "Clients"],
-  [["projects"], "/projects", "Projects"], [["bookings", "calendar"], "/bookings", "Bookings"], [["accounting", "expenses", "tax"], "/accounting", "Accounting"],
+  [["invoice list", "invoices", "payments page"], "/money?tab=invoices", "Invoices"], [["money"], "/money", "Money"], [["inbox", "messages"], "/inbox", "Inbox"], [["client list", "clients page", "clients"], "/clients", "Clients"],
+  [["projects"], "/projects", "Projects"], [["bookings", "calendar"], "/bookings", "Bookings"], [["accounting", "expenses", "tax"], "/money?tab=expenses", "Expenses"],
   [["galleries"], "/galleries", "Galleries"], [["templates"], "/settings?tab=templates", "Templates"], [["settings"], "/settings", "Settings"], [["logo"], "/settings", "Settings"],
   [["today", "home", "dashboard"], "/", "Today"],
 ];
@@ -256,7 +256,7 @@ async function create(what, c, name, opts, ctx) {
 export const isLate = (i) => invState(i).k === "Overdue";
 
 // The brain suggests actions; each becomes a draft or a button the person taps.
-const PAGES = { today: "/", clients: "/clients", projects: "/projects", money: "/money", inbox: "/inbox", bookings: "/bookings", galleries: "/galleries", accounting: "/accounting", templates: "/settings?tab=templates", settings: "/settings" };
+const PAGES = { today: "/", clients: "/clients", projects: "/projects", money: "/money", inbox: "/inbox", bookings: "/bookings", galleries: "/galleries", accounting: "/money", expenses: "/money?tab=expenses", invoices: "/money?tab=invoices", templates: "/settings?tab=templates", settings: "/settings" };
 const PAGE_NAMES = { today: "Today", clients: "Clients", projects: "Projects", money: "Money", inbox: "Inbox", bookings: "Bookings", galleries: "Galleries", accounting: "Accounting", templates: "Templates", settings: "Settings" };
 export function fromBrain(actions = [], ctx) {
   const { clients = [], invoices = [] } = ctx.data;

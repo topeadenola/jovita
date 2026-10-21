@@ -26,7 +26,7 @@ export const useUi = () => useContext(UiCtx);
 
 const NAV = [
   ["/", "Today", "today"], ["/inbox", "Inbox", "inbox"], ["/clients", "Clients", "users"], ["/projects", "Projects", "folder"],
-  ["/calendar", "Calendar", "calendar"], ["/bookings", "Bookings", "clock"], ["/money", "Money", "wallet"], ["/accounting", "Accounting", "chart"], ["/galleries", "Galleries", "image"],
+  ["/calendar", "Calendar", "calendar"], ["/bookings", "Bookings", "clock"], ["/money", "Money", "wallet"], ["/galleries", "Galleries", "image"],
   ["/settings", "Settings", "settings"],
 ];
 
@@ -131,7 +131,7 @@ export default function Shell({ children }) {
                   <button type="button" onClick={() => open("invoice")}><Icon name="receipt" />{tx("Invoice")}</button>
                   <button type="button" onClick={() => open("quote")}><Icon name="file" />{tx("Quote")}</button>
                   <button type="button" onClick={() => open("session")}><Icon name="calendar" />{tx("Session type")}</button>
-                  <button type="button" onClick={() => { setMenu(false); nav("/accounting"); }}><Icon name="chart" />{tx("Expense")}</button>
+                  <button type="button" onClick={() => { setMenu(false); nav("/money?tab=expenses&add=1"); }}><Icon name="chart" />{tx("Expense")}</button>
                   <button type="button" onClick={() => { setMenu(false); nav("/settings?tab=templates"); }}><Icon name="file" />{tx("Template")}</button>
                 </div>
               )}

@@ -153,14 +153,14 @@ function MonthChart({ data, cur }) {
 }
 
 /* ---------- Page ---------- */
-export default function Accounting() {
+export default function Accounting({ part = "overview", onInvoices }) {
   const data = useData();
   const { invoices, expenses, subscriptions, studio, client, remove, update, insert } = data;
   const toast = useToast();
   const [period, setPeriod] = useState("month");
   const curs = usedCurrencies(data, studio.home_currency);
   const [cur, setCur] = useState(studio.home_currency);
-  const [form, setForm] = useState(null); // {kind, sub}
+  const [form, setForm] = useState(() => (typeof location !== "undefined" && /[?&]add=1/.test(location.search) ? { kind: "expense" } : null)); // {kind, sub}
   const s = useMemo(() => summary(data, period, cur), [data, period, cur]);
   const months = useMemo(() => lastMonths(data, cur), [data, cur]);
   const subs = subscriptions.filter((x) => x.active).sort((a, b) => (a.next_renewal < b.next_renewal ? -1 : 1));
@@ -193,15 +193,17 @@ export default function Accounting() {
 
   return (
     <>
-      <div className="head"><div><p className="eyebrow">{tx("Accounting")}</p><h1 className="h-l">{tx("What you made and spent")}</h1></div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div className="money-bar">
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="seg" role="group" aria-label={tx("Period")}>{PERIODS.map(([k, l]) => <button key={k} aria-pressed={period === k} onClick={() => setPeriod(k)}>{tx(l)}</button>)}</div>
+          {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
+        </div>
+        {part === "expenses" && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn btn-secondary" onClick={exportCSV}><Icon name="file" />{tx("Export for accountant")}</button>
           <button className="btn btn-primary" onClick={() => setForm({ kind: "expense" })}><Icon name="plus" />{tx("Add expense")}</button>
-        </div></div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <div className="seg" role="group" aria-label={tx("Period")}>{PERIODS.map(([k, l]) => <button key={k} aria-pressed={period === k} onClick={() => setPeriod(k)}>{tx(l)}</button>)}</div>
-        {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
+        </div>}
       </div>
+      {part === "overview" && <>
       <div className="grid g-4">
         <div className="card stat hero"><p className="label">{tx("Earned {period}", { period: periodLabel })}</p><p className="val num">{money(s.income, cur)}</p><p className="note">{txn(s.incomeRows.length, "{n} payment", "{n} payments")}</p></div>
         <div className="card stat"><p className="label">{tx("Spent")}</p><p className="val num">{money(s.spent, cur)}</p><p className="note">{txn(s.expenseRows.length, "{n} expense", "{n} expenses")}</p></div>
@@ -215,7 +217,7 @@ export default function Accounting() {
           </> : <><p className="val num">{money(0, cur)}<small style={{ fontSize: 14, color: "var(--muted)" }}>{" "}{tx("/month")}</small></p><p className="note">{tx("None yet. Add Adobe, Evoto and the rest below.")}</p></>}
         </div>
       </div>
-      {s.owed > 0 && <p className="sub" style={{ fontSize: 14 }}>{tx("Plus {amount} still owed to you on sent invoices.", { amount: money(s.owed, cur) })}</p>}
+      {s.owed > 0 && <button type="button" className="owed-link" onClick={onInvoices}><Icon name="receipt" />{tx("Plus {amount} still owed to you on sent invoices.", { amount: money(s.owed, cur) })}<b>{tx("See invoices")} →</b></button>}
       <div className="split">
         <MonthChart data={months} cur={cur} />
         <section className="card"><h2 className="h-m" style={{ marginBottom: 12 }}>{tx("Where the money went")}</h2>
@@ -227,6 +229,8 @@ export default function Accounting() {
           )) : <p className="sub">{tx("No spending {period}. Add expenses as you pay for things.", { period: periodLabel })}</p>}
         </section>
       </div>
+      </>}
+      {part === "expenses" && <>
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
           <div><h2 className="h-m">{tx("Subscriptions")}</h2><p className="sub" style={{ fontSize: 13 }}>{tx("Adobe, Evoto and the rest. We remind you before they renew.")}</p></div>
@@ -275,6 +279,7 @@ export default function Accounting() {
           </tbody></table></div>
         )}
       </section>
+      </>}
       {form?.kind === "expense" && <ExpenseForm cur={cur} onClose={() => setForm(null)} />}
       {form?.kind === "sub" && <SubscriptionForm cur={cur} sub={form.sub} onClose={() => setForm(null)} />}
     </>
