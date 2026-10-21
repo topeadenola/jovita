@@ -49,6 +49,30 @@ export async function startTrial() {
 export const YEARLY_OFF = 5;
 export const yearlyPrice = (monthly) => { const v = Number(monthly) * 12 * (100 - YEARLY_OFF) / 100; return v >= 1000 ? Math.round(v / 100) * 100 : Math.round(v * 100) / 100; };
 
+// Pay with Lemon Squeezy: opens their checkout (or the billing page if already subscribed)
+async function lemon(body) {
+  const { data, error } = await supabase.functions.invoke("lemon-checkout", { body });
+  if (error) {
+    let msg = error.message;
+    try { msg = (await error.context.json()).error || msg; } catch { /* keep message */ }
+    throw new Error(msg);
+  }
+  if (!data?.url) throw new Error(data?.error || "Couldn't open the payment page");
+  window.location.assign(data.url);
+}
+export const startCheckout = (plan, cycle = "month") => lemon({ action: "checkout", plan, cycle });
+export const openBilling = () => lemon({ action: "portal" });
+
+// After paying, the webhook switches the plan on within a few seconds; check a few times
+export async function waitForPaidPlan(tries = 8) {
+  for (let i = 0; i < tries; i++) {
+    const { data } = await supabase.rpc("my_plan").catch(() => ({}));
+    if (data?.plan && data.plan !== "free" && data.status !== "trialing") return data;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  return null;
+}
+
 export async function requestUpgrade(plan, cycle = "month") {
   const { error } = await supabase.rpc("request_plan", { p_plan: plan, p_cycle: cycle });
   if (!error) return;

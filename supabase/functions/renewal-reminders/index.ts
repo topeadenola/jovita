@@ -44,11 +44,12 @@ Deno.serve(async () => {
   const h = { Authorization: `Bearer ${key}`, apikey: key, Accept: "application/json", "Content-Type": "application/json" };
   const now = Date.now();
   const from = new Date(now - 2 * DAY).toISOString(), to = new Date(now + 8 * DAY).toISOString();
-  const r = await fetch(`${base}/rest/v1/studios?select=id,owner_id,owner_first_name,plan,plan_status,plan_until,suspended&plan=neq.free&plan_until=gte.${from}&plan_until=lte.${to}`, { headers: h });
+  const r = await fetch(`${base}/rest/v1/studios?select=*&plan=neq.free&plan_until=gte.${from}&plan_until=lte.${to}`, { headers: h });
   const studios = r.ok ? await r.json() : [];
   let sent = 0, ended = 0;
   for (const s of studios) {
     if (s.suspended) continue;
+    if (s.plan_autorenew) continue; // Lemon Squeezy renews it and sends its own receipts
     const until = new Date(s.plan_until);
     const days = Math.ceil((until.getTime() - now) / DAY);
     const stage = days <= 0 ? 0 : days <= 1 ? 1 : days <= 3 ? 3 : days <= 7 ? 7 : -1;

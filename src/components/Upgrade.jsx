@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useData } from "../lib/data";
-import { PLANS, TRIAL_DAYS, YEARLY_OFF, daysLeft, loadPrices, offerPrice, rank, requestUpgrade, startTrial, yearlyPrice } from "../lib/plan";
+import { PLANS, TRIAL_DAYS, YEARLY_OFF, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, waitForPaidPlan, yearlyPrice } from "../lib/plan";
 import { money } from "../lib/format";
 import { locale, tx, txn } from "../lib/i18n";
 import { supabase } from "../supabase";
@@ -39,6 +39,7 @@ export function PlanCards({ plan, onPlan, compact }) {
   const trial = plan.status === "trialing";
   const canTrial = plan.plan === "free" && !plan.trial_used;
   const mine = trial ? 0 : rank(plan.plan); // during a trial you're really on Free
+  const subscribed = !!(studio.lemon_subscription_id && studio.plan_autorenew && plan.plan !== "free");
 
   const choose = async (key) => {
     setBusy(key);
@@ -47,6 +48,13 @@ export function PlanCards({ plan, onPlan, compact }) {
         const r = await startTrial();
         if (r?.error === "trial_used") toast(tx("You've already had your free trial."));
         else { onPlan?.({ ...plan, plan: "pro", status: "trialing", trial_used: true, trial_ends_at: r?.trial_ends_at || new Date(Date.now() + TRIAL_DAYS * 864e5).toISOString() }); toast(tx("Pro is on for {n} days. Enjoy!", { n: TRIAL_DAYS }), true); }
+      } else if (subscribed) {
+        // Already paying: plan changes, card and cancelling happen on the billing page
+        await openBilling();
+        return;
+      } else if (key !== "free" && (trial || rank(key) > mine)) {
+        await startCheckout(key, cycle);
+        return; // leaving for the checkout page
       } else {
         await requestUpgrade(key, cycle);
         setAsked(key);
@@ -111,9 +119,10 @@ function OfferNote({ offer, full }) {
   );
 }
 
-function sheetText(plan) {
+function sheetText(plan, auto) {
   if (plan.status === "gift") return [tx("You have {plan} free", { plan: plan.plan === "studio" ? "Studio" : "Pro" }), plan.until ? tx("A gift from the Jovita team, until {date}. Enjoy!", { date: longDate(new Date(new Date(plan.until).getTime() - 864e5).toISOString()) }) : tx("A gift from the Jovita team. Enjoy!")];
   if (plan.status === "trialing") return [tx("You're trying Pro"), tx("Your trial ends on {date}. Upgrade any time to keep Pro.", { date: longDate(plan.trial_ends_at) })];
+  if (auto && plan.until && plan.plan !== "free" && plan.status !== "trialing") return [plan.plan === "studio" ? tx("You're on Studio, our top plan") : tx("You're on Pro"), plan.status === "past_due" ? tx("Your last payment didn't go through. Update your card in billing to keep your plan.") : tx("Renews automatically on {date}. Change or cancel any time in billing.", { date: longDate(new Date(new Date(plan.until).getTime() - 3 * 864e5).toISOString()) })];
   if (plan.until && plan.plan !== "free") { const d = longDate(plan.until); const left = Math.ceil((new Date(plan.until) - Date.now()) / 864e5); return [plan.plan === "studio" ? tx("You're on Studio, our top plan") : tx("You're on Pro"), left <= 7 ? tx("Your plan ends on {date}, in {n} days. Renew to keep everything.", { date: d, n: Math.max(0, left) }) : tx("Paid until {date}. We'll remind you by email a week before.", { date: d })]; }
   if (plan.plan === "studio") return [tx("You're on Studio, our top plan"), tx("You have everything Jovita offers. Need less? You can downgrade to Pro or Free any time.")];
   if (plan.plan === "pro") return [tx("You're on Pro"), tx("Want unlimited Jovita and priority help? Studio has it. Need less? You can downgrade any time.")];
@@ -121,7 +130,8 @@ function sheetText(plan) {
 }
 
 export function UpgradeSheet({ plan, onPlan, onClose }) {
-  const [title, sub] = sheetText(plan);
+  const { studio } = useData();
+  const [title, sub] = sheetText(plan, !!studio.plan_autorenew);
   return (
     <Modal label={tx("Plans")} onClose={onClose} wide>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
@@ -150,10 +160,29 @@ export function QuotaMeter({ quota }) {
 
 // Settings › Plan
 export function PlanTab({ plan, onPlan }) {
+  const { studio } = useData();
+  const toast = useToast();
   const [quota, setQuota] = useState(null);
+  const [waiting, setWaiting] = useState(() => new URLSearchParams(window.location.search).get("paid") === "1");
+  const [opening, setOpening] = useState(false);
   useEffect(() => { supabase.rpc("jovita_quota").then(({ data }) => data && setQuota(data)).catch(() => {}); }, [plan.plan, plan.status]);
+  // Back from the checkout: wait for the payment to switch the plan on
+  useEffect(() => {
+    if (!waiting) return;
+    let gone = false;
+    waitForPaidPlan().then((p) => {
+      if (gone) return;
+      setWaiting(false);
+      const u = new URL(window.location.href); u.searchParams.delete("paid"); window.history.replaceState(null, "", u);
+      if (p) { onPlan?.(p); toast(tx("Payment received. Welcome to {plan}!", { plan: tx(NAME[p.plan]) }), true); }
+      else toast(tx("We're still confirming your payment. It can take a minute, so refresh shortly."));
+    });
+    return () => { gone = true; };
+  }, [waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+  const subscribed = !!(studio.lemon_subscription_id && studio.plan_autorenew && plan.plan !== "free");
+  const billing = async () => { setOpening(true); try { await openBilling(); } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); setOpening(false); } };
   const trial = plan.status === "trialing";
-  const [, sub] = sheetText(plan);
+  const [, sub] = sheetText(plan, !!studio.plan_autorenew);
   return (
     <section className="card set-card">
       <div className="set-head"><h2 className="h-m">{tx("Your plan")}</h2></div>
@@ -164,6 +193,8 @@ export function PlanTab({ plan, onPlan }) {
         </div>
         <QuotaMeter quota={quota} />
       </div>
+      {waiting && <p className="pc-asked"><Icon name="check" />{tx("Thanks! Confirming your payment…")}</p>}
+      {(subscribed || studio.lemon_subscription_id) && <p><button type="button" className="btn btn-secondary" disabled={opening} onClick={billing}>{opening ? tx("One moment…") : tx("Manage billing and receipts")}</button></p>}
       <PlanCards plan={plan} onPlan={onPlan} />
     </section>
   );
