@@ -71,7 +71,16 @@ export default function ClientGallery() {
     sets: Array.isArray(g.sets) && g.sets.length ? g.sets : [{ id: "highlights", name: tx("Highlights") }],
     design: { ...DEF_DESIGN, ...(g.design || {}), grid: { ...DEF_DESIGN.grid, ...(g.design?.grid || {}) } },
   }), [g]);
-  const vid = useMemo(() => (g ? viewerId(g) : ""), [g, guest]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Opened from the "picks sent back" email (?sel=<share link>): pick up the selection on this device too
+  const [adopted, setAdopted] = useState(0);
+  useEffect(() => {
+    const sel = new URLSearchParams(location.search).get("sel");
+    if (!g || g.share || g.viewer?.email || !sel || !/^[0-9a-f-]{36}$/i.test(sel)) return;
+    supabase.rpc("gallery_share_owner", { p_token: token, p_password: pass || null, p_share: sel }).then(({ data }) => {
+      if (data && data !== readLS(VKEY)) { writeLS(VKEY, data); setAdopted((n) => n + 1); }
+    }).catch(() => {});
+  }, [g, token, pass]);
+  const vid = useMemo(() => (g ? viewerId(g) : ""), [g, guest, adopted]); // eslint-disable-line react-hooks/exhaustive-deps
   const shared = !!g?.share;
   const dl0 = g?.download || {};
   const favOn = g && g.favorite?.on !== false;
@@ -87,6 +96,13 @@ export default function ClientGallery() {
     setShareInfo(data || null);
   }, [g, token, pass, vid]);
   useEffect(() => { loadShare(); }, [loadShare]);
+  const [autoOpened, setAutoOpened] = useState(false);
+  useEffect(() => {
+    if (autoOpened || !shareInfo?.replies?.length || !new URLSearchParams(location.search).get("sel")) return;
+    setAutoOpened(true);
+    const r = shareInfo.replies[0];
+    if (r.picks.length) viewReply(r);
+  }, [shareInfo, autoOpened]); // eslint-disable-line react-hooks/exhaustive-deps
   const replyPicks = useMemo(() => new Set(shareInfo?.replies?.find((r) => r.id === replyView)?.picks || []), [shareInfo, replyView]);
   const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id)) && (!replyView || replyPicks.has(p.id))), [g, setId, onlyFavs, mine, replyView, replyPicks]);
   const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
@@ -166,6 +182,7 @@ export default function ClientGallery() {
     const { data, error } = await supabase.rpc("gallery_share_reply", { p_token: token, p_viewer: guest, p_name: name, p_message: sendBack.msg });
     if (error) { setSendBack((x) => ({ ...x, busy: false })); return window.alert?.(error.message); }
     writeLS("jv-sent-" + token, "1");
+    supabase.functions.invoke("send-email", { body: { kind: "picks_returned", token, guest } }).catch(() => {}); // emails the client
     setSendBack((x) => ({ ...x, busy: false, sent: true, n: data?.picks }));
   };
   const sentBefore = shared && readLS("jv-sent-" + token) === "1";

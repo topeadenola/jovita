@@ -27,7 +27,7 @@ const FROM = { email: "hello@getjovita.com", name: "Jovita" };
 // Brevo template ids (created in the Jovita Brevo account)
 const TEMPLATES: Record<string, number> = {
   welcome: 1, trial_started: 2, trial_ending: 3, payment_received: 4, new_inquiry: 5, contract_signed: 6,
-  invoice: 7, payment_reminder: 8, receipt: 9, contract: 10, gallery: 11, booking: 12, quote: 14, quote_accepted: 15,
+  invoice: 7, payment_reminder: 8, receipt: 9, contract: 10, gallery: 11, booking: 12, quote: 14, quote_accepted: 15, picks_returned: 16,
 };
 
 const cors = {
@@ -147,12 +147,69 @@ async function quoteAccepted(token: string, invoiceId: string) {
   return { ok: true, sent };
 }
 
+// Someone sent back their picks from a shared selection: email the client who shared it (once per send).
+// Trusts only the share link token and a send made in the last 10 minutes.
+async function picksReturned(token: string, guest: string) {
+  const ok = /^[0-9a-f-]{36}$/i;
+  const g = String(guest || "").trim().toLowerCase();
+  if (!ok.test(token) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g)) return { error: "Bad request." };
+  const key = env("SUPABASE_SERVICE_ROLE_KEY"), base = env("SUPABASE_URL");
+  const h = { Authorization: `Bearer ${key}`, apikey: key, Accept: "application/json", "Content-Type": "application/json" };
+  const get = async (path: string) => { const r = await fetch(`${base}/rest/v1/${path}`, { headers: h }); return r.ok ? await r.json() : []; };
+  const [sh] = await get(`gallery_shares?token=eq.${token}&select=id,studio_id,gallery_id,viewer,viewer_name,title`);
+  if (!sh) return { error: "Not found." };
+  // Claim it first, so a double tap can't email twice
+  const since = new Date(Date.now() - 10 * 60e3).toISOString();
+  const claim = await fetch(`${base}/rest/v1/gallery_share_replies?share_id=eq.${sh.id}&guest=eq.${encodeURIComponent(g)}&notified_at=is.null&sent_at=gt.${since}`, {
+    method: "PATCH", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify({ notified_at: new Date().toISOString() }),
+  });
+  const [rep] = claim.ok ? await claim.json() : [];
+  if (!rep) return { ok: true, skipped: true };
+  const [gal] = await get(`galleries?id=eq.${sh.gallery_id}&select=id,title,share_token,client_id`);
+  const [studio] = await get(`studios?id=eq.${sh.studio_id}&select=*`);
+  if (!gal || !studio || studio.suspended) return { ok: true, skipped: true };
+  // Who to tell: the email they were invited with, or the gallery's client
+  let to = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sh.viewer) ? { email: sh.viewer as string, name: sh.viewer_name || undefined } : null;
+  let link = `${APP_URL}/g/${gal.share_token}?sel=${token}`;
+  if (to) {
+    const [inv] = await get(`gallery_invites?gallery_id=eq.${gal.id}&email=eq.${encodeURIComponent(sh.viewer)}&select=token`);
+    if (inv) link = `${APP_URL}/g/${inv.token}?sel=${token}`;
+  } else if (gal.client_id) {
+    const [c] = await get(`clients?id=eq.${gal.client_id}&select=name,email`);
+    if (c?.email) to = { email: c.email, name: c.name || undefined };
+  }
+  if (!to) return { ok: true, skipped: "no email" };
+  // The photos they both picked, newest first in gallery order; the first four go in the email
+  const mine = await get(`gallery_favorites?gallery_id=eq.${gal.id}&viewer=eq.${encodeURIComponent(sh.viewer)}&select=photo_id`);
+  const theirs = await get(`gallery_favorites?gallery_id=eq.${gal.id}&viewer=eq.${encodeURIComponent(g)}&select=photo_id`);
+  const mineSet = new Set(mine.map((f: { photo_id: string }) => f.photo_id));
+  const picks = theirs.map((f: { photo_id: string }) => f.photo_id).filter((id: string) => mineSet.has(id));
+  if (!picks.length) return { ok: true, skipped: "no picks" };
+  const photos = await get(`gallery_photos?id=in.(${picks.slice(0, 40).join(",")})&select=path,has_thumb,position&order=position.asc&limit=4`);
+  const media = env("MEDIA_URL") || "https://media.getjovita.com";
+  const enc = (p: string) => p.split("/").map(encodeURIComponent).join("/");
+  const thumbs = photos.map((p: { path: string; has_thumb: boolean }) => `${media}/${enc(p.has_thumb === false ? p.path : p.path.replace(/\.[^./]+$/, ".thumb.jpg"))}`);
+  const logo = studio.logo_path && studio.plan !== "free" ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
+  const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
+  const owner = ur.ok ? await ur.json() : null;
+  const ownerEmail = studio.reply_email || owner?.email || "";
+  const id = await brevo(TEMPLATES.picks_returned, to, {
+    studio_name: studio.name || "Your photographer", studio_logo: logo, show_jovita: studio.plan === "free",
+    client_first_name: firstName(to.name || sh.viewer_name), guest_name: firstName(rep.guest_name) === "there" ? "Your guest" : firstName(rep.guest_name),
+    pick_count: picks.length, selection_count: mineSet.size, selection_title: sh.title || "your selection", message: rep.message || "",
+    gallery_name: gal.title || "Your gallery", thumbs, link,
+  }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, ownerEmail ? { email: ownerEmail, name: studio.name || undefined } : undefined);
+  await fetch(`${base}/rest/v1/events`, { method: "POST", headers: h, body: JSON.stringify({ studio_id: sh.studio_id, kind: "picks_returned", meta: { gallery_id: gal.id, picks: picks.length } }) }).catch(() => {});
+  return { ok: true, id };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Not found" }, 404);
   try {
     const body = await req.json().catch(() => ({}));
     if (body.kind === "quote_accepted") return json(await quoteAccepted(String(body.token || ""), String(body.invoice_id || "")));
+    if (body.kind === "picks_returned") return json(await picksReturned(String(body.token || ""), String(body.guest || "")));
 
     const auth = req.headers.get("Authorization") || "";
     const ur = await fetch(`${env("SUPABASE_URL")}/auth/v1/user`, { headers: { Authorization: auth, apikey: env("SUPABASE_ANON_KEY") } });
