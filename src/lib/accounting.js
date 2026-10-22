@@ -14,6 +14,26 @@ export const SUBSCRIPTION_PRESETS = [
   "Google Workspace", "Dropbox", "iCloud+", "Squarespace", "Pixieset",
 ];
 
+// Websites for the logos of popular tools (anything else: the website you type, or name.com)
+const SITES = {
+  "adobe creative cloud": "adobe.com", "adobe": "adobe.com", "lightroom": "adobe.com", "photoshop": "adobe.com", "evoto": "evoto.ai", "capture one": "captureone.com",
+  "imagen ai": "imagen-ai.com", "imagen": "imagen-ai.com", "aftershoot": "aftershoot.com", "canva pro": "canva.com", "canva": "canva.com", "capcut pro": "capcut.com", "capcut": "capcut.com",
+  "artlist": "artlist.io", "epidemic sound": "epidemicsound.com", "envato elements": "envato.com", "envato": "envato.com", "google workspace": "workspace.google.com",
+  "google one": "one.google.com", "dropbox": "dropbox.com", "icloud+": "icloud.com", "icloud": "icloud.com", "squarespace": "squarespace.com", "pixieset": "pixieset.com",
+  "claude": "claude.ai", "chatgpt": "chatgpt.com", "openai": "openai.com", "higgsfield": "higgsfield.ai", "midjourney": "midjourney.com", "figma": "figma.com",
+  "notion": "notion.so", "wix": "wix.com", "shopify": "shopify.com", "spotify": "spotify.com", "netflix": "netflix.com", "youtube premium": "youtube.com",
+  "elevenlabs": "elevenlabs.io", "runway": "runwayml.com", "frame.io": "frame.io", "pic-time": "pic-time.com", "shootproof": "shootproof.com", "zoom": "zoom.us",
+  "microsoft 365": "microsoft.com", "davinci resolve": "blackmagicdesign.com", "final cut pro": "apple.com", "luminar neo": "skylum.com", "smugmug": "smugmug.com",
+};
+export function siteFor(sub) {
+  const own = String(sub?.website || "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (own) return own.toLowerCase();
+  const n = String(sub?.name || "").trim().toLowerCase();
+  if (!n) return "";
+  return SITES[n] || Object.entries(SITES).find(([k]) => n.startsWith(k))?.[1] || n.replace(/[^a-z0-9]/g, "") + ".com";
+}
+export const logoFor = (sub) => { const d = siteFor(sub); return d ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64` : ""; };
+
 export const PERIODS = [
   ["month", "This month"], ["last", "Last month"], ["quarter", "This quarter"], ["year", "This year"], ["all", "All time"],
 ];

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import Icon from "../components/Icon";
 import { CloseBtn, Empty, Modal, MoneyInput, Pill, useToast } from "../components/ui";
@@ -6,7 +6,7 @@ import { txn } from "../lib/i18n";
 import { CURRENCIES, SYM, fdate, money, todayISO } from "../lib/format";
 import {
   EXPENSE_CATEGORIES, PERIODS, SUBSCRIPTION_PRESETS, lastMonths, monthly, nextRenewalAfter,
-  renewsIn, summary, toCSV, usedCurrencies,
+  logoFor, renewsIn, siteFor, summary, usedCurrencies,
 } from "../lib/accounting";
 import { tx } from "../lib/i18n";
 
@@ -62,24 +62,43 @@ function ExpenseForm({ onClose, cur }) {
   );
 }
 
+// The app's own logo (from its website), or its first letter when there isn't one
+function SubLogo({ sub, size = 40 }) {
+  const src = logoFor(sub);
+  const [bad, setBad] = useState(false);
+  useEffect(() => { setBad(false); }, [src]);
+  const letter = (String(sub?.name || "?").trim()[0] || "?").toUpperCase();
+  return (
+    <span className="sub-logo" style={{ width: size, height: size }}>
+      {src && !bad ? <img src={src} alt="" width={size * 0.6} height={size * 0.6} loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(true)} onLoad={(e) => { if (e.currentTarget.naturalWidth < 24) setBad(true); }} /> : <b>{letter}</b>}
+    </span>
+  );
+}
+
 function SubscriptionForm({ onClose, cur, sub }) {
   const { insert, update } = useData();
   const toast = useToast();
-  const [f, setF] = useState(sub ? { name: sub.name, amount: String(sub.amount), currency: sub.currency, cycle: sub.cycle, next_renewal: sub.next_renewal }
-    : { name: "", amount: "", currency: cur === "NGN" ? "USD" : cur, cycle: "monthly", next_renewal: todayISO() });
+  const [f, setF] = useState(sub ? { name: sub.name, amount: String(sub.amount), currency: sub.currency, cycle: sub.cycle, next_renewal: sub.next_renewal, website: sub.website || "" }
+    : { name: "", amount: "", currency: cur === "NGN" ? "USD" : cur, cycle: "monthly", next_renewal: todayISO(), website: "" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <Sheet title={sub ? tx("Edit subscription") : tx("Add a subscription")} submitLabel={tx("Save")} onClose={onClose} onSubmit={async () => {
       if (!f.name.trim()) throw new Error(tx("Name the app, e.g. Adobe Creative Cloud."));
-      const row = { ...f, name: f.name.trim(), amount: Number(f.amount) || 0 };
-      if (sub) await update("subscriptions", sub.id, row); else await insert("subscriptions", row);
+      const row = { ...f, name: f.name.trim(), amount: Number(f.amount) || 0, website: f.website.trim() || null };
+      try { if (sub) await update("subscriptions", sub.id, row); else await insert("subscriptions", row); }
+      catch (e) { if (!/website/.test(e.message || "")) throw e; delete row.website; if (sub) await update("subscriptions", sub.id, row); else await insert("subscriptions", row); } // before update 24
       toast(sub ? tx("Subscription updated") : tx("{name} added", {
         name: row.name
       })); onClose();
     }}>
       {!sub && <div className="chips" aria-label={tx("Popular tools")}>{SUBSCRIPTION_PRESETS.map((p) => (
         <button type="button" key={p} className="chip" aria-pressed={f.name === p} onClick={() => setF({ ...f, name: p })}>{p}</button>))}</div>}
-      <div className="field"><label htmlFor="s-name">{tx("App or service")}</label><input id="s-name" value={f.name} onChange={set("name")} placeholder={tx("e.g. Evoto")} /></div>
+      <div className="sub-name-row">
+        <SubLogo sub={f} size={44} />
+        <div className="field" style={{ flex: 1 }}><label htmlFor="s-name">{tx("App or service")}</label><input id="s-name" value={f.name} onChange={set("name")} placeholder={tx("e.g. Evoto")} /></div>
+      </div>
+      <div className="field"><label htmlFor="s-web">{tx("Website (for the logo)")}</label><input id="s-web" value={f.website} onChange={set("website")} placeholder={siteFor({ name: f.name }) || "evoto.ai"} />
+        <span className="help">{tx("We find the logo from the name. If it looks wrong, type their website.")}</span></div>
       <div className="form-grid">
         <div className="field"><label htmlFor="s-amt">{tx("Price")}</label><MoneyInput id="s-amt" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} placeholder={tx("What you pay each time")} /></div>
         <div className="field"><label htmlFor="s-cur">{tx("Currency")}</label><select id="s-cur" value={f.currency} onChange={set("currency")}>{CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}</select></div>
@@ -163,6 +182,7 @@ export default function Accounting({ part = "overview", onInvoices }) {
   const [form, setForm] = useState(() => (typeof location !== "undefined" && /[?&]add=1/.test(location.search) ? { kind: "expense" } : null)); // {kind, sub}
   const s = useMemo(() => summary(data, period, cur), [data, period, cur]);
   const months = useMemo(() => lastMonths(data, cur), [data, cur]);
+  const cancelledSubs = subscriptions.filter((x) => !x.active);
   const subs = subscriptions.filter((x) => x.active).sort((a, b) => (a.next_renewal < b.next_renewal ? -1 : 1));
   // Every active subscription counts, in its own currency (the one you're viewing first)
   const subTotals = useMemo(() => {
@@ -173,14 +193,6 @@ export default function Accounting({ part = "overview", onInvoices }) {
   const periodLabel = tx(PERIODS.find((p) => p[0] === period)[1]).toLowerCase();
   const maxCat = Math.max(1, ...s.byCategory.map((c) => c[1]));
 
-  const exportCSV = () => {
-    const blob = new Blob([toCSV(s, (id) => client(id).name)], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `jovita-accounts-${cur}-${period}-${s.range[0]}.csv`;
-    a.click(); URL.revokeObjectURL(a.href);
-    toast(tx("Spreadsheet downloaded"));
-  };
   const markRenewed = async (sub) => {
     try {
       await insert("expenses", { vendor: sub.name, category: "Software and subscriptions", amount: sub.amount, currency: sub.currency, spent_on: sub.next_renewal > todayISO() ? todayISO() : sub.next_renewal, note: sub.cycle === "yearly" ? tx("Yearly subscription") : tx("Monthly subscription"), subscription_id: sub.id });
@@ -199,7 +211,6 @@ export default function Accounting({ part = "overview", onInvoices }) {
           {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
         </div>
         {part === "expenses" && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn btn-secondary" onClick={exportCSV}><Icon name="file" />{tx("Export for accountant")}</button>
           <button className="btn btn-primary" onClick={() => setForm({ kind: "expense" })}><Icon name="plus" />{tx("Add expense")}</button>
         </div>}
       </div>
@@ -239,19 +250,17 @@ export default function Accounting({ part = "overview", onInvoices }) {
         <div className="todo">
           {subs.map((x) => { const n = renewsIn(x); return (
             <div className="todo-item sub-row" key={x.id}>
-              <span className="dot d-joy"><Icon name="clock" /></span>
+              <SubLogo sub={x} />
               <div className="todo-text"><b>{x.name}</b><span>{money(x.amount, x.currency)} {x.cycle === "yearly" ? tx("a year") : tx("a month")}{x.cycle === "yearly" ? tx(" · {money}/month", {
                 money: money(Math.round(monthly(x)), x.currency)
               }) : ""}</span></div>
-              <Pill c={n < 0 ? "p-danger" : n <= 7 ? "p-warning" : "p-neutral"}>{n < 0 ? tx("Renewed {n}d ago?", { n: -n }) : n === 0 ? tx("Renews today") : tx("Renews {fdate}", {
-                fdate: fdate(x.next_renewal)
-              })}</Pill>
+              <span title={tx("Renews {fdate}", { fdate: fdate(x.next_renewal) })}><Pill c={n < 0 ? "p-danger" : n <= 7 ? "p-warning" : "p-neutral"}>{n < 0 ? tx("Renewed {n}d ago?", { n: -n }) : n === 0 ? tx("Renews today") : txn(n, "{n} day left", "{n} days left")}</Pill></span>
               <div className="sub-acts" style={{ display: "flex", gap: 6 }}>
                 {n <= 7 && <button className="btn btn-primary btn-sm" onClick={() => markRenewed(x)}><Icon name="check" />{tx("Paid")}</button>}
                 <button className="btn btn-ghost btn-sm" onClick={() => setForm({ kind: "sub", sub: x })}>{tx("Edit")}</button>
-                <button className="btn btn-ghost btn-sm" onClick={async () => { await update("subscriptions", x.id, { active: false }); toast(tx("{name} cancelled", {
+                <button className="btn btn-ghost btn-sm" onClick={async () => { if (!window.confirm(tx("Cancel {name}? Jovita stops reminding you about it. You can bring it back later.", { name: x.name }))) return; await update("subscriptions", x.id, { active: false }); toast(tx("{name} cancelled", {
                   name: x.name
-                })); }}>{tx("Cancel")}</button>
+                }), true); }}>{tx("Cancel")}</button>
               </div>
             </div>
           ); })}
@@ -259,6 +268,20 @@ export default function Accounting({ part = "overview", onInvoices }) {
             "No subscriptions yet. Add the tools you pay for to see your monthly cost."
           )}</p>}
         </div>
+        {cancelledSubs.length > 0 && (
+          <details className="sub-cancelled">
+            <summary className="sub">{txn(cancelledSubs.length, "{n} cancelled subscription", "{n} cancelled subscriptions")}</summary>
+            <div className="todo">
+              {cancelledSubs.map((x) => (
+                <div className="todo-item sub-row" key={x.id}>
+                  <SubLogo sub={x} />
+                  <div className="todo-text"><b>{x.name}</b><span>{money(x.amount, x.currency)} {x.cycle === "yearly" ? tx("a year") : tx("a month")}</span></div>
+                  <div className="sub-acts"><button className="btn btn-secondary btn-sm" onClick={async () => { await update("subscriptions", x.id, { active: true, next_renewal: x.next_renewal < todayISO() ? nextRenewalAfter({ ...x, next_renewal: todayISO() }) : x.next_renewal }); toast(tx("{name} is back", { name: x.name }), true); }}>{tx("Restore")}</button></div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
       <section className="card">
         <h2 className="h-m" style={{ marginBottom: 8 }}>{tx("Expenses {period}", { period: periodLabel })}</h2>
@@ -272,7 +295,7 @@ export default function Accounting({ part = "overview", onInvoices }) {
                 <td className="right num"><b>{money(e.amount, e.currency)}</b></td>
                 <td className="right"><button className="btn btn-ghost btn-sm" aria-label={tx("Delete {vendor}", {
                   vendor: e.vendor
-                })} onClick={async () => { await remove("expenses", e.id); toast(tx("Expense deleted")); }}><Icon name="x" /></button></td>
+                })} onClick={async () => { if (!window.confirm(tx("Delete this expense ({vendor}, {amt})? This can't be undone.", { vendor: e.vendor, amt: money(e.amount, e.currency) }))) return; await remove("expenses", e.id); toast(tx("Expense deleted")); }}><Icon name="x" /></button></td>
               </tr>
             ))}
             {!s.expenseRows.length && <tr><td colSpan={5} className="sub">{tx("Nothing in {cur} {period}.", { cur, period: periodLabel })}</td></tr>}

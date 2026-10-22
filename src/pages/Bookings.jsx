@@ -135,7 +135,7 @@ export default function Bookings() {
                   n: n
                 })}</Pill>
                 {b.google_event_id && <span className="gsync" title={tx("Also in Google Calendar")}><Icon name="check" /></span>}
-                <button className="btn btn-ghost btn-sm" aria-label={tx("Cancel booking")} onClick={async () => { await remove("bookings", b.id); toast(tx("Booking cancelled")); }}><Icon name="x" /></button>
+                <button className="btn btn-ghost btn-sm" aria-label={tx("Cancel booking")} onClick={async () => { if (!window.confirm(tx("Cancel {title} on {day}? This removes the booking.", { title: b.title, day: fday(b.starts_at) }))) return; await remove("bookings", b.id); toast(tx("Booking cancelled")); }}><Icon name="x" /></button>
               </div>
             ); })}
             {!up.length && <p className="sub">{tx("Nothing booked yet.")}</p>}

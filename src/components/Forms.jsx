@@ -117,7 +117,8 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
   const { insert, clients, projects, templates, studio } = useData();
   const invTemplates = templates.filter((t) => t.kind === "invoice");
   const preProject = projects.find((p) => p.id === pre);
-  const [f, setF] = useState({ client_id: preProject?.client_id || clients[0]?.id || "", project_id: preProject?.id || "", template: "", kind: startKind });
+  const preClient = !preProject && clients.find((c) => c.id === pre); // opened from a client
+  const [f, setF] = useState({ client_id: preProject?.client_id || preClient?.id || clients[0]?.id || "", project_id: preProject?.id || "", template: "", kind: startKind });
   const clientProjects = useMemo(() => projects.filter((p) => p.client_id === f.client_id), [projects, f.client_id]);
   if (!clients.length) return <FormModal title={tx("New invoice")} onClose={onClose} onSubmit={async () => onClose()} submitLabel="OK"><p className="sub">{tx("Add a client first.")}</p></FormModal>;
   const create = async () => {

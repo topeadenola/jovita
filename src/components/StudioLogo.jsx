@@ -39,6 +39,7 @@ export function LogoUploader({ onUpgrade }) {
     } catch (e) { toast(tx("Couldn't upload the logo: {err}", { err: e.message })); } finally { setBusy(false); }
   };
   const removeLogo = async () => {
+    if (!window.confirm(tx("Remove your logo? It disappears from invoices, galleries and emails."))) return;
     const old = studio.logo_path;
     await updateStudio({ logo_path: null });
     if (old) supabase.storage.from("studio-assets").remove([old]).catch(() => {});

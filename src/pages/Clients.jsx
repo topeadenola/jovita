@@ -3,13 +3,16 @@ import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, CloseBtn, Drawer, Empty, Pill, useToast } from "../components/ui";
-import { fdate, fday, first, money, projPill } from "../lib/format";
+import { fdate, fday, first, invState, money, projPill } from "../lib/format";
+import { BookingForm } from "./Bookings";
 import ImportClients from "../components/ImportClients";
 import { tx } from "../lib/i18n";
 
 function ClientDrawer({ c, onClose }) {
   const { projects, invoices, update, remove } = useData();
-  const { open, setOpenProject } = useUi();
+  const { open, setOpenProject, setOpenInvoice } = useUi();
+  const [booking, setBooking] = useState(false);
+  const docs = invoices.filter((i) => i.client_id === c.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const toast = useToast();
   const [f, setF] = useState({ name: c.name, email: c.email || "", phone: c.phone || "", city: c.city || "", status: c.status });
   const [del, setDel] = useState(false);
@@ -21,6 +24,12 @@ function ClientDrawer({ c, onClose }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
         <div className="who"><Avatar name={c.name} size={52} /><div><h2 className="h-l">{c.name}</h2><p className="sub">{c.city || tx("No city")}· {c.status === "lead" ? tx("Lead") : tx("Client")}{" "}{tx("since")}{" "}{fdate(c.created_at)}</p></div></div>
         <CloseBtn onClick={onClose} />
+      </div>
+      <div className="client-create">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { onClose(); open("quote", c.id); }}><Icon name="file" />{tx("Quote")}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { onClose(); open("invoice", c.id); }}><Icon name="receipt" />{tx("Invoice")}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setBooking(true)}><Icon name="calendar" />{tx("Booking")}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { onClose(); open("project", c.id); }}><Icon name="folder" />{tx("Project")}</button>
       </div>
       {owes.length > 0 && <div className="card" style={{ background: "var(--warning-tint)", borderColor: "var(--warning-tint)" }}><b>{tx("Owes you")}{" "}{owes.map((i) => money(i.amount, i.currency)).join(" + ")}</b></div>}
       <form className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={async (e) => {
@@ -44,6 +53,13 @@ function ClientDrawer({ c, onClose }) {
           {!ps.length && <p className="sub">{tx("No projects yet.")}</p>}
         </div>
       </section>
+      <section className="card">
+        <div className="head" style={{ marginBottom: 8 }}><h3 className="h-m">{tx("Quotes and invoices")}</h3></div>
+        <div className="todo">
+          {docs.map((i) => { const st = invState(i); return (<div className="todo-item" key={i.id}><div className="todo-text"><b>{i.kind === "quote" ? tx("Quote") : tx("Invoice")}{i.number ? ` #${i.number}` : ""}{i.label ? ` · ${i.label}` : ""}</b><span>{fdate(i.created_at)} · {money(i.amount, i.currency)}</span></div><Pill c={st.c}>{tx(st.k)}</Pill><button className="btn btn-ghost btn-sm" onClick={() => { onClose(); setOpenInvoice(i.id); }}>{tx("Open")}</button></div>); })}
+          {!docs.length && <p className="sub">{tx("No quotes or invoices yet.")}</p>}
+        </div>
+      </section>
       {del ? (
         <div className="card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", borderColor: "var(--danger)" }}>
           <p style={{ flex: 1, minWidth: 200 }}>{tx("Delete")}{" "}{first(c.name)}{tx("? This also deletes their projects, invoices and messages.")}</p>
@@ -51,6 +67,7 @@ function ClientDrawer({ c, onClose }) {
           <button className="btn btn-sm" style={{ background: "var(--danger-tint)", color: "var(--danger)" }} onClick={async () => { await remove("clients", c.id); toast(tx("Client deleted")); onClose(); }}>{tx("Delete client")}</button>
         </div>
       ) : <button className="btn btn-ghost" style={{ alignSelf: "flex-start", color: "var(--danger)" }} onClick={() => setDel(true)}>{tx("Delete client")}</button>}
+      {booking && <BookingForm initial={{ client_id: c.id }} onClose={() => setBooking(false)} />}
     </Drawer>
   );
 }

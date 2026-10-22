@@ -1351,3 +1351,16 @@ body{transition:background-color .2s}
 .owed-link b{margin-left:auto;white-space:nowrap}
 .owed-link:hover{border-color:var(--line-strong,#D9CCE6)}
 @media (max-width:600px){.page-tabs{align-self:stretch;flex-wrap:nowrap}.page-tabs button{flex:1 1 0;min-width:0;justify-content:center;padding:10px 4px;font-size:14px;gap:6px}.page-tabs button svg{display:none}.owed-link{flex-wrap:wrap}.owed-link b{margin-left:0}}
+.sub-logo{display:inline-grid;place-items:center;flex:none;border-radius:12px;background:var(--surface,#fff);border:1px solid var(--line);overflow:hidden}
+.sub-logo img{display:block;object-fit:contain}
+.sub-logo b{font-size:16px;color:var(--ink)}
+.sub-name-row{display:flex;gap:12px;align-items:flex-end}
+
+/* Client drawer: create a quote, invoice, booking or project for this client */
+.client-create{display:flex;gap:8px;flex-wrap:wrap}
+.client-create .btn{flex:1 1 auto;justify-content:center}
+/* Cancelled subscriptions, folded away with Restore */
+.sub-cancelled{margin-top:12px}
+.sub-cancelled summary{cursor:pointer;font-size:13px;padding:6px 0}
+.sub-cancelled .todo-item{opacity:.75}
+@media (max-width:600px){.client-create{display:grid;grid-template-columns:1fr 1fr}}

@@ -113,7 +113,7 @@ function JovitaMemory() {
     if (error) return toast(error.message);
     setText(""); load(); toast(tx("Jovita will remember that"), true);
   };
-  const del = async (id) => { await supabase.from("jovita_memory").delete().eq("id", id); load(); };
+  const del = async (id) => { if (!window.confirm(tx("Forget this? Jovita won't use it in answers any more."))) return; await supabase.from("jovita_memory").delete().eq("id", id); load(); };
   const EXAMPLES = [tx("My wedding package is ₦850,000 for 8 hours with 2 photographers."), tx("I ask for a 50% deposit to lock in a date."), tx("Galleries are delivered within 3 weeks."), tx("I sign off as Tope.")];
   return (
     <section className="card set-card">

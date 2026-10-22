@@ -5,10 +5,11 @@ import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
-import { Avatar, Empty, Pill, Toggle, useToast } from "../components/ui";
+import { Avatar, CloseBtn, Empty, Modal, Pill, Toggle, useToast } from "../components/ui";
 import { balanceOf, fdate, invState, money, totalLine, totalsBy } from "../lib/format";
 import { tx } from "../lib/i18n";
-import { receipts } from "../lib/accounting";
+import { PERIODS, receipts } from "../lib/accounting";
+import { downloadMoneyWorkbook } from "../lib/moneyExport";
 
 const TABS = ["All", "Overdue", "Due soon", "Part paid", "Check payment", "Sent", "Paid", "Draft", "Quotes"];
 const inTab = (i, tab) => tab === "All" || (tab === "Quotes" ? i.kind === "quote" : i.kind !== "quote" && (invState(i).k === tab || (tab === "Sent" && invState(i).k === "Viewed") || (tab === "Draft" && i.status === "draft")));
@@ -89,6 +90,30 @@ function Invoices() {
 // Money: one place for everything about money, in three tabs.
 // Overview (earned, spent, profit), Invoices (quotes and invoices), Expenses (subscriptions and costs).
 const MONEY_TABS = [["overview", "Overview", "chart"], ["invoices", "Invoices", "receipt"], ["expenses", "Expenses", "wallet"]];
+// Everything in Money for one period, as an Excel file for an accountant
+function ExportMoney({ onClose }) {
+  const data = useData();
+  const toast = useToast();
+  const [period, setPeriod] = useState("last");
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try { await downloadMoneyWorkbook(data, period, (id) => data.client(id)?.name || "", (id) => data.project(id)?.title || ""); toast(tx("Spreadsheet downloaded"), true); onClose(); }
+    catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); setBusy(false); }
+  };
+  return (
+    <Modal label={tx("Export for accountant")} onClose={() => !busy && onClose()}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 className="h-l">{tx("Export for accountant")}</h2><CloseBtn onClick={() => !busy && onClose()} /></div>
+        <p className="sub">{tx("One Excel file with a summary for each currency, every payment that came in, your invoices and quotes, expenses and subscriptions.")}</p>
+        <div className="field"><label>{tx("Which period?")}</label>
+          <div className="seg" role="group" aria-label={tx("Period")}>{PERIODS.map(([k, l]) => <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}>{tx(l)}</button>)}</div></div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" disabled={busy} onClick={onClose}>{tx("Cancel")}</button><button type="button" className="btn btn-primary" disabled={busy} onClick={go}><Icon name="file" />{busy ? tx("Preparing…") : tx("Download Excel file")}</button></div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Money() {
   const [params, setParams] = useSearchParams();
   const { invoices } = useData();
@@ -97,9 +122,11 @@ export default function Money() {
   const tab = q && picked === "overview" ? "invoices" : picked; // searching shows the invoices it finds
   const go = (k) => setParams(k === "overview" ? {} : { tab: k }, { replace: true });
   const overdue = invoices.filter((i) => i.kind !== "quote" && invState(i).k === "Overdue").length;
+  const [exporting, setExporting] = useState(false);
   return (
     <>
-      <div className="head"><div><p className="eyebrow">{tx("Money")}</p><h1 className="h-l">{tab === "invoices" ? tx("Invoices and payments") : tab === "expenses" ? tx("What you spend") : tx("What you made and spent")}</h1></div></div>
+      <div className="head"><div><p className="eyebrow">{tx("Money")}</p><h1 className="h-l">{tab === "invoices" ? tx("Invoices and payments") : tab === "expenses" ? tx("What you spend") : tx("What you made and spent")}</h1></div>
+        <button type="button" className="btn btn-secondary" onClick={() => setExporting(true)}><Icon name="file" />{tx("Export for accountant")}</button></div>
       <div className="page-tabs" role="tablist" aria-label={tx("Money")}>
         {MONEY_TABS.map(([k, label, icon]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => go(k)}>
@@ -108,6 +135,7 @@ export default function Money() {
         ))}
       </div>
       {tab === "invoices" ? <Invoices /> : <Accounting part={tab} onInvoices={() => go("invoices")} />}
+      {exporting && <ExportMoney onClose={() => setExporting(false)} />}
     </>
   );
 }
