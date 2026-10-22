@@ -2,6 +2,7 @@
 // Fonts: Figtree for text, Bricolage Grotesque for headings and amounts (it has ₦ and ₵; Figtree doesn't).
 import { tx } from "./i18n";
 import { fdate, money } from "./format";
+import { supabase } from "../supabase";
 
 const PLUM = [38, 20, 51], MUTED = [94, 80, 105], LINE = [228, 220, 238], SUNKEN = [243, 237, 251], GOOD = [31, 122, 77], GOOD_TINT = [227, 245, 235];
 const FONTS = [["Figtree_400Regular.ttf", "Figtree", "normal"], ["Figtree_700Bold.ttf", "Figtree", "bold"], ["BricolageGrotesque_400Regular.ttf", "Bricolage", "normal"], ["BricolageGrotesque_700Bold.ttf", "Bricolage", "bold"]];
@@ -12,23 +13,31 @@ async function loadFonts() {
   if (!fontCache) fontCache = Promise.all(FONTS.map(async ([f]) => toB64(await (await fetch(`/fonts/${f}`)).arrayBuffer())));
   return fontCache;
 }
-async function loadImage(url) {
-  if (!url) return null;
+// The studio logo: straight from storage first (always allowed), then the public link
+async function logoBlob(path, url) {
+  if (path) { try { const { data } = await supabase.storage.from("studio-assets").download(path); if (data?.size) return data; } catch { /* try the link */ } }
+  if (url) { try { const r = await fetch(url, { mode: "cors", cache: "no-store" }); if (r.ok) return await r.blob(); } catch { /* no logo */ } }
+  return null;
+}
+async function loadImage(path, url) {
+  const blob = await logoBlob(path, url);
+  if (!blob) return null;
   try {
-    const blob = await (await fetch(url)).blob();
-    const src = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+    const src = URL.createObjectURL(blob);
     const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
-    // Redraw as PNG so any image type works, and keep its shape
-    const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
-    c.getContext("2d").drawImage(img, 0, 0);
-    return { data: c.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight };
+    // Redraw as PNG so any image type works (SVG, WebP, JPG), and keep its shape
+    const scale = Math.min(1, 600 / Math.max(img.naturalWidth || 600, img.naturalHeight || 600)) || 1;
+    const c = document.createElement("canvas"); c.width = Math.round((img.naturalWidth || 600) * scale); c.height = Math.round((img.naturalHeight || 600) * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(src);
+    return { data: c.toDataURL("image/png"), w: c.width, h: c.height };
   } catch { return null; }
 }
 
 // doc: { kind, number, status, due_date, created_at, paid_at, amount_paid, currency, items, notes, discount, tax, tax_rate,
 //        subtotal, total, schedule: [{ due, amount }], methods: [labels], studio, client, project, logoUrl, brand }
 export async function invoicePdf(doc) {
-  const [{ jsPDF }, fonts, logo] = await Promise.all([import("jspdf"), loadFonts(), loadImage(doc.logoUrl)]);
+  const [{ jsPDF }, fonts, logo] = await Promise.all([import("jspdf"), loadFonts(), loadImage(doc.logoPath, doc.logoUrl)]);
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   FONTS.forEach(([f, name, style], k) => { pdf.addFileToVFS(f, fonts[k]); pdf.addFont(f, name, style); });
   const W = 210, H = 297, M = 18, R = W - M;

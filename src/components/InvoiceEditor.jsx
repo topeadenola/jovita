@@ -176,7 +176,7 @@ export default function InvoiceEditor({ id, onClose }) {
     try {
       await flush();
       await invoicePdf({ ...inv, ...d, ...t, client: c, project: projects.find((p) => p.id === d.project_id), studio,
-        schedule: d.schedule.length > 1 ? schedRows(d, t) : [], logoUrl: studio.plan === "free" ? "" : logoUrl(studio.logo_path), brand: studio.plan === "free",
+        schedule: d.schedule.length > 1 ? schedRows(d, t) : [], logoPath: studio.plan === "free" ? "" : studio.logo_path, logoUrl: studio.plan === "free" ? "" : logoUrl(studio.logo_path), brand: studio.plan === "free",
         methods: d.methods.map((m) => tx((METHODS.find((x) => x[0] === m) || [m, m])[1])) });
       toast(tx("PDF downloaded"), true);
     } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
