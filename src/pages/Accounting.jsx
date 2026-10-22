@@ -208,11 +208,11 @@ export default function Accounting({ part = "overview", onInvoices }) {
       <div className="money-bar">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div className="seg" role="group" aria-label={tx("Period")}>{PERIODS.map(([k, l]) => <button key={k} aria-pressed={period === k} onClick={() => setPeriod(k)}>{tx(l)}</button>)}</div>
-          {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
         </div>
-        {part === "expenses" && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn btn-primary" onClick={() => setForm({ kind: "expense" })}><Icon name="plus" />{tx("Add expense")}</button>
-        </div>}
+        <div className="money-bar-end">
+          {curs.length > 1 && <div className="seg" role="group" aria-label={tx("Currency")}>{curs.map((c) => <button key={c} aria-pressed={cur === c} onClick={() => setCur(c)}>{SYM[c]} {c}</button>)}</div>}
+          {part === "expenses" && <button className="btn btn-primary" onClick={() => setForm({ kind: "expense" })}><Icon name="plus" />{tx("Add expense")}</button>}
+        </div>
       </div>
       {part === "overview" && <>
       <div className="grid g-4">

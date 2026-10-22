@@ -6,7 +6,8 @@ import { addDays, balanceOf, CURRENCIES, daysFrom, fdate, invState, isoDay, mone
 import { tx } from "../lib/i18n";
 import { Avatar, Modal, MoneyInput, Pill, Toggle, useToast } from "./ui";
 import Icon, { Mark } from "./Icon";
-import StudioLogo from "./StudioLogo";
+import StudioLogo, { logoUrl } from "./StudioLogo";
+import { invoicePdf } from "../lib/invoicePdf";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -71,7 +72,7 @@ function Preview({ d, t, inv }) {
 }
 
 // Schedule rows hold a percent; the last row takes whatever is left so it always adds up
-function schedRows(d, t) {
+export function schedRows(d, t) {
   let used = 0;
   return d.schedule.map((r, i) => {
     const last = i === d.schedule.length - 1;
@@ -170,6 +171,16 @@ export default function InvoiceEditor({ id, onClose }) {
   const enabled = METHODS.filter((m) => studio[m[2]]);
   const close = async () => { await flush(); onClose(); };
   const quote = inv.kind === "quote";
+  const downloadPdf = async () => {
+    setMenu(false);
+    try {
+      await flush();
+      await invoicePdf({ ...inv, ...d, ...t, client: c, project: projects.find((p) => p.id === d.project_id), studio,
+        schedule: d.schedule.length > 1 ? schedRows(d, t) : [], logoUrl: studio.plan === "free" ? "" : logoUrl(studio.logo_path), brand: studio.plan === "free",
+        methods: d.methods.map((m) => tx((METHODS.find((x) => x[0] === m) || [m, m])[1])) });
+      toast(tx("PDF downloaded"), true);
+    } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
+  };
   const title = quote ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number });
   const send = async () => { await flush(); await invoiceAction({ ...inv, ...d, amount: t.total }, "send", { copy_me: copyMe }); onClose(); };
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
@@ -205,6 +216,7 @@ export default function InvoiceEditor({ id, onClose }) {
             <button type="button" className="btn btn-ghost btn-sm" aria-expanded={menu} onClick={() => setMenu(!menu)}>{tx("Actions")} ▾</button>
             {menu && (
               <div className="menu" role="menu" onMouseLeave={() => setMenu(false)}>
+                <button type="button" onClick={downloadPdf}><Icon name="file" />{tx("Download PDF")}</button>
                 {canPay && <button type="button" onClick={async () => { setMenu(false); await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a part payment")}</button>}
                 {inv.status === "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await markUnpaid(); }}><Icon name="x" />{tx("Mark as unpaid")}</button>}
                 {inv.status !== "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction({ ...inv, amount: t.total }, "markpaid"); onClose(); }}><Icon name="check" />{tx("Mark as paid")}</button>}

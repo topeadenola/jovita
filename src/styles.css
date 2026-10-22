@@ -1364,3 +1364,4 @@ body{transition:background-color .2s}
 .sub-cancelled summary{cursor:pointer;font-size:13px;padding:6px 0}
 .sub-cancelled .todo-item{opacity:.75}
 @media (max-width:600px){.client-create{display:grid;grid-template-columns:1fr 1fr}}
+.money-bar-end{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-left:auto}
