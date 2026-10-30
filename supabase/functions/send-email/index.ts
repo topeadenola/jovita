@@ -23,7 +23,7 @@
 const env = (k: string) => Deno.env.get(k) ?? "";
 const APP_URL = env("APP_URL") || "https://app.getjovita.com";
 // Client links in the studio's own name: their domain once it's live, else <name>.getjovita.com (once switched on), else the app
-const STUDIO_LINKS = false;
+const STUDIO_LINKS = true;
 type Site = { custom_domain?: string | null; custom_domain_status?: string | null; slug?: string | null };
 const siteOf = (s: Site | null | undefined) => s?.custom_domain && s.custom_domain_status === "active" ? `https://${s.custom_domain}`
   : STUDIO_LINKS && s?.slug ? `https://${s.slug}.getjovita.com` : APP_URL;
@@ -243,7 +243,8 @@ Deno.serve(async (req) => {
       const c = await one(get(`clients?id=eq.${inv.client_id}&select=name,email`), "Client");
       if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
       const p = inv.project_id ? (await get(`projects?id=eq.${inv.project_id}&select=title,portal_token`))[0] : null;
-      const link = p ? `${siteOf(studio)}/p/${p.portal_token}` : APP_URL;
+      // The client page when there's a project, otherwise the invoice's own page (never the Jovita sign-in)
+      const link = p ? `${siteOf(studio)}/p/${p.portal_token}` : inv.view_token ? `${siteOf(studio)}/i/${inv.view_token}` : APP_URL;
       const due = inv.due_date ? new Date(inv.due_date) : null;
       const daysLeft = due ? Math.round((due.getTime() - Date.now()) / 864e5) : null;
       const due_text = daysLeft == null ? "due soon" : daysLeft > 1 ? `due in ${daysLeft} days` : daysLeft === 1 ? "due tomorrow" : daysLeft === 0 ? "due today" : `${-daysLeft} day${daysLeft === -1 ? "" : "s"} overdue`;

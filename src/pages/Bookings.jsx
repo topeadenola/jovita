@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClientPicker from "../components/ClientPicker";
 import { supabase } from "../supabase";
 import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
@@ -30,7 +31,7 @@ export function BookingForm({ onClose, initial }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 className="h-l">{tx("New booking")}</h2><CloseBtn onClick={onClose} /></div>
         <div className="form-grid">
-          <div className="field"><label htmlFor="b-client">{tx("Client")}</label><select id="b-client" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value, project_id: "" })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="field"><label htmlFor="b-client">{tx("Client")}</label><ClientPicker id="b-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v, project_id: "" })} /></div>
           <div className="field"><label htmlFor="b-project">{tx("Project")}</label><select id="b-project" value={f.project_id} onChange={set("project_id")}><option value="">{tx("None")}</option>{projects.filter((p) => p.client_id === f.client_id).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
         </div>
         <div className="field"><label htmlFor="b-title">{tx("Session")}</label><input id="b-title" list="b-types" value={f.title} onChange={set("title")} /><datalist id="b-types">{session_types.map((s) => <option key={s.id} value={s.name} />)}</datalist></div>

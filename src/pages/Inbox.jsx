@@ -3,6 +3,7 @@ import { useData } from "../lib/data";
 import { supabase } from "../supabase";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
+import ClientPicker from "../components/ClientPicker";
 import { Avatar, Modal, useToast } from "../components/ui";
 import { ago, first } from "../lib/format";
 import { mailLink } from "../lib/voice";
@@ -75,7 +76,7 @@ function LogMessage({ onClose, pre }) {
       }}>
         <p className="sub">{tx("Keep an email or a chat from another app in the client's history by pasting it here.")}</p>
         <div className="form-grid">
-          <div className="field"><label htmlFor="lm-c">{tx("Client")}</label><select id="lm-c" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="field"><label htmlFor="lm-c">{tx("Client")}</label><ClientPicker id="lm-c" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v })} /></div>
           <div className="field"><label htmlFor="lm-ch">{tx("Came from")}</label><select id="lm-ch" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}>{LIVE.map((k) => <option key={k} value={k}>{tx(CH[k].label)}</option>)}</select></div>
         </div>
         <div className="field"><label htmlFor="lm-w">{tx("Who wrote it")}</label><select id="lm-w" value={f.from_client} onChange={(e) => setF({ ...f, from_client: e.target.value })}><option value="yes">{tx("The client")}</option><option value="no">{tx("You")}</option></select></div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import ClientPicker from "./ClientPicker";
 import { useData } from "../lib/data";
 import { CURRENCIES, PROJECT_TYPES, SYM, addDays, first, money } from "../lib/format";
 import { CloseBtn, Modal, MoneyInput, useToast } from "./ui";
@@ -92,7 +93,7 @@ export function ProjectForm({ pre, onClose, onCreated }) {
       onCreated ? onCreated(p) : onClose();
     }}>
       <div className="field"><label htmlFor="p-client">{tx("Client")}</label>
-        <select id="p-client" value={f.client_id} onChange={set("client_id")}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <ClientPicker id="p-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v })} /></div>
       <div className="form-grid">
         <div className="field"><label htmlFor="p-title">{tx("What's the job?")}</label><input id="p-title" autoFocus value={f.title} onChange={set("title")} placeholder={tx("e.g. Engagement shoot")} /></div>
         <div className="field"><label htmlFor="p-type">{tx("Type")}</label><select id="p-type" value={f.type} onChange={set("type")}>{PROJECT_TYPES.map((t) => <option key={t} value={t}>{tx(t)}</option>)}</select></div>
@@ -145,7 +146,7 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
       </div>
       {f.kind === "quote" && <p className="sub" style={{ fontSize: 13 }}>{tx("Your client accepts the quote on their page. It then turns into an invoice they can pay, and the job is booked.")}</p>}
       <div className="field"><label htmlFor="i-client">{tx("Client")}</label>
-        <select id="i-client" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value, project_id: latestFor(e.target.value) })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <ClientPicker id="i-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v, project_id: latestFor(v) })} /></div>
       <div className="field"><label htmlFor="i-project">{tx("Project")}</label>
         <select id="i-project" value={f.project_id} onChange={(e) => setF({ ...f, project_id: e.target.value })}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
       {invTemplates.length > 0 && (

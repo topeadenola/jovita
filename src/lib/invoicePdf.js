@@ -82,7 +82,7 @@ export async function invoicePdf(doc) {
   head();
   (doc.items || []).forEach((it) => {
     font("Figtree", "normal", MUTED, 9);
-    const desc = it.description ? pdf.splitTextToSize(String(it.description), cQty - M - 50) : [];
+    const desc = it.description ? pdf.splitTextToSize(String(it.description).split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim(), cQty - M - 50) : [];
     font("Figtree", "bold", PLUM, 10.5);
     const name = pdf.splitTextToSize(it.name || tx("Item"), cQty - M - 50);
     const h = name.length * 5 + desc.length * 4.2 + 5;
@@ -136,11 +136,22 @@ export async function invoicePdf(doc) {
     y += 4;
   }
 
-  // How to pay
-  if ((doc.methods || []).length) {
-    room(12);
-    pdf.setDrawColor(...LINE); pdf.line(M, y, R, y); y += 7;
-    font("Figtree", "normal", MUTED, 10); pdf.text(`${tx("Pay by")}: ${doc.methods.join(", ")}`, M, y);
+  // How to pay: the bank account for transfers, and the online payment link
+  if ((doc.methods || []).length || doc.bank || doc.payLink) {
+    font("Figtree", "normal", PLUM, 10);
+    const bankLines = doc.bank ? pdf.splitTextToSize(String(doc.bank), R - M - 12) : [];
+    const h = 16 + (doc.methods?.length ? 6 : 0) + bankLines.length * 5.2 + (doc.payLink ? 12 : 0);
+    room(h + 4);
+    pdf.setFillColor(...SUNKEN); pdf.roundedRect(M, y, R - M, h, 3, 3, "F");
+    let py = y + 8;
+    font("Figtree", "bold", PLUM, 11); pdf.text(quote ? tx("How to pay once you accept") : tx("How to pay"), M + 6, py); py += 6;
+    if (doc.methods?.length) { font("Figtree", "normal", MUTED, 9.5); pdf.text(`${tx("Pay by")}: ${doc.methods.join(", ")}`, M + 6, py); py += 6; }
+    if (bankLines.length) { font("Figtree", "normal", PLUM, 10); bankLines.forEach((l) => { pdf.text(l, M + 6, py); py += 5.2; }); }
+    if (doc.payLink) {
+      py += 2; font("Figtree", "normal", MUTED, 9.5); pdf.text(tx("Pay online or see this invoice:"), M + 6, py); py += 5;
+      font("Figtree", "bold", PLUM, 10); pdf.textWithLink(doc.payLink, M + 6, py, { url: doc.payLink });
+    }
+    y += h + 6;
   }
 
   // Footer on every page

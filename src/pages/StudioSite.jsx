@@ -9,6 +9,7 @@ import { logoUrl } from "../components/StudioLogo";
 import { Mark } from "../components/Icon";
 import ClientGallery from "./ClientGallery";
 import Portal from "./Portal";
+import InvoiceView from "./InvoiceView";
 
 function useSite() {
   const [site, setSite] = useState(undefined);
@@ -57,6 +58,7 @@ export default function StudioSite() {
     <Routes>
       <Route path="/g/:token" element={<ClientGallery />} />
       <Route path="/p/:token" element={<Portal />} />
+      <Route path="/i/:token" element={<InvoiceView />} />
       <Route path="/:slug" element={<NamedGallery />} />
       <Route path="*" element={<Home />} />
     </Routes>

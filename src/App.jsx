@@ -20,6 +20,7 @@ import { useLang } from "./components/Lang";
 import Onboarding from "./pages/Onboarding";
 import ClientGallery from "./pages/ClientGallery";
 import StudioSite from "./pages/StudioSite";
+import InvoiceView from "./pages/InvoiceView";
 import { onStudioHost } from "./lib/links";
 import { SpotlightList, SpotlightPost } from "./pages/Spotlight";
 import { LeaveGuard } from "./lib/unsaved";
@@ -102,6 +103,7 @@ function JovitaApp() {
     <Routes>
       <Route path="/p/:token" element={<Portal />} />
       <Route path="/g/:token" element={<ClientGallery />} />
+      <Route path="/i/:token" element={<InvoiceView />} />
       {["/about", "/help", "/privacy", "/pricing"].map((p) => <Route key={p} path={p} element={<ToSite />} />)}
       <Route path="/spotlight" element={<SpotlightList />} />
       <Route path="/spotlight/:slug" element={<SpotlightPost />} />

@@ -2,17 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
-import { addDays, balanceOf, CURRENCIES, daysFrom, fdate, invState, isoDay, money, SYM } from "../lib/format";
+import { addDays, balanceOf, CURRENCIES, daysFrom, fdate, invState, isoDay, money, portalUrl, SYM } from "../lib/format";
+import { bankText } from "../lib/payments";
+import { supabase } from "../supabase";
 import { tx } from "../lib/i18n";
 import { Avatar, Modal, MoneyInput, Pill, Toggle, useToast } from "./ui";
 import Icon, { Mark } from "./Icon";
 import StudioLogo, { logoUrl } from "./StudioLogo";
+import ClientPicker from "./ClientPicker";
+import { studioBase } from "../lib/links";
 import { invoicePdf } from "../lib/invoicePdf";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const REMIND = [[-7, "7 days before"], [0, "On due date"], [3, "3 days after"], [7, "7 days after"], [14, "14 days after"]];
-const METHODS = [["transfer", "Bank transfer", "pay_transfer"], ["paystack", "Paystack", "pay_paystack"], ["flutterwave", "Flutterwave", "pay_flutterwave"], ["stripe", "Card (Stripe)", "pay_stripe"], ["paypal", "PayPal", "pay_paypal"]];
+export const METHODS = [["transfer", "Bank transfer", "pay_transfer"], ["paystack", "Paystack", "pay_paystack"], ["flutterwave", "Flutterwave", "pay_flutterwave"], ["stripe", "Card (Stripe)", "pay_stripe"], ["paypal", "PayPal", "pay_paypal"]];
 
 export function totals(d) {
   const subtotal = (d.items || []).reduce((s, it) => s + n(it.qty) * n(it.price), 0);
@@ -171,12 +175,25 @@ export default function InvoiceEditor({ id, onClose }) {
   const enabled = METHODS.filter((m) => studio[m[2]]);
   const close = async () => { await flush(); onClose(); };
   const quote = inv.kind === "quote";
+  // Where the money goes: the studio's bank account (for this currency) and the client page link for paying online
+  const payInfo = async () => {
+    let bank = "";
+    if (!d.methods.length || d.methods.includes("transfer")) {
+      const { data } = await supabase.from("payment_accounts").select("provider, enabled, details").eq("studio_id", studio.id).eq("provider", "bank").eq("enabled", true);
+      const fit = (data || []).filter((a) => !a.details?.currency || a.details.currency === d.currency);
+      bank = fit.map((a) => bankText(a.details)).filter(Boolean).join("\n\n") || String(studio.bank_details || "").trim();
+    }
+    const proj = projects.find((p) => p.id === d.project_id);
+    const online = d.methods.some((m) => m !== "transfer");
+    const own = inv.view_token ? `${studioBase()}/i/${inv.view_token}` : "";
+    return { bank, payLink: proj?.portal_token && (online || !bank) ? portalUrl(proj.portal_token) : own };
+  };
   const downloadPdf = async () => {
     setMenu(false);
     try {
       await flush();
       await invoicePdf({ ...inv, ...d, ...t, client: c, project: projects.find((p) => p.id === d.project_id), studio,
-        schedule: d.schedule.length > 1 ? schedRows(d, t) : [], logoPath: studio.plan === "free" ? "" : studio.logo_path, logoUrl: studio.plan === "free" ? "" : logoUrl(studio.logo_path), brand: studio.plan === "free",
+        schedule: d.schedule.length > 1 ? schedRows(d, t) : [], ...(await payInfo()), logoPath: studio.plan === "free" ? "" : studio.logo_path, logoUrl: studio.plan === "free" ? "" : logoUrl(studio.logo_path), brand: studio.plan === "free",
         methods: d.methods.map((m) => tx((METHODS.find((x) => x[0] === m) || [m, m])[1])) });
       toast(tx("PDF downloaded"), true);
     } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
@@ -246,7 +263,7 @@ export default function InvoiceEditor({ id, onClose }) {
                   <div style={{ flex: 1, minWidth: 0 }}><b>{c.name}</b><div className="sub" style={{ fontSize: 13 }}>{[c.email, c.phone].filter(Boolean).join(" · ") || tx("No contact details yet")}</div></div>
                 </div>
                 <div className="form-grid">
-                  <Field label={tx("Client")} id="ie-client"><select id="ie-client" value={d.client_id} onChange={(e) => setD((x) => ({ ...x, client_id: e.target.value, project_id: "" }))}>{clients.map((cl) => <option key={cl.id} value={cl.id}>{cl.name}</option>)}</select></Field>
+                  <Field label={tx("Client")} id="ie-client"><ClientPicker id="ie-client" value={d.client_id} clients={clients} onChange={(v) => setD((x) => ({ ...x, client_id: v, project_id: "" }))} /></Field>
                   <Field label={tx("Project")} id="ie-project"><select id="ie-project" value={d.project_id} onChange={(e) => set("project_id", e.target.value)}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></Field>
                 </div>
                 <Field label={quote ? tx("Quote title") : tx("Invoice title")} id="ie-label" help={tx("Shown to your client, e.g. \"Wedding balance\". Leave blank to use the first item.")}><input id="ie-label" value={d.label} onChange={(e) => set("label", e.target.value)} placeholder={tx("e.g. Deposit (50%)")} /></Field>

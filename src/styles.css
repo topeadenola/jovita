@@ -1380,3 +1380,25 @@ body{transition:background-color .2s}
 .dns-table{border-collapse:collapse;font-size:14px}
 .dns-table th{text-align:left;color:var(--muted);font-weight:600;padding:4px 16px 4px 0}
 .dns-table td{padding:4px 0}
+/* Searchable client picker */
+.cpick{position:relative}
+.cpick-list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-pop);padding:6px;z-index:40;display:flex;flex-direction:column;max-height:320px;overflow:auto}
+.cpick-list button{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;background:transparent;border-radius:10px;cursor:pointer;text-align:left;color:var(--ink)}
+.cpick-list button.hi,.cpick-list button:hover{background:var(--lilac)}
+.cpick-list button span{display:flex;flex-direction:column;min-width:0}
+.cpick-list button b{font-size:14px;font-weight:600}
+.cpick-list button small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpick-list .sub{font-size:13px;padding:8px 10px}
+.cpick-more{border-top:1px solid var(--line);margin-top:4px}
+/* A client's own invoice page */
+.iv-wrap{min-height:100vh;background:var(--paper);padding:32px 16px}
+.iv{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+.iv-logo{max-width:96px;max-height:48px;object-fit:contain}
+.iv-side{display:flex;flex-direction:column;gap:12px;position:sticky;top:24px}
+.iv-pay{display:flex;flex-direction:column;gap:12px}
+.iv-amt{display:flex;flex-direction:column;gap:2px}.iv-amt b{font-family:var(--font-display);font-size:28px;line-height:34px}
+.iv-bank{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;background:var(--sunken)}
+.iv-bank pre{margin:0;font:inherit;font-size:14px;line-height:22px;white-space:pre-wrap;color:var(--ink)}
+.iv-paid{display:flex;gap:12px;align-items:center}.iv-paid svg{width:28px;height:28px;color:var(--success)}
+@media (max-width:820px){.iv{grid-template-columns:1fr}.iv-side{position:static}}
+.doc-table td.right{padding-left:12px}

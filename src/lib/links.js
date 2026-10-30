@@ -3,8 +3,8 @@
 //   gallery.horploadworks.com/segun-40th        Studio plan, their own domain (once it's connected)
 // Links built before the studio's details load, or on a computer without the live setup, use the current address.
 
-// Turned on once *.getjovita.com points at the app (Cloudflare DNS + route). Until then links stay on app.getjovita.com.
-export const STUDIO_LINKS = false;
+// On: *.getjovita.com points at the app (Cloudflare DNS + route, set up 30 Oct 2026).
+export const STUDIO_LINKS = true;
 export const ROOT = "getjovita.com";
 const APP_HOSTS = ["app.getjovita.com", "getjovita.com", "www.getjovita.com"];
 
