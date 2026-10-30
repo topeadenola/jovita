@@ -7,7 +7,11 @@ export default {
     const mail = await PostalMime.parse(raw);
     // Newsletters and shop emails (AliExpress, Jumia…) carry list headers; real clients don't
     const h = (k) => (message.headers.get(k) || "").toLowerCase();
-    const bulk = !!(h("list-unsubscribe") || h("list-id") || /bulk|list|junk/.test(h("precedence")) || /^auto-(generated|replied)/.test(h("auto-submitted")));
+    // Check the parsed message too: forwarded mail (e.g. from Gmail) can carry these inside it
+    const ph = (k) => ((mail.headers || []).find((x) => x.key === k)?.value || "").toLowerCase();
+    const any = (k) => h(k) || ph(k);
+    const bulk = !!(any("list-unsubscribe") || any("list-id") || /bulk|list|junk/.test(any("precedence")) || /^auto-(generated|replied)/.test(any("auto-submitted"))
+      || any("x-campaign") || any("x-mailgun-tag") || any("x-sg-eid") || any("feedback-id") || any("x-mc-user"));
     const body = {
       bulk,
       to: message.to,

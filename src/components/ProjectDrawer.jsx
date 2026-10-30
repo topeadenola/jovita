@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
-import { STAGES, STAGE_LABEL, first, fday, invState, money, nextStep, portalUrl, projPill } from "../lib/format";
+import { PROJECT_TYPES, STAGES, STAGE_LABEL, first, fday, invState, money, nextStep, portalUrl, projPill } from "../lib/format";
+import { CurrencySelect } from "./Forms";
 import Icon from "./Icon";
-import { Avatar, CloseBtn, CopyBox, Drawer, Pill, useToast } from "./ui";
+import { Avatar, CloseBtn, CopyBox, Drawer, MoneyInput, Pill, useToast } from "./ui";
 import { tx } from "../lib/i18n";
 import { useUi } from "./Shell";
 
@@ -14,11 +15,14 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const ui = useUi();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const p = project(id);
+  const [f, setF] = useState(() => p ? { title: p.title, type: p.type, session_date: p.session_date || "", amount: String(Number(p.amount) || ""), currency: p.currency } : null);
+  const [saving, setSaving] = useState(false);
   if (!p) return null;
   const c = client(p.client_id);
   const n = nextStep(p);
   const pill = projPill(p);
   const inv = invoices.filter((i) => i.project_id === p.id);
+  const invTotal = inv.filter((i) => i.kind !== "quote" && i.status !== "cancelled" && i.status !== "draft" && i.currency === p.currency).reduce((a, i) => a + Number(i.amount || 0), 0);
   const contracts = templates.filter((t) => t.kind === "contract");
   const releases = templates.filter((t) => t.kind === "model_release");
   const steps = [
@@ -60,6 +64,24 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
             <select id="pd-dep" value={p.deposit_paid ? "y" : "n"} onChange={(e) => set({ deposit_paid: e.target.value === "y" })}><option value="n">{tx("Not paid")}</option><option value="y">{tx("Paid")}</option></select></div>
         </div>
       </section>
+      <form className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={async (e) => {
+        e.preventDefault();
+        if (!f.title.trim()) return toast(tx("Say what the job is, e.g. Engagement shoot."));
+        setSaving(true);
+        await set({ title: f.title.trim(), type: f.type, session_date: f.session_date || null, amount: Number(f.amount) || 0, currency: f.currency }, tx("Project saved"));
+        setSaving(false);
+      }}>
+        <h3 className="h-m">{tx("Details")}</h3>
+        <div className="form-grid">
+          <div className="field"><label htmlFor="pd-title">{tx("What's the job?")}</label><input id="pd-title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+          <div className="field"><label htmlFor="pd-type">{tx("Type")}</label><select id="pd-type" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>{[...new Set([...PROJECT_TYPES, f.type])].map((t) => <option key={t} value={t}>{tx(t)}</option>)}</select></div>
+          <div className="field"><label htmlFor="pd-date">{tx("Session date")}</label><input id="pd-date" type="date" value={f.session_date} onChange={(e) => setF({ ...f, session_date: e.target.value })} /></div>
+          <div className="field"><label htmlFor="pd-fee">{tx("Fee")}</label><MoneyInput id="pd-fee" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} />
+            {invTotal > 0 && Math.round(invTotal) !== Math.round(Number(f.amount) || 0) && <span className="help">{tx("Invoiced so far: {amt}.", { amt: money(invTotal, p.currency) })} <button type="button" className="linkish" onClick={() => setF({ ...f, amount: String(invTotal) })}>{tx("Use this")}</button></span>}</div>
+          <div className="field"><label htmlFor="pd-cur">{tx("Currency")}</label><CurrencySelect id="pd-cur" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} /></div>
+        </div>
+        <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={saving}>{saving ? tx("Saving…") : tx("Save")}</button>
+      </form>
       <section className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h3 className="h-m">{tx("Client portal")}</h3>
         <p className="sub" style={{ fontSize: 13 }}>{tx("One link where")}{" "}{first(c.name)}{" "}{tx("signs, pays and sees the gallery. No account needed.")}</p>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../lib/data";
+import { supabase } from "../supabase";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, Modal, useToast } from "../components/ui";
@@ -87,6 +88,16 @@ function LogMessage({ onClose, pre }) {
 
 export default function Inbox() {
   const { messages, client, clients, projects, insert, update, reload, studio, calendar_connections = [] } = useData();
+  const [deciding, setDeciding] = useState(false);
+  // Someone who emailed but isn't a client yet: add them, or say they're not a client (their emails are ignored from then on)
+  const addAsClient = async (who) => { setDeciding(true); try { await update("clients", who.id, { status: "lead" }); toast(tx("{name} added to your clients", { name: who.name }), true); } catch (e) { toast(e.message); } setDeciding(false); };
+  const notAClient = async (who) => {
+    if (!window.confirm(tx("{name} isn't a client? Their messages are removed and future emails from {email} won't show in Jovita.", { name: who.name, email: who.email || tx("them") }))) return;
+    setDeciding(true);
+    try { const { error } = await supabase.rpc("block_sender", { p_client: who.id }); if (error) throw error; setSel(null); await reload(); toast(tx("Removed. Jovita will ignore their emails."), true); }
+    catch (e) { toast(/block_sender/.test(e.message) ? tx("Run update 25 in Supabase first.") : e.message); }
+    setDeciding(false);
+  };
   const inboxAddr = studio?.inbox_name || studio?.inbox_code ? `inbox+${studio.inbox_name || studio.inbox_code}@getjovita.com` : "";
   const calOn = calendar_connections.length > 0;
   const navigate = useNavigate();
@@ -191,6 +202,7 @@ export default function Inbox() {
             <button className="thread" key={x.cid} aria-current={x.cid === t.cid} onClick={() => setSel(x.cid)}>
               <Avatar name={cc.name} />
               <div className="t-body"><div className="t-top"><b>{cc.name}</b><span>{ago(x.last.created_at)}</span></div>
+                {cc.status === "inbox" && <span className="t-new">{tx("Not a client yet")}</span>}
                 <p>{x.unread && <b style={{ fontSize: 13 }}>● </b>}{x.last.body}</p>
                 <span className="t-chans">{x.chans.map((ch) => <ChannelBadge key={ch} ch={ch} />)}</span></div>
             </button>
@@ -199,6 +211,15 @@ export default function Inbox() {
         <div className="convo">
           <div className="convo-head"><Avatar name={c.name} /><div style={{ flex: 1, minWidth: 0 }}><b>{c.name}</b><p className="sub" style={{ fontSize: 13 }}>{[c.phone, c.email].filter(Boolean).join(" · ")}</p></div>
             {proj && <button className="btn btn-secondary btn-sm" onClick={() => setOpenProject(proj.id)}><Icon name="folder" />{proj.title}</button>}</div>
+          {c.status === "inbox" && (
+            <div className="sender-new">
+              <span><b>{tx("Not in your clients yet.")}</b> {tx("Is {name} a client or someone you'll work with?", { name: first(c.name) })}</span>
+              <div className="sender-acts">
+                <button type="button" className="btn btn-primary btn-sm" disabled={deciding} onClick={() => addAsClient(c)}><Icon name="plus" />{tx("Add as client")}</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={deciding} onClick={() => notAClient(c)}>{tx("Not a client")}</button>
+              </div>
+            </div>
+          )}
           <div className="msgs" ref={box}>
             {t.msgs.map((m) => (
               <div className={`msg ${m.from_client ? "" : "me"}`} key={m.id}>

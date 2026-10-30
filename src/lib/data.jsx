@@ -47,8 +47,9 @@ export function DataProvider({ session, children }) {
     return data;
   };
   const update = async (table, id, patch) => {
-    const { error } = await supabase.from(table).update(patch).eq("id", id);
+    const { data, error } = await supabase.from(table).update(patch).eq("id", id).select("id");
     if (error) throw error;
+    if (!data?.length) throw new Error("That change didn't save. Refresh the page and try again.");
     await load();
     pushCal(table);
   };
@@ -66,10 +67,14 @@ export function DataProvider({ session, children }) {
   };
 
   const client = (id) => (state.clients || []).find((c) => c.id === id) || { name: "Unknown client", city: "" };
+  // People who emailed you but aren't clients yet live only in the Inbox until you add them
+  const all = state.clients || [];
+  const clients = all.filter((c) => c.status !== "inbox");
+  const senders = all.filter((c) => c.status === "inbox");
   const project = (id) => (state.projects || []).find((p) => p.id === id);
 
   return (
-    <DataCtx.Provider value={{ ...state, reload: load, insert, update, remove, updateStudio, client, project, session }}>
+    <DataCtx.Provider value={{ ...state, clients, senders, reload: load, insert, update, remove, updateStudio, client, project, session }}>
       {children}
     </DataCtx.Provider>
   );

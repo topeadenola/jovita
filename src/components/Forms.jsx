@@ -29,7 +29,7 @@ function FormModal({ title, onClose, onSubmit, submitLabel, children, wide }) {
   );
 }
 
-const CurrencySelect = ({ id, value, onChange }) => (
+export const CurrencySelect = ({ id, value, onChange }) => (
   <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
     {CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}
   </select>
@@ -118,7 +118,10 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
   const invTemplates = templates.filter((t) => t.kind === "invoice");
   const preProject = projects.find((p) => p.id === pre);
   const preClient = !preProject && clients.find((c) => c.id === pre); // opened from a client
-  const [f, setF] = useState({ client_id: preProject?.client_id || preClient?.id || clients[0]?.id || "", project_id: preProject?.id || "", template: "", kind: startKind });
+  // A client's most recent job that isn't finished, so invoices land on the right project by default
+  const latestFor = (cid) => projects.filter((p) => p.client_id === cid && p.stage !== "delivered").sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0]?.id || "";
+  const startClient = preProject?.client_id || preClient?.id || clients[0]?.id || "";
+  const [f, setF] = useState({ client_id: startClient, project_id: preProject?.id || latestFor(startClient), template: "", kind: startKind });
   const clientProjects = useMemo(() => projects.filter((p) => p.client_id === f.client_id), [projects, f.client_id]);
   if (!clients.length) return <FormModal title={tx("New invoice")} onClose={onClose} onSubmit={async () => onClose()} submitLabel="OK"><p className="sub">{tx("Add a client first.")}</p></FormModal>;
   const create = async () => {
@@ -142,7 +145,7 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
       </div>
       {f.kind === "quote" && <p className="sub" style={{ fontSize: 13 }}>{tx("Your client accepts the quote on their page. It then turns into an invoice they can pay, and the job is booked.")}</p>}
       <div className="field"><label htmlFor="i-client">{tx("Client")}</label>
-        <select id="i-client" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value, project_id: "" })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <select id="i-client" value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value, project_id: latestFor(e.target.value) })}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div className="field"><label htmlFor="i-project">{tx("Project")}</label>
         <select id="i-project" value={f.project_id} onChange={(e) => setF({ ...f, project_id: e.target.value })}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
       {invTemplates.length > 0 && (

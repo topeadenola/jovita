@@ -1,7 +1,7 @@
 // Client emails into the Jovita Inbox.
 //
 // Cloudflare Email Routing sends anything addressed to inbox+<studio name or code>@getjovita.com to the jovita-mail Worker,
-// which posts it here. We find the studio by <code>, match the sender to a client (or add them as a new lead),
+// which posts it here. We find the studio by <code>, match the sender to a client (or keep a new sender in the Inbox),
 // save it as an Inbox message, and send the creative a copy so nothing is missed.
 //
 // Secrets (Supabase → Edge Functions → Secrets): INBOUND_SECRET (the same value as in the jovita-mail Worker), BREVO_API_KEY.
@@ -13,6 +13,14 @@ const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { sta
 
 // Senders that are machines, not clients: we pass these to the creative but don't make them clients
 const SYSTEM = /(no-?reply|mailer-daemon|postmaster|forwarding-noreply@google\.com|notifications?@|bounce)/i;
+// Shops, newsletters and company mail: sent from marketing subdomains (mail.salesforce.com, newarrival.aliexpress.com,
+// info.ebay.com), from big platforms, or by automated addresses. Real clients write from their own address.
+const BULK_FROM = [
+  /(newsletter|marketing|deals|promo|offers|news@|mailer|digest|updates@|alerts?@|billing|invoice@|receipts?@|orders?@|account@|security@|techcomms|ae-[a-z-]+\d*@)/i,
+  /@(mail|email|e|em|eml|info|news|newsletter|deals|newarrival|marketing|mkt|promo|offers|notify|notification|notifications|updates|comms|send|sender|campaign|edm|crm|go|t|m|r|mg|sg|ml|reply|txn|transactional|accounts?)\d*\.[a-z0-9-]+\.[a-z.]+$/i,
+  /@([a-z0-9-]+\.)*(aliexpress|ebay|amazon|amazonses|jumia|konga|temu|shein|alibaba|stripe|paypal|paystack|flutterwave|salesforce|hubspot|mailchimp|mailchimpapp|sendgrid|klaviyo|linkedin|facebookmail|instagram|meta|twitter|x|tiktok|pinterest|youtube|google|apple|microsoft|netflix|spotify|uber|bolt|airbnb|booking|canva|adobe|figma|notion|slack|zoom|dropbox|github|medium|substack|quora|upwork|fiverr|behance|magnific|freepik|envato|shopify|wix|squarespace|godaddy|namecheap|cloudflare|supabase|vercel|brevo|sendinblue)\.[a-z.]+$/i,
+];
+const looksBulk = (from: string) => BULK_FROM.some((r) => r.test(from));
 
 // Keep only the new part of a reply (drop "On Tue, X wrote:" and quoted lines)
 function newPart(text: string) {
@@ -60,8 +68,10 @@ Deno.serve(async (req) => {
   const text = newPart(m.text || fromHtml(m.html || "")).slice(0, 4000) || "(no text)";
   const system = SYSTEM.test(from);
   // Newsletters, shops and notifications (e.g. forwarded from Gmail): not client mail, and Gmail already has them
-  const BULK = /(newsletter|marketing|deals|promo|offers|news@|info@.*(shop|store)|mailer|digest|updates@|hello@.*\.(shop|store))/i;
-  if (!system && (m.bulk || BULK.test(from))) return json({ ok: true, ignored: "bulk" });
+  if (!system && (m.bulk || looksBulk(from))) return json({ ok: true, ignored: "bulk" });
+  // People you said aren't clients (Inbox › Not a client)
+  const blocked: string[] = (studio.blocked_senders || []).map((x: string) => String(x).toLowerCase());
+  if (from && (blocked.includes(from) || blocked.includes("@" + from.split("@")[1]))) return json({ ok: true, ignored: "blocked" });
   // Other no-reply / notification mail is skipped too; only Google's forwarding confirmation is passed on to you
   if (system && !/forwarding-noreply@google\.com/.test(from)) return json({ ok: true, ignored: "system" });
   // Jovita's own emails (e.g. the inbox copy we send you) coming back through Gmail forwarding: drop them, so nothing loops
@@ -76,7 +86,11 @@ Deno.serve(async (req) => {
   let client = null;
   if (!system && from) {
     [client] = await get(`clients?studio_id=eq.${studio.id}&email=ilike.${encodeURIComponent(from)}&select=id,name&limit=1`);
-    if (!client) client = await post("clients", { studio_id: studio.id, name: fromName || from.split("@")[0], email: from, phone: "", city: "", status: "lead" });
+    // Someone new: they wait in the Inbox ("Not a client yet") until you add them, so Clients stays clean
+    if (!client) {
+      const row = { studio_id: studio.id, name: fromName || from.split("@")[0], email: from, phone: "", city: "", status: "inbox" };
+      try { client = await post("clients", row); } catch { client = await post("clients", { ...row, status: "lead" }); } // before update 25
+    }
     await post("messages", { studio_id: studio.id, client_id: client.id, channel: "email", from_client: true, read: false, body: text, subject, email_id: m.message_id || null });
   }
 
