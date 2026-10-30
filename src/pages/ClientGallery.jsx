@@ -23,8 +23,9 @@ function viewerId(g) {
 const DEF_DESIGN = { cover: "center", font: "sans", palette: "light", grid: { style: "vertical", size: "regular", spacing: "regular" } };
 
 // What a client (or anyone you invited) sees at /g/<link>. Opening it records the view for that person.
-export default function ClientGallery() {
-  const { token } = useParams();
+export default function ClientGallery({ token: given }) {
+  const params = useParams();
+  const token = given || params.token;
   const [state, setState] = useState({ loading: true });
   const [, setW] = useState(0);
   useEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);

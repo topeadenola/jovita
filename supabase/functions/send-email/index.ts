@@ -22,6 +22,11 @@
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 const APP_URL = env("APP_URL") || "https://app.getjovita.com";
+// Client links in the studio's own name: their domain once it's live, else <name>.getjovita.com (once switched on), else the app
+const STUDIO_LINKS = false;
+type Site = { custom_domain?: string | null; custom_domain_status?: string | null; slug?: string | null };
+const siteOf = (s: Site | null | undefined) => s?.custom_domain && s.custom_domain_status === "active" ? `https://${s.custom_domain}`
+  : STUDIO_LINKS && s?.slug ? `https://${s.slug}.getjovita.com` : APP_URL;
 const FROM = { email: "hello@getjovita.com", name: "Jovita" };
 
 // Brevo template ids (created in the Jovita Brevo account)
@@ -127,7 +132,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
   const ownerEmail = studio.reply_email || owner?.email || "";
   const inbox = env("INBOX_DOMAIN") && (studio.inbox_name || studio.inbox_code) ? `inbox+${studio.inbox_name || studio.inbox_code}@${env("INBOX_DOMAIN")}` : "";
   const logo = studio.logo_path && studio.plan !== "free" ? `${base}/storage/v1/object/public/studio-assets/${studio.logo_path}` : "";
-  const link = `${APP_URL}/p/${token}`;
+  const link = `${siteOf(studio)}/p/${token}`;
   const sent: string[] = [];
   if (c?.email) {
     await brevo(TEMPLATES.invoice, { email: c.email, name: c.name }, {
@@ -170,10 +175,10 @@ async function picksReturned(token: string, guest: string) {
   if (!gal || !studio || studio.suspended) return { ok: true, skipped: true };
   // Who to tell: the email they were invited with, or the gallery's client
   let to = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sh.viewer) ? { email: sh.viewer as string, name: sh.viewer_name || undefined } : null;
-  let link = `${APP_URL}/g/${gal.share_token}?sel=${token}`;
+  let link = `${siteOf(studio)}/g/${gal.share_token}?sel=${token}`;
   if (to) {
     const [inv] = await get(`gallery_invites?gallery_id=eq.${gal.id}&email=eq.${encodeURIComponent(sh.viewer)}&select=token`);
-    if (inv) link = `${APP_URL}/g/${inv.token}?sel=${token}`;
+    if (inv) link = `${siteOf(studio)}/g/${inv.token}?sel=${token}`;
   } else if (gal.client_id) {
     const [c] = await get(`clients?id=eq.${gal.client_id}&select=name,email`);
     if (c?.email) to = { email: c.email, name: c.name || undefined };
@@ -238,7 +243,7 @@ Deno.serve(async (req) => {
       const c = await one(get(`clients?id=eq.${inv.client_id}&select=name,email`), "Client");
       if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
       const p = inv.project_id ? (await get(`projects?id=eq.${inv.project_id}&select=title,portal_token`))[0] : null;
-      const link = p ? `${APP_URL}/p/${p.portal_token}` : APP_URL;
+      const link = p ? `${siteOf(studio)}/p/${p.portal_token}` : APP_URL;
       const due = inv.due_date ? new Date(inv.due_date) : null;
       const daysLeft = due ? Math.round((due.getTime() - Date.now()) / 864e5) : null;
       const due_text = daysLeft == null ? "due soon" : daysLeft > 1 ? `due in ${daysLeft} days` : daysLeft === 1 ? "due tomorrow" : daysLeft === 0 ? "due today" : `${-daysLeft} day${daysLeft === -1 ? "" : "s"} overdue`;
@@ -254,14 +259,14 @@ Deno.serve(async (req) => {
       const c = await one(get(`clients?id=eq.${p.client_id}&select=name,email`), "Client");
       if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
       id = await brevo(TEMPLATES.contract, { email: c.email, name: c.name },
-        { ...studioParams, client_first_name: firstName(c.name), project_name: p.title || "your session", link: `${APP_URL}/p/${p.portal_token}` }, asStudio, replyToStudio, copy);
+        { ...studioParams, client_first_name: firstName(c.name), project_name: p.title || "your session", link: `${siteOf(studio)}/p/${p.portal_token}` }, asStudio, replyToStudio, copy);
     } else if (kind === "gallery") {
       const g = await one(get(`galleries?id=eq.${body.gallery_id}&select=*`), "Gallery");
       // To one invited person (their own link, so you see when they open it), or to the gallery's client
-      let to: Who, link = `${APP_URL}/g/${g.share_token}`;
+      let to: Who, link = `${siteOf(studio)}/g/${g.share_token}`;
       if (body.invite_id) {
         const inv = await one(get(`gallery_invites?id=eq.${body.invite_id}&gallery_id=eq.${g.id}&select=email,name,token`), "Invite");
-        to = { email: inv.email, name: inv.name || undefined }; link = `${APP_URL}/g/${inv.token}`;
+        to = { email: inv.email, name: inv.name || undefined }; link = `${siteOf(studio)}/g/${inv.token}`;
       } else {
         const c = await one(get(`clients?id=eq.${g.client_id}&select=name,email`), "Client");
         if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
@@ -279,7 +284,7 @@ Deno.serve(async (req) => {
       const p = b.project_id ? (await get(`projects?id=eq.${b.project_id}&select=portal_token`))[0] : null;
       id = await brevo(TEMPLATES.booking, { email: c.email, name: c.name }, {
         ...studioParams, client_first_name: firstName(c.name), session_name: b.title || "Your session", date: day(b.starts_at, true),
-        location: b.location || "To be confirmed", link: p ? `${APP_URL}/p/${p.portal_token}` : APP_URL,
+        location: b.location || "To be confirmed", link: p ? `${siteOf(studio)}/p/${p.portal_token}` : APP_URL,
       }, asStudio, replyToStudio, copy);
     } else if (kind === "message") {
       const c = await one(get(`clients?id=eq.${body.client_id}&select=name,email`), "Client");

@@ -5,9 +5,10 @@ import { fdate } from "../lib/format";
 import { tx, txn } from "../lib/i18n";
 import { useToast } from "./ui";
 import Icon from "./Icon";
+import { inviteLink, publicGalleryLink } from "../lib/links";
 
 const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
-export const galleryLink = (token) => `${location.origin}/g/${token}`;
+export const galleryLink = (token) => inviteLink(token);
 
 function ago(ts) {
   if (!ts) return "";
@@ -89,9 +90,9 @@ export default function GalleryShare({ g, view, published, publish }) {
       <p className="sub">{tx("Anyone with this link can view the gallery. To see exactly who opened it, invite people by email instead.")}</p>
       {notLive}
       {g.share_token ? (
-        <div className="share-link"><input readOnly value={galleryLink(g.share_token)} onFocus={(e) => e.target.select()} aria-label={tx("Gallery link")} />
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy(galleryLink(g.share_token))}><Icon name="link" />{tx("Copy")}</button>
-          <a className="btn btn-ghost btn-sm" href={galleryLink(g.share_token)} target="_blank" rel="noreferrer"><Icon name="eye" />{tx("Open")}</a></div>
+        <div className="share-link"><input readOnly value={publicGalleryLink(g)} onFocus={(e) => e.target.select()} aria-label={tx("Gallery link")} />
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy(publicGalleryLink(g))}><Icon name="link" />{tx("Copy")}</button>
+          <a className="btn btn-ghost btn-sm" href={publicGalleryLink(g)} target="_blank" rel="noreferrer"><Icon name="eye" />{tx("Open")}</a></div>
       ) : <p className="sub">{tx("Reload the page after running the Supabase update to get this gallery's link.")}</p>}
       {g.settings?.password && <p className="sub" style={{ fontSize: 13 }}>{tx("Viewers need the gallery password: {pw}", { pw: g.settings.password })}</p>}
     </>

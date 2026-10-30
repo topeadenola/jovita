@@ -1,4 +1,5 @@
 import { locale, tx } from "./i18n";
+import { portalLink } from "./links";
 
 export const SYM = { NGN: "₦", GBP: "£", USD: "$", EUR: "€", XOF: "CFA" };
 export const CURRENCIES = ["NGN", "GBP", "USD", "EUR", "XOF"];
@@ -112,7 +113,7 @@ export function totalLine(t, home) {
   return { main, others: others.length ? "+ " + others.join(", ") : tx("All in {home}", { home }) };
 }
 
-export const portalUrl = (token) => `${window.location.origin}/p/${token}`;
+export const portalUrl = (token) => portalLink(token);
 
 // Changing language moves the studio to that language's usual currency (you can change it back in Settings)
 import { currencyFor, guessCountry } from "./i18n";

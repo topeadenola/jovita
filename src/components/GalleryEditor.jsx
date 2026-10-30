@@ -10,6 +10,7 @@ import GalleryShare, { galleryLink } from "./GalleryShare";
 import { sendEmail } from "../lib/email";
 import { useUi } from "./Shell";
 import { mediaDownloadUrl, mediaPut, mediaRemove, mediaUrl } from "../lib/media";
+import { publicGalleryLink, studioBase } from "../lib/links";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 export const publicUrl = (path) => mediaUrl(path);
@@ -505,7 +506,7 @@ export default function GalleryEditor({ id, onClose }) {
   }
   const copyLink = async () => {
     if (!published) await publish(true);
-    const link = galleryLink(g.share_token);
+    const link = publicGalleryLink(g);
     try { await navigator.clipboard.writeText(link); toast(tx("Link copied. Paste it anywhere."), true); } catch { window.prompt(tx("Copy this link"), link); }
   };
   function saveSet() {
@@ -710,7 +711,7 @@ export default function GalleryEditor({ id, onClose }) {
                     <div className="field"><label htmlFor="ge-exp">{tx("Expiry date")}</label><input id="ge-exp" type="date" value={d.expires_on} onChange={(e) => set("expires_on", e.target.value)} /><span className="help">{tx("After this, clients can't open the gallery. Leave blank to keep it open.")}</span></div>
                   </div>
                   <div className="field"><label htmlFor="ge-slug">{tx("Gallery link")}</label>
-                    <div className="ge-slug"><span>/g/</span><input id="ge-slug" value={d.slug} onChange={(e) => set("slug", slugify(e.target.value))} /></div>
+                    <div className="ge-slug"><span>{studioBase(studio).replace(/^https?:\/\//, "")}/</span><input id="ge-slug" value={d.slug} onChange={(e) => set("slug", slugify(e.target.value))} /></div>
                     <span className="help">{tx("A short, memorable address for your client.")}</span></div>
                   <div className="field"><label htmlFor="ge-tags">{tx("Category tags")}</label>
                     <input id="ge-tags" value={d.settings.tags.join(", ")} onChange={(e) => setS("tags", e.target.value.split(",").map((s) => s.trimStart()).filter((s, i, a) => s || i === a.length - 1))} placeholder={tx("e.g. wedding, outdoor, summer")} />

@@ -19,6 +19,7 @@ import { PlanTab } from "../components/Upgrade";
 import { TwoStepCard } from "../components/TwoStep";
 import { useUi } from "../components/Shell";
 import { GoogleCard } from "./Bookings";
+import ClientLinks from "../components/ClientLinks";
 
 // Everything you set once lives here, so the side menu stays for daily work.
 const TABS = [
@@ -232,6 +233,7 @@ function ConnectionsTab() {
   };
   return (
     <>
+      <ClientLinks />
       <section className="card set-card">
         <div className="set-head"><h2 className="h-m">{tx("Email")}</h2><span className="pill p-success">{tx("Connected")}</span></div>
         <p className="sub">{tx("Invoices, quotes, contracts, reminders and galleries are emailed to your clients from \"{studio} via Jovita\". When a client replies, it lands in your own inbox.", { studio: studio.name || tx("Your studio") })}</p>
@@ -250,10 +252,6 @@ function ConnectionsTab() {
         <p className="sub" style={{ fontSize: 13 }}><a href="https://getjovita.com/help/#connect-email" target="_blank" rel="noreferrer">{tx("How email works in Jovita")}</a></p>
       </section>
       <GoogleCard />
-      <section className="card set-card">
-        <div className="set-head"><h2 className="h-m">{tx("WhatsApp")}</h2><span className="pill p-neutral">{tx("Coming soon")}</span></div>
-        <p className="sub" style={{ fontSize: 13 }}>{tx("WhatsApp messages in your Jovita inbox are coming in a future update.")}</p>
-      </section>
     </>
   );
 }

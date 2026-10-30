@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabase";
+import { setLinkStudio } from "./links";
 
 const DataCtx = createContext(null);
 export const useData = () => useContext(DataCtx);
@@ -18,6 +19,7 @@ export function DataProvider({ session, children }) {
     }
     const results = await Promise.all(TABLES.map((t) => supabase.from(t).select("*").order("created_at", { ascending: false })));
     const next = { loading: false, error: null, studio };
+    setLinkStudio(studio);
     TABLES.forEach((t, i) => { next[t] = results[i].data || []; });
     setState(next);
     // Pull fresh Google Calendar changes at most every 5 minutes

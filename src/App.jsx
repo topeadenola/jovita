@@ -19,6 +19,8 @@ import { tx } from "./lib/i18n";
 import { useLang } from "./components/Lang";
 import Onboarding from "./pages/Onboarding";
 import ClientGallery from "./pages/ClientGallery";
+import StudioSite from "./pages/StudioSite";
+import { onStudioHost } from "./lib/links";
 import { SpotlightList, SpotlightPost } from "./pages/Spotlight";
 import { LeaveGuard } from "./lib/unsaved";
 import { applyTheme, getSaved } from "./lib/theme";
@@ -77,6 +79,12 @@ function markSignedIn(on) {
 }
 
 export default function App() {
+  // A studio's own address only shows their client pages
+  if (onStudioHost()) return <StudioSite />;
+  return <JovitaApp />;
+}
+
+function JovitaApp() {
   const [session, setSession] = useState(undefined);
   const [gate, setGate] = useState(undefined); // two-step code still needed (undefined while checking)
   useEffect(() => { if (session !== undefined) markSignedIn(!!session); }, [session]);
