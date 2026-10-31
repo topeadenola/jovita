@@ -48,7 +48,15 @@ export const api = {
     if (sample) return sampleOverview(30).recent.concat(sampleOverview(90).recent).map((e) => ({ ...e, created_at: e.at, studios: { name: e.studio } }));
     let q = supabase.from("events").select("*, studios(name)").order("created_at", { ascending: false }).limit(300);
     if (kind) q = q.eq("kind", kind);
-    return must(await q);
+    const rows = must(await q);
+    // Studios' own privacy rules hide other studios' names from a plain join, so fill them in from the HQ studio list
+    if (rows.some((e) => !e.studios?.name && e.studio_id)) {
+      try {
+        const names = new Map((await this.allStudios(false)).map((x) => [x.id, x.name]));
+        rows.forEach((e) => { if (!e.studios?.name && names.get(e.studio_id)) e.studios = { ...(e.studios || {}), name: names.get(e.studio_id) }; });
+      } catch { /* keep "A studio" */ }
+    }
+    return rows;
   },
   async announcements() { return must(await supabase.from("announcements").select("*").order("created_at", { ascending: false })); },
   async saveAnnouncement(row) { return must(row.id ? await supabase.from("announcements").update(row).eq("id", row.id).select().single() : await supabase.from("announcements").insert(row).select().single()); },
