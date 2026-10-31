@@ -110,6 +110,17 @@ export default function ClientGallery({ token: given }) {
   const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id)) && (!replyView || replyPicks.has(p.id))), [g, setId, onlyFavs, mine, replyView, replyPicks]);
   const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
   const who = g?.viewer?.name || name;
+  // Tell the studio someone opened the gallery (not when the studio itself is looking)
+  const viewKey = g ? String(g.viewer?.email || (shared ? guest : vemail) || vid || "").toLowerCase() : "";
+  useEffect(() => {
+    if (!g || !viewKey) return;
+    let live = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!live || data?.session) return;
+      supabase.rpc("gallery_log_view", { p_token: token, p_password: pass || null, p_viewer: viewKey, p_name: who || "" }).then(() => {}, () => {});
+    });
+    return () => { live = false; };
+  }, [g?.title, viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // Guests on a shared selection give a name and email, so the studio sees exactly who picked what
   const needName = (fn) => (shared ? (guest && name ? fn(name, guest) : setAsk(() => fn)) : who ? fn(who) : setAsk(() => fn));
   const toggleFav = (p) => needName(async (nm, em) => {

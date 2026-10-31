@@ -212,11 +212,12 @@ export default function GalleryEditor({ id, onClose }) {
   const toast = useToast();
   const g = galleries.find((x) => x.id === id);
   const [tab, setTab] = useState("photos");
-  const [sub, setSub] = useState({ photos: "highlights", design: "cover", settings: "general", share: "invite", activity: "downloads" });
+  const [sub, setSub] = useState({ photos: "highlights", design: "cover", settings: "general", share: "invite", activity: "views" });
   const [photos, setPhotos] = useState([]);
   const [favs, setFavs] = useState([]);          // clients' picks
   const [downloads, setDownloads] = useState([]); // who downloaded what
   const [openDl, setOpenDl] = useState(null); // the person whose downloads are open
+  const [views, setViews] = useState([]); // who opened the gallery, and when
   const [comments, setComments] = useState([]);  // notes on photos, both ways
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [dupes, setDupes] = useState(null);      // { files, names } when some file names are already in the gallery
@@ -285,12 +286,13 @@ export default function GalleryEditor({ id, onClose }) {
     })();
   }, [photos, loadPhotos]);
   const loadFeedback = useCallback(async () => {
-    const [f, c, dls] = await Promise.all([
+    const [f, c, dls, vw] = await Promise.all([
       supabase.from("gallery_favorites").select("*").eq("gallery_id", id),
       supabase.from("gallery_comments").select("*").eq("gallery_id", id).order("created_at", { ascending: true }),
       supabase.from("gallery_downloads").select("*").eq("gallery_id", id).order("created_at", { ascending: false }),
+      supabase.from("gallery_views").select("*").eq("gallery_id", id).order("created_at", { ascending: false }).limit(2000),
     ]);
-    setFavs(f.data || []); setComments(c.data || []); setDownloads(dls.data || []);
+    setFavs(f.data || []); setComments(c.data || []); setDownloads(dls.data || []); setViews(vw.data || []);
   }, [id]);
   useEffect(() => { loadFeedback(); }, [loadFeedback]);
   const favCount = useMemo(() => favs.reduce((m, f) => ({ ...m, [f.photo_id]: (m[f.photo_id] || 0) + 1 }), {}), [favs]);
@@ -549,7 +551,7 @@ export default function GalleryEditor({ id, onClose }) {
     design: [["cover", "Cover", "image"], ["typography", "Typography", "file"], ["color", "Colour", "eye"], ["grid", "Grid", "folder"]],
     settings: [["general", "General", "settings"], ["privacy", "Privacy", "lock"], ["download", "Download", "download", d.settings.download.on], ["favorite", "Favourites", "heart", d.settings.favorite.on]],
     share: [["invite", "Invite people", "users"], ["link", "Gallery link", "link"]],
-    activity: [["downloads", "Download activity", "download"], ["favorites", "Favourite activity", "heart"]],
+    activity: [["views", "View activity", "eye"], ["downloads", "Download activity", "download"], ["favorites", "Favourite activity", "heart"]],
   };
   const showPreview = tab === "design";
 
@@ -764,8 +766,35 @@ export default function GalleryEditor({ id, onClose }) {
 
               {/* ACTIVITY */}
               {tab === "activity" && (
-                <><h2 className="h-m">{sub.activity === "downloads" ? tx("Download activity") : tx("Favourite activity")}</h2>
-                  {sub.activity === "downloads" && downloads.length > 0 ? (
+                <><h2 className="h-m">{sub.activity === "views" ? tx("View activity") : sub.activity === "downloads" ? tx("Download activity") : tx("Favourite activity")}</h2>
+                  {sub.activity === "views" && views.length > 0 ? (
+                    <div className="ge-picks">
+                      <p className="sub">{txn(views.length, "Opened {n} time so far", "Opened {n} times so far")} · {txn(new Set(views.map((v) => v.viewer)).size, "{n} person", "{n} people")}</p>
+                      {Object.entries(views.reduce((m, x) => { (m[x.viewer] ||= []).push(x); return m; }, {})).map(([who, list]) => {
+                        // One row per person; open it to see each visit
+                        const email = who.includes("@") ? who : "";
+                        const name = list.find((x) => x.viewer_name && !/^\d{3,6}$/.test(x.viewer_name))?.viewer_name || "";
+                        const key = "v:" + who, isOpen = openDl === key;
+                        const at = (t) => `${fdate(t)} ${new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                        return (
+                          <section key={key} className={`card ge-pick-card ${isOpen ? "open" : ""}`}>
+                            <button type="button" className="ge-pick-head" aria-expanded={isOpen} onClick={() => setOpenDl(isOpen ? null : key)}>
+                              <span className="ge-pick-who">
+                                <b>{email || name || tx("A visitor (no email yet)")}</b>
+                                <small className="sub">{[txn(list.length, "Opened {n} time", "Opened {n} times"), email && name ? name : "", tx("last {date}", { date: at(list[0].created_at) }), list.length > 1 ? tx("first {date}", { date: at(list[list.length - 1].created_at) }) : ""].filter(Boolean).join(" · ")}</small>
+                              </span>
+                              <span className="ge-pick-chev"><Icon name="arrow" /></span>
+                            </button>
+                            {isOpen && (
+                              <ul className="ge-dl-list">
+                                {list.map((x) => <li key={x.id}><Icon name="eye" /><span>{tx("Opened the gallery")}</span><small className="sub">{at(x.created_at)}</small></li>)}
+                              </ul>
+                            )}
+                          </section>
+                        );
+                      })}
+                    </div>
+                  ) : sub.activity === "downloads" && downloads.length > 0 ? (
                     <div className="ge-picks">
                       <p className="sub">{txn(downloads.reduce((n, x) => n + (x.files || 1), 0), "{n} file downloaded so far", "{n} files downloaded so far")}</p>
                       {Object.entries(downloads.reduce((m, x) => { (m[x.viewer || "?"] ||= []).push(x); return m; }, {})).map(([who, list]) => {
@@ -834,9 +863,9 @@ export default function GalleryEditor({ id, onClose }) {
                     </div>
                   ) :
                   <div className="ge-empty ge-activity">
-                    <Icon name={sub.activity === "downloads" ? "download" : "heart"} />
-                    <b>{sub.activity === "downloads" ? txn(g.downloads || 0, "{n} download so far", "{n} downloads so far") : txn(g.favourites || 0, "{n} favourite so far", "{n} favourites so far")}</b>
-                    <span className="sub">{sub.activity === "downloads" ? tx("Who downloaded what shows here once your client opens the gallery.") : tx("Your client's hearts and notes show here as they pick.")}</span>
+                    <Icon name={sub.activity === "views" ? "eye" : sub.activity === "downloads" ? "download" : "heart"} />
+                    <b>{sub.activity === "views" ? tx("No one has opened it yet") : sub.activity === "downloads" ? txn(g.downloads || 0, "{n} download so far", "{n} downloads so far") : txn(g.favourites || 0, "{n} favourite so far", "{n} favourites so far")}</b>
+                    <span className="sub">{sub.activity === "views" ? tx("Each time someone opens the gallery, you'll see who and when here. Only you can see this.") : sub.activity === "downloads" ? tx("Who downloaded what shows here once your client opens the gallery.") : tx("Your client's hearts and notes show here as they pick.")}</span>
                   </div>}</>
               )}
             </div>
