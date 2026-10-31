@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import { GalleryPreview, downloadUrl, isRaw, isVideo, publicUrl, thumbUrl } from "../components/GalleryEditor";
+import Slideshow from "../components/Slideshow";
 import StudioLogo from "../components/StudioLogo";
 import Icon, { Mark } from "../components/Icon";
 import { tx, txn } from "../lib/i18n";
@@ -110,6 +111,10 @@ export default function ClientGallery({ token: given }) {
   const photos = useMemo(() => (g?.photos || []).filter((p) => (setId === "all" || p.set_id === setId) && (!onlyFavs || mine.has(p.id)) && (!replyView || replyPicks.has(p.id))), [g, setId, onlyFavs, mine, replyView, replyPicks]);
   const noteCount = useMemo(() => notes.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [notes]);
   const who = g?.viewer?.name || name;
+  // Slideshow: Pro and Studio galleries only, photos in the current view (videos skipped)
+  const [show, setShow] = useState(false);
+  const slides = useMemo(() => photos.filter((p) => !isVideo(p.path)), [photos]);
+  const canShow = g?.studio?.branded === true && slides.length > 1;
   // Tell the studio someone opened the gallery (not when the studio itself is looking)
   const viewKey = g ? String(g.viewer?.email || (shared ? guest : vemail) || vid || "").toLowerCase() : "";
   useEffect(() => {
@@ -307,8 +312,9 @@ export default function ClientGallery({ token: given }) {
           ))}
         </div>
       )}
-      {(favOn || dl0.on) && (
+      {(favOn || dl0.on || canShow) && (
         <div className="cg-tools">
+          {canShow && <button type="button" onClick={() => setShow(true)}><span className="cg-play" aria-hidden="true" />{tx("Slideshow")}</button>}
           {dl0.on && <button type="button" disabled={!!zipping} onClick={() => saveZip(g.photos || [], tx("All photos"))}><Icon name="download" />{zipping ? tx("Preparing {a} of {b}…", { a: zipping.done, b: zipping.total }) : tx("Download all ({n})", { n: (g.photos || []).length })}</button>}
           {dl0.on && setId !== "all" && !zipping && <button type="button" onClick={() => saveZip(photos, d.sets.find((x) => x.id === setId)?.name || "")}><Icon name="download" />{tx("Download this set")}</button>}
           {dl0.on && onlyFavs && mine.size > 0 && !zipping && <button type="button" onClick={() => saveZip((g.photos || []).filter((p) => mine.has(p.id)), tx("My favourites"))}><Icon name="download" />{tx("Download my favourites")}</button>}
@@ -326,6 +332,7 @@ export default function ClientGallery({ token: given }) {
           <button type="button" className="btn btn-primary" onClick={sendPicksBack}><Icon name="send" />{sentBefore ? tx("Send again") : tx("Send my picks to {name}", { name: g.share.by })}</button>
         </div>
       )}
+      {show && <Slideshow photos={slides} title={d.title} onClose={() => setShow(false)} />}
       {g.studio && g.studio.branded === false && <p className="cg-made"><a href="https://getjovita.com" target="_blank" rel="noreferrer">{tx("Made with")} <Mark dot="currentColor" style={{ width: 9, height: 13 }} /> jovita</a></p>}
       {cur && (
         <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>

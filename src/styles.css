@@ -1421,3 +1421,25 @@ body{transition:background-color .2s}
 .gm-secret{background:#FFF4DC;border:1px solid #F5D48A;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .gm-secret small{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#8F5A00}.gm-secret b{font-family:ui-monospace,Menlo,monospace;font-size:18px;letter-spacing:2px}
 .gm-btn{align-self:flex-start;background:#261433;color:#fff;border-radius:10px;padding:11px 18px;font-weight:700;font-size:14px}
+/* Client slideshow (full screen) */
+.cg-play{display:inline-block;width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-right:2px}
+.ss{position:fixed;inset:0;z-index:200;background:#0b0710;display:flex;align-items:center;justify-content:center;cursor:none}
+.ss.ui{cursor:default}
+.ss-img{max-width:100%;max-height:100%;object-fit:contain;animation:ss-in .7s ease}
+@keyframes ss-in{from{opacity:0}to{opacity:1}}
+.ss-top,.ss-bar{position:absolute;left:0;right:0;display:flex;align-items:center;gap:10px;padding:16px 20px;color:#fff;opacity:0;transition:opacity .3s;pointer-events:none}
+.ss.ui .ss-top,.ss.ui .ss-bar{opacity:1;pointer-events:auto}
+.ss-top{top:0;justify-content:space-between;background:linear-gradient(rgba(0,0,0,.55),transparent);font-weight:600}
+.ss-bar{bottom:0;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.6));padding-bottom:24px;flex-wrap:wrap}
+.ss-btn{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.ss-btn:hover{background:rgba(255,255,255,.26)}.ss-btn svg{width:20px;height:20px}
+.ss-play{width:56px;height:56px;background:#fff;color:#261433}.ss-play:hover{background:#fff}
+.ss-tri{width:0;height:0;border-left:16px solid #261433;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.ss-pause{width:16px;height:18px;border-left:5px solid #261433;border-right:5px solid #261433}
+.ss-count{font-variant-numeric:tabular-nums;font-size:14px;min-width:64px;text-align:center}
+.ss-speed{display:inline-flex;gap:4px;background:rgba(255,255,255,.12);border-radius:999px;padding:3px}
+.ss-speed button{border:0;background:transparent;color:#fff;border-radius:999px;padding:5px 10px;font-size:13px;cursor:pointer}
+.ss-speed button[aria-pressed="true"]{background:#fff;color:#261433;font-weight:700}
+.ss-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.12)}
+.ss-progress span{display:block;height:100%;width:0;background:var(--marigold);animation:ss-bar linear forwards}
+@keyframes ss-bar{to{width:100%}}
