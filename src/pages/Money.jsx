@@ -6,7 +6,7 @@ import { useActions } from "../lib/actions";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, CloseBtn, Empty, Modal, Pill, Toggle, useToast } from "../components/ui";
-import { balanceOf, fdate, invState, money, totalLine, totalsBy } from "../lib/format";
+import { balanceOf, clientMatches, fdate, invState, money, totalLine, totalsBy } from "../lib/format";
 import { tx } from "../lib/i18n";
 import { PERIODS, receipts } from "../lib/accounting";
 import { downloadMoneyWorkbook } from "../lib/moneyExport";
@@ -24,7 +24,7 @@ function Invoices() {
   const ql = q.toLowerCase();
   const list = invoices
     .filter((i) => inTab(i, tab))
-    .filter((i) => !ql || (client(i.client_id).name + " " + i.number + " " + i.label).toLowerCase().includes(ql))
+    .filter((i) => !ql || (i.number + " " + i.label).toLowerCase().includes(ql) || clientMatches(client(i.client_id), ql))
     .sort((a, b) => b.number - a.number);
   const paid = totalLine(totalsBy(invoices.flatMap(receipts)), home); // includes part payments
   const owing = invoices.filter((i) => i.status === "sent" && i.kind !== "quote").map((i) => ({ ...i, amount: balanceOf(i) }));

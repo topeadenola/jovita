@@ -3,7 +3,7 @@ import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, Empty, Pill } from "../components/ui";
-import { STAGES, STAGE_LABEL, fdate, first, money, nextStep, projPill } from "../lib/format";
+import { STAGES, STAGE_LABEL, clientMatches, fdate, first, money, nextStep, projPill } from "../lib/format";
 import { tx } from "../lib/i18n";
 
 export default function Projects() {
@@ -12,7 +12,7 @@ export default function Projects() {
   const [mode, setMode] = useState(() => { try { return localStorage.getItem("jv-projmode") || "board"; } catch { return "board"; } });
   const setM = (m) => { setMode(m); try { localStorage.setItem("jv-projmode", m); } catch { /* ignore */ } };
   const ql = q.toLowerCase();
-  const list = projects.filter((p) => !ql || (p.title + " " + client(p.client_id).name).toLowerCase().includes(ql));
+  const list = projects.filter((p) => !ql || p.title.toLowerCase().includes(ql) || clientMatches(client(p.client_id), ql));
 
   const Card = ({ p }) => {
     const c = client(p.client_id); const n = nextStep(p); const pl = projPill(p);

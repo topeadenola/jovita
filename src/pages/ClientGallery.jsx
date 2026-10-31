@@ -45,7 +45,9 @@ export default function ClientGallery({ token: given }) {
   const [pinAsk, setPinAsk] = useState(null);     // waiting for the download PIN
   const [zipping, setZipping] = useState(null);   // { done, total }
   const [guest, setGuest] = useState(() => readLS("jv-guest-email"));
-  const [email, setEmail] = useState(() => readLS("jv-guest-email"));
+  const [email, setEmail] = useState(() => readLS("jv-guest-email") || readLS("jv-visitor-email"));
+  const [vemail, setVemail] = useState(() => readLS("jv-visitor-email")); // a visitor on the open link gives their email before downloading
+  const [askEmail, setAskEmail] = useState(false);
   const [shareLink, setShareLink] = useState(null); // { step: "name" | "link", title, url, copied, busy } for "Share my selection"
   const [shareInfo, setShareInfo] = useState(null); // the client's own shared selection and the picks sent back
   const [replyView, setReplyView] = useState(null); // showing one person's picks
@@ -117,15 +119,21 @@ export default function ClientGallery({ token: given }) {
     if (error) { setMine((m) => { const n = new Set(m); was ? n.add(p.id) : n.delete(p.id); return n; }); window.alert?.(error.message); }
   });
   // Downloads: check they're allowed (and the PIN), record who downloaded what, then save the file(s)
-  const clearance = async (args, pinTry, nm) => {
-    const { data, error } = await supabase.rpc("gallery_log_download", { p_token: token, p_password: pass || null, p_pin: pinTry ?? pin ?? null, p_viewer: vid, p_name: nm || who || "", ...args });
+  const clearance = async (args, pinTry, nm, em) => {
+    const { data, error } = await supabase.rpc("gallery_log_download", { p_token: token, p_password: pass || null, p_pin: pinTry ?? pin ?? null, p_viewer: em || vid, p_name: nm || who || "", ...args });
     if (error) return "ok"; // before the update is run, don't block downloads
     return data;
   };
-  const withPin = (args, go) => needName(async (nm) => {
-    const res = await clearance(args, undefined, nm);
+  // Downloads record the person's email, so the studio sees exactly who downloaded what
+  const needEmail = (fn) => {
+    const em = g?.viewer?.email || (shared ? guest : vemail);
+    if (em && (shared ? name : who)) return fn(shared ? name : who, String(em).toLowerCase());
+    setAskEmail(true); setAsk(() => fn);
+  };
+  const withPin = (args, go) => needEmail(async (nm, em) => {
+    const res = await clearance(args, undefined, nm, em);
     if (res === "ok") return go();
-    if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm); if (r2 === "ok") { setPin(p2); writeLS("jv-gpin-" + token, p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
+    if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm, em); if (r2 === "ok") { setPin(p2); writeLS("jv-gpin-" + token, p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
     window.alert?.(tx("Downloads are switched off for this gallery."));
   });
   const saveOne = (p) => withPin({ p_photo: p.id, p_kind: "photo", p_files: 1, p_label: p.name || "" }, () => {
@@ -394,20 +402,22 @@ export default function ClientGallery({ token: given }) {
       )}
       {pinAsk && <PinAsk studio={g.studio?.name} onClose={() => setPinAsk(null)} onTry={pinAsk} />}
       {ask && (
-        <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
+        <div className="scrim modal-wrap" style={{ zIndex: 90 }} onMouseDown={(e) => { if (e.target === e.currentTarget) { setAsk(null); setAskEmail(false); } }}>
           <form className="modal" role="dialog" aria-modal="true" aria-label={tx("Your name")} onSubmit={(e) => {
             e.preventDefault(); const n = name.trim(); if (!n) return;
             const em = email.trim().toLowerCase();
-            if (shared && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return;
+            const wantEmail = shared || askEmail;
+            if (wantEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return;
             writeLS("jv-viewer-name", n);
             if (shared) { writeLS("jv-guest-email", em); setGuest(em); }
-            const fn = ask; setAsk(null); fn(n, shared ? em : undefined);
+            else if (askEmail) { writeLS("jv-visitor-email", em); setVemail(em); }
+            const fn = ask; setAsk(null); setAskEmail(false); fn(n, wantEmail ? em : undefined);
           }}>
-            <h2 className="h-m">{shared ? tx("Who's picking?") : tx("What's your name?")}</h2>
-            <p className="sub" style={{ fontSize: 14 }}>{tx(shared ? "So {studio} knows whose picks these are." : "So {studio} knows whose picks and notes these are.", { studio: g.studio?.name || tx("your photographer") })}</p>
+            <h2 className="h-m">{shared ? tx("Who's picking?") : askEmail ? tx("Before you download") : tx("What's your name?")}</h2>
+            <p className="sub" style={{ fontSize: 14 }}>{tx(shared ? "So {studio} knows whose picks these are." : askEmail ? "So {studio} knows who downloaded the photos." : "So {studio} knows whose picks and notes these are.", { studio: g.studio?.name || tx("your photographer") })}</p>
             <div className="field"><label htmlFor="cg-name">{tx("Your name")}</label><input id="cg-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
-            {shared && <div className="field"><label htmlFor="cg-email">{tx("Your email")}</label><input id="cg-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="you@example.com" /></div>}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={() => setAsk(null)}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Continue")}</button></div>
+            {(shared || askEmail) && <div className="field"><label htmlFor="cg-email">{tx("Your email")}</label><input id="cg-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="you@example.com" /></div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={() => { setAsk(null); setAskEmail(false); }}>{tx("Cancel")}</button><button className="btn btn-primary">{tx("Continue")}</button></div>
           </form>
         </div>
       )}

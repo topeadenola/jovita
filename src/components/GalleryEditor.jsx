@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { useData } from "../lib/data";
 import { SaveState, useAutosave } from "../lib/autosave";
-import { addDays, fdate } from "../lib/format";
+import { addDays, clientMatches, fdate } from "../lib/format";
 import { tx, txn } from "../lib/i18n";
 import { Toggle, useToast } from "./ui";
 import Icon from "./Icon";
@@ -216,6 +216,7 @@ export default function GalleryEditor({ id, onClose }) {
   const [photos, setPhotos] = useState([]);
   const [favs, setFavs] = useState([]);          // clients' picks
   const [downloads, setDownloads] = useState([]); // who downloaded what
+  const [openDl, setOpenDl] = useState(null); // the person whose downloads are open
   const [comments, setComments] = useState([]);  // notes on photos, both ways
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [dupes, setDupes] = useState(null);      // { files, names } when some file names are already in the gallery
@@ -473,6 +474,13 @@ export default function GalleryEditor({ id, onClose }) {
     setSending((x) => ({ ...x, paste: bad.join(", ") }));
     if (bad.length) toast(txn(bad.length, "{n} address doesn't look right", "{n} addresses don't look right"));
   }
+  // Step 1: check the list, then show the email before anything is sent
+  function toPreview() {
+    let list = sending.to;
+    if (sending.paste.trim()) { const { out, bad } = parseEmails(sending.paste); if (bad.length) return toast(tx("Fix or remove: {list}", { list: bad.join(", ") })); const have = new Set(list.map((t) => t.email)); list = [...list, ...out.filter((t) => !have.has(t.email))]; }
+    if (!list.length) return toast(tx("Pick a contact or type an email address."));
+    setSending({ ...sending, to: list, paste: "", preview: true, incPw: sending.incPw ?? true, incPin: sending.incPin ?? true });
+  }
   // Send the gallery to everyone on the list, each with their own link (publishes it first)
   async function sendGallery() {
     const s0 = sending;
@@ -493,7 +501,7 @@ export default function GalleryEditor({ id, onClose }) {
         try {
           const { data: inv, error } = await supabase.from("gallery_invites").upsert([{ studio_id: studio.id, gallery_id: id, email: t.email, name: t.name }], { onConflict: "gallery_id,email", ignoreDuplicates: false }).select().single();
           if (error) throw error;
-          const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id });
+          const r = await sendEmail("gallery", { gallery_id: id, invite_id: inv.id, include_password: !!s0.incPw, include_pin: !!s0.incPin });
           results.push({ to: t, link: galleryLink(inv.token), ok: r.ok, reason: r.reason });
         } catch (e) { results.push({ to: t, ok: false, reason: e.message }); }
         done++; setSending((x) => x && { ...x, progress: done });
@@ -760,11 +768,32 @@ export default function GalleryEditor({ id, onClose }) {
                   {sub.activity === "downloads" && downloads.length > 0 ? (
                     <div className="ge-picks">
                       <p className="sub">{txn(downloads.reduce((n, x) => n + (x.files || 1), 0), "{n} file downloaded so far", "{n} files downloaded so far")}</p>
-                      {downloads.map((x) => (
-                        <div key={x.id} className="switch"><div><b>{x.viewer_name || (x.viewer.includes("@") ? x.viewer : tx("A visitor"))}</b>
-                          <span>{x.kind === "zip" ? tx("Downloaded {label} as a zip ({n} files)", { label: x.label || tx("all photos"), n: x.files }) : tx("Downloaded {label}", { label: x.label })} · {fdate(x.created_at)} {new Date(x.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
-                          <Icon name="download" /></div>
-                      ))}
+                      {Object.entries(downloads.reduce((m, x) => { (m[x.viewer || "?"] ||= []).push(x); return m; }, {})).map(([who, list]) => {
+                        // One row per person, by email; open it to see every file they downloaded
+                        const email = who.includes("@") ? who : "";
+                        const name = list.find((x) => x.viewer_name && !/^\d{3,6}$/.test(x.viewer_name))?.viewer_name || "";
+                        const files = list.reduce((n, x) => n + (x.files || 1), 0);
+                        const isOpen = openDl === who;
+                        return (
+                          <section key={who} className={`card ge-pick-card ${isOpen ? "open" : ""}`}>
+                            <button type="button" className="ge-pick-head" aria-expanded={isOpen} onClick={() => setOpenDl(isOpen ? null : who)}>
+                              <span className="ge-pick-who">
+                                <b>{email || name || tx("A visitor (no email)")}</b>
+                                <small className="sub">{[txn(files, "{n} file downloaded", "{n} files downloaded"), email && name ? name : "", tx("last {date}", { date: `${fdate(list[0].created_at)} ${new Date(list[0].created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` })].filter(Boolean).join(" · ")}</small>
+                              </span>
+                              <span className="ge-pick-chev"><Icon name="arrow" /></span>
+                            </button>
+                            {isOpen && (
+                              <ul className="ge-dl-list">
+                                {list.map((x) => (
+                                  <li key={x.id}><Icon name="download" /><span>{x.kind === "zip" ? tx("{label} as a zip ({n} files)", { label: x.label || tx("All photos"), n: x.files }) : x.label}</span>
+                                    <small className="sub">{fdate(x.created_at)} {new Date(x.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></li>
+                                ))}
+                              </ul>
+                            )}
+                          </section>
+                        );
+                      })}
                     </div>
                   ) : sub.activity === "favorites" && favs.length > 0 ? (
                     <div className="ge-picks">
@@ -924,11 +953,43 @@ export default function GalleryEditor({ id, onClose }) {
             const picked = new Set(sending.to.map((t) => t.email));
             const ql = sending.q.trim().toLowerCase();
             const withEmail = clients.filter((cl) => cl.email);
-            const shown = withEmail.filter((cl) => !ql || (cl.name + " " + cl.email).toLowerCase().includes(ql));
+            const shown = withEmail.filter((cl) => !ql || clientMatches(cl, ql));
             const toggle = (cl) => { const e = cl.email.toLowerCase(); setSending((x) => ({ ...x, to: picked.has(e) ? x.to.filter((t) => t.email !== e) : [...x.to, { email: e, name: cl.name, cid: cl.id }] })); };
             const newOnes = sending.to.filter((t) => !t.cid && !withEmail.some((c) => c.email.toLowerCase() === t.email)).length;
             return (
-          <form className="modal gs-modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); sendGallery(); }}>
+          <form className="modal gs-modal" role="dialog" aria-modal="true" aria-label={tx("Send or share")} onSubmit={(e) => { e.preventDefault(); if (sending.preview) sendGallery(); else toPreview(); }}>
+            {sending.preview ? (() => {
+              const pw = String(d.settings?.password || "").trim(), pinOn = d.settings.download.on && d.settings.download.pin_on && d.settings.download.pin;
+              const first1 = (sending.to[0]?.name || "").split(" ")[0];
+              return (<>
+                <div className="set-head"><h2 className="h-m">{tx("Check the email")}</h2><button type="button" className="x" onClick={() => setSending(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
+                <p className="sub" style={{ fontSize: 13, margin: 0 }}>{txn(sending.to.length, "Going to {n} person, each with their own link.", "Going to {n} people, each with their own link.")} {sending.to.slice(0, 3).map((t) => t.name || t.email).join(", ")}{sending.to.length > 3 ? "…" : ""}</p>
+                {(pw || pinOn) && (
+                  <div className="field"><label>{tx("Put in the email")}</label>
+                    {pw && <label className="check"><input type="checkbox" checked={!!sending.incPw} onChange={(e) => setSending({ ...sending, incPw: e.target.checked })} />{tx("The gallery password ({pw})", { pw })}</label>}
+                    {pinOn && <label className="check"><input type="checkbox" checked={!!sending.incPin} onChange={(e) => setSending({ ...sending, incPin: e.target.checked })} />{tx("The download PIN ({pin})", { pin: d.settings.download.pin })}</label>}
+                  </div>
+                )}
+                <div className="gm-preview" aria-label={tx("Email preview")}>
+                  <div className="gm-studio">{studio.name}</div>
+                  <div className="gm-card">
+                    <p className="gm-eyebrow">{tx("Gallery")}</p>
+                    <h3>{first1 ? tx("{name}, your photos are here.", { name: first1 }) : tx("Your photos are here.")}</h3>
+                    <p><b>{d.title || tx("Your gallery")}</b> {tx("is ready. Pick your favourites, download, and share.")}</p>
+                    <div className="gm-row"><span>{tx("Photos")}</span><b>{photos.length}</b></div>
+                    <div className="gm-row"><span>{tx("Available until")}</span><b>{d.expires_on ? fdate(d.expires_on) : tx("No expiry")}</b></div>
+                    {pw && sending.incPw && <div className="gm-secret"><small>{tx("Gallery password")}</small><b>{pw}</b></div>}
+                    {pinOn && sending.incPin && <div className="gm-secret"><small>{tx("Download PIN")}</small><b>{d.settings.download.pin}</b></div>}
+                    <span className="gm-btn">{tx("Open my gallery")}</span>
+                    <p>{tx("Thank you,")}<br /><b>{studio.name}</b></p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <button type="button" className="btn btn-ghost" disabled={sending.busy} onClick={() => setSending({ ...sending, preview: false })}>{tx("Back")}</button>
+                  <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending {a} of {b}…", { a: Math.min((sending.progress || 0) + 1, sending.to.length), b: sending.to.length }) : sending.to.length > 1 ? tx("Send to {n} people", { n: sending.to.length }) : tx("Send")}</button>
+                </div>
+              </>);
+            })() : <>
             <div className="set-head"><h2 className="h-m">{tx("Send \"{title}\"", { title: d.title || tx("this gallery") })}</h2><button type="button" className="x" onClick={() => setSending(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
             <div className="field"><label>{sending.to.length ? txn(sending.to.length, "Sending to {n} person", "Sending to {n} people") : tx("Send to")}</label>
               {sending.to.length > 0 ? <div className="gs-chips">{sending.to.map((t) => <span key={t.email} className="gs-chip" title={t.email}>{t.name || t.email}<button type="button" onClick={() => setSending((x) => ({ ...x, to: x.to.filter((y) => y.email !== t.email) }))} aria-label={tx("Remove {name}", { name: t.name || t.email })}><Icon name="x" /></button></span>)}
@@ -952,11 +1013,12 @@ export default function GalleryEditor({ id, onClose }) {
                 <button type="button" aria-pressed={!!d.settings.download.on} onClick={() => setDl("on", true)}>{tx("Pick and download")}</button>
               </div>
               <span className="help">{d.settings.download.on ? tx("They can download one by one or everything as a zip, with the original file names.") + (d.settings.download.pin_on ? " " + tx("Download PIN: {pin}", { pin: d.settings.download.pin }) : "") : tx("They can view, heart their picks and leave notes. No downloads, ideal for selecting photos to edit.")}</span></div>
-            <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password ? " " + tx("The password ({pw}) is in the email.", { pw: d.settings.password }) : ""}</p>
+            <p className="sub" style={{ fontSize: 13 }}>{published ? tx("They get a branded email with their own link, so you'll see when they open it.") : tx("The gallery will be published, then they get a branded email with their own link.")}{d.settings?.password || d.settings.download.pin_on ? " " + tx("Next you'll see the email and choose whether the password or PIN goes in it.") : ""}</p>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-ghost" onClick={copyLink}><Icon name="link" />{tx("Copy link to share")}</button>
-              <button className="btn btn-primary" disabled={sending.busy}><Icon name="send" />{sending.busy ? tx("Sending {a} of {b}…", { a: Math.min((sending.progress || 0) + 1, sending.to.length), b: sending.to.length }) : sending.to.length > 1 ? tx("Send to {n} people", { n: sending.to.length }) : tx("Send")}</button>
+              <button className="btn btn-primary"><Icon name="eye" />{tx("Preview email")}</button>
             </div>
+            </>}
           </form>); })()}
         </div>
       )}

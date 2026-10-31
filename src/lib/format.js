@@ -123,3 +123,14 @@ export function langPatch(studio, l) {
   if (cur && cur !== studio.home_currency) patch.home_currency = cur;
   return patch;
 }
+
+// Does a client match what was typed? Name, email, city, or phone (digits only, 0803… finds +234 803…)
+export function clientMatches(c, q) {
+  const k = String(q || "").trim().toLowerCase();
+  if (!k || !c) return !k;
+  if ([c.name, c.email, c.city].join(" ").toLowerCase().includes(k)) return true;
+  const d = k.replace(/\D/g, "");
+  if (d.length < 3) return false;
+  const pd = String(c.phone || "").replace(/\D/g, "");
+  return pd.includes(d) || pd.includes(d.replace(/^0+/, ""));
+}

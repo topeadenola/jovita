@@ -5,7 +5,7 @@ import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { CloseBtn, Empty, Modal, Pill, useToast } from "../components/ui";
-import { addDays, fdate, first } from "../lib/format";
+import { addDays, clientMatches, fdate, first } from "../lib/format";
 import { tx, txn } from "../lib/i18n";
 
 const TONES = [["var(--tile1)", "var(--tile2)", "var(--tile4)"], ["var(--tile6)", "var(--tile3)", "var(--tile1)"], ["var(--tile3)", "var(--tile5)", "var(--tile4)"], ["var(--tile4)", "var(--tile1)", "var(--tile5)"]];
@@ -99,7 +99,7 @@ export default function Galleries() {
     return () => { live = false; };
   }, [missing]);
   const ql = q.toLowerCase();
-  const list = galleries.filter((g) => !ql || (g.title + " " + client(g.client_id).name).toLowerCase().includes(ql));
+  const list = galleries.filter((g) => !ql || g.title.toLowerCase().includes(ql) || clientMatches(client(g.client_id), ql));
   const deliver = async (g) => {
     await update("galleries", g.id, { status: "delivered", expires_on: addDays(30) });
     if (g.project_id) await update("projects", g.project_id, { gallery_delivered: true, stage: "delivered" });

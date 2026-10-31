@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tx } from "../lib/i18n";
 import { Avatar } from "./ui";
+import { clientMatches } from "../lib/format";
 
 const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
 
@@ -14,7 +15,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
   const box = useRef(null);
   const list = useMemo(() => {
     const k = norm(q.trim());
-    const hits = k ? clients.filter((c) => norm(`${c.name} ${c.email || ""} ${c.phone || ""}`).includes(k)) : clients;
+    const hits = k ? clients.filter((c) => norm(`${c.name} ${c.email || ""}`).includes(k) || clientMatches(c, q)) : clients;
     // Names that start with what you typed come first
     return (k ? [...hits].sort((a, b) => (norm(b.name).startsWith(k) ? 1 : 0) - (norm(a.name).startsWith(k) ? 1 : 0)) : hits).slice(0, 8);
   }, [q, clients]);

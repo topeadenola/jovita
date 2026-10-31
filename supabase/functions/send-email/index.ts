@@ -78,6 +78,10 @@ function galleryEmail(p: Record<string, string>) {
     <p style="margin:0 0 6px;font:800 12px/1 ${F};letter-spacing:1.4px;text-transform:uppercase;color:#8F5A00">Gallery password</p>
     <p style="margin:0;font:800 24px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;color:#261433">${escH(p.password)}</p>
     <p style="margin:6px 0 0;font:400 13px/1.5 ${F};color:#5E5069">You'll be asked for it once when you open the gallery.</p></td></tr></table>` : "";
+  const pin = p.pin ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px"><tr><td style="background:#FFF4DC;border:1px solid #F5D48A;border-radius:14px;padding:16px 18px">
+    <p style="margin:0 0 6px;font:800 12px/1 ${F};letter-spacing:1.4px;text-transform:uppercase;color:#8F5A00">Download PIN</p>
+    <p style="margin:0;font:800 24px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;color:#261433">${escH(p.pin)}</p>
+    <p style="margin:6px 0 0;font:400 13px/1.5 ${F};color:#5E5069">You'll need it to download your photos.</p></td></tr></table>` : "";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>${escH(p.client_first_name)}, your photos are here.</title><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@400;700;800&display=swap" rel="stylesheet"><style>@media (max-width:620px){.card{padding:28px 22px !important} .h1{font-size:28px !important}}</style></head>
 <body style="margin:0;padding:0;background:#F4EFFA"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escH(p.gallery_name)} is ready to view and download.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4EFFA"><tr><td align="center" style="padding:32px 12px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px">
@@ -87,7 +91,7 @@ function galleryEmail(p: Record<string, string>) {
 <h1 class="h1" style="margin:0 0 18px;font:800 32px/1.12 ${B};color:#261433;letter-spacing:-0.6px">${escH(p.client_first_name)}${p.client_first_name ? ", y" : "Y"}our photos are here.</h1>
 <p style="margin:0 0 16px;font:400 16px/1.6 ${F};color:#261433"><strong>${escH(p.gallery_name)}</strong> is ready. Pick your favourites, download, and share.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px">${row("Photos", p.photo_count)}${row("Available until", p.expires_at)}</table>
-${pw}
+${pw}${pin}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px"><tr><td style="border-radius:12px;background:#261433"><a href="${escH(p.link)}" target="_blank" style="display:inline-block;padding:15px 28px;font:700 16px/1 ${F};color:#ffffff;text-decoration:none;border-radius:12px">Open my gallery</a></td></tr></table>
 <p style="margin:8px 0 16px;font:400 16px/1.6 ${F};color:#261433">Thank you,<br><strong>${escH(p.studio_name)}</strong></p></td></tr>
 <tr><td style="padding:22px 8px 0;font:400 13px/1.6 ${F};color:#5E5069">Sent by ${escH(p.studio_name)}${p.branded ? "" : ` with <a href="https://getjovita.com" style="color:#5E5069">Jovita</a>`}. Reply to this email to reach ${escH(p.studio_name)} directly.</td></tr>
@@ -275,7 +279,10 @@ Deno.serve(async (req) => {
       }
       const gp = {
         ...studioParams, client_first_name: firstName(to.name || ""), gallery_name: g.title || "Your gallery", photo_count: String(g.photo_count ?? ""),
-        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link, password: String(g.settings?.password || "").trim(), branded: studio.plan !== "free" ? "1" : "",
+        expires_at: g.expires_on ? day(g.expires_on) : "No expiry", link, branded: studio.plan !== "free" ? "1" : "",
+        // The password and download PIN go in only when ticked in the app (older apps: password yes, PIN no)
+        password: body.include_password === false ? "" : String(g.settings?.password || "").trim(),
+        pin: body.include_pin && g.settings?.download?.on !== false && g.settings?.download?.pin_on ? String(g.settings?.download?.pin || "").trim() : "",
       } as Record<string, string>;
       id = await brevo(galleryEmail(gp), to, gp, asStudio, replyToStudio, copy);
     } else if (kind === "booking") {

@@ -3,7 +3,7 @@ import { useData } from "../lib/data";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, CloseBtn, Drawer, Empty, Pill, useToast } from "../components/ui";
-import { fdate, fday, first, invState, money, projPill } from "../lib/format";
+import { clientMatches, fdate, fday, first, invState, money, projPill } from "../lib/format";
 import { BookingForm } from "./Bookings";
 import ImportClients from "../components/ImportClients";
 import { tx } from "../lib/i18n";
@@ -79,7 +79,7 @@ export default function Clients() {
   const [sel, setSel] = useState(null);
   const [imp, setImp] = useState(false);
   const ql = q.toLowerCase();
-  const list = clients.filter((c) => (tab === "all" || c.status === tab) && (!ql || [c.name, c.email, c.city, c.phone].join(" ").toLowerCase().includes(ql)));
+  const list = clients.filter((c) => (tab === "all" || c.status === tab) && (!ql || clientMatches(c, ql)));
   const selected = clients.find((c) => c.id === sel);
   const tabs = [["all", "All", clients.length], ["client", "Clients", clients.filter((c) => c.status === "client").length], ["lead", "Leads", clients.filter((c) => c.status === "lead").length]];
 
