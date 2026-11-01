@@ -1,4 +1,4 @@
-# Secure build standard
+# Tope Adenola Web Secure Build Standard
 
 *The security and reliability rules used to build Jovita (getjovita.com). Apply them to every website, web app, admin dashboard or client portal. Written for a React + Vite + Supabase + Cloudflare stack; the ideas work on any stack.*
 
