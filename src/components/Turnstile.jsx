@@ -1,9 +1,10 @@
 // Cloudflare Turnstile: a free, privacy-friendly "are you human?" check on sign-in, sign-up and password reset.
 // Supabase checks the token on its side (Authentication › Attack Protection › CAPTCHA), so bots can't skip it.
-// Off until the site key below is filled in.
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
-export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
+// The site key is public (it's in every page that shows the check). Only on the live site, so local testing isn't blocked.
+const LIVE = typeof location !== "undefined" && /(^|\.)getjovita\.com$/.test(location.hostname);
+export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || (LIVE ? "0x4AAAAAAFvDumn-X-EtEUB7" : "");
 let loading = null;
 const load = () => (loading ||= new Promise((ok, no) => {
   if (window.turnstile) return ok();
