@@ -1,0 +1,16 @@
+# getjovita.com: security headers on every page
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+
+# Working files that aren't pages
+/pages/*
+  X-Robots-Tag: noindex
+/email/*
+  X-Robots-Tag: noindex
+/wrangler.jsonc
+  X-Robots-Tag: noindex

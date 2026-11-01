@@ -15,6 +15,8 @@ export default {
     headers.set("etag", obj.httpEtag);
     headers.set("accept-ranges", "bytes");
     headers.set("cache-control", "private, max-age=3600");
+    headers.set("x-robots-tag", "noindex, nofollow");
+    headers.set("x-content-type-options", "nosniff");
     const name = (url.searchParams.get("name") || key.split("/").pop()).replace(/["\\\r\n]/g, "");
     headers.set("content-disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
     let status = 200;

@@ -9,6 +9,7 @@ import Spotlight from "./Spotlight";
 import { Activity, Announcements, Gifts, Milestones, Revenue, Settings, Studios } from "./pages";
 import { ago } from "./util";
 import "./admin.css";
+import Turnstile, { TURNSTILE_SITE_KEY } from "../components/Turnstile";
 
 const NAV = [["overview", "Overview", "home"], ["studios", "Studios", "users"], ["revenue", "Revenue", "wallet"], ["gifts", "Gift access", "gift"], ["activity", "Activity", "pulse"], ["announcements", "Announcements", "mega"], ["spotlight", "Spotlight", "image"], ["milestones", "Milestones", "trophy"], ["settings", "Settings", "settings"]];
 const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } } };
@@ -36,6 +37,7 @@ function Gate() {
 function Login() {
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const [captcha, setCaptcha] = useState(""); const human = useRef(null);
   return (
     <div className="gate">
       <div className="gate-art">
@@ -44,11 +46,12 @@ function Login() {
         <p style={{ position: "relative", zIndex: 1, color: "#D9CCE6", margin: 0 }}>For the Jovita team only.</p>
       </div>
       <div className="gate-form">
-        <form onSubmit={async (e) => { e.preventDefault(); setBusy(true); setErr(""); const { error } = await supabase.auth.signInWithPassword(f); if (error) { setErr(error.message); setBusy(false); } }}>
+        <form onSubmit={async (e) => { e.preventDefault(); if (TURNSTILE_SITE_KEY && !captcha) { setErr("Please complete the quick check first."); return; } setBusy(true); setErr(""); const { error } = await supabase.auth.signInWithPassword({ ...f, options: { captchaToken: captcha || undefined } }); if (error) { setErr(error.message); setBusy(false); human.current?.reset(); } }}>
           <h2 className="h-l">Sign in to HQ</h2>
           <p className="sub">Use the same account you use for Jovita.</p>
           <div className="field"><label htmlFor="e">Email</label><input id="e" className="a-input" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></div>
           <div className="field"><label htmlFor="p">Password</label><input id="p" className="a-input" type="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required /></div>
+          <Turnstile ref={human} onToken={setCaptcha} />
           {err && <p className="err">{err}</p>}
           <button className="a-btn a-btn-primary" disabled={busy} style={{ justifyContent: "center" }}>{busy ? "Signing in…" : "Sign in"}</button>
         </form>

@@ -6,9 +6,63 @@ import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, useToast } from "../components/ui";
 import { ago, balanceOf, daysFrom, dom, dow, fday, first, ftime, invState, money, short, totalLine, totalsBy } from "../lib/format";
-import { summary } from "../lib/accounting";
+import { lastMonths, summary } from "../lib/accounting";
+import { locale } from "../lib/i18n";
 import { loadSampleData } from "../lib/sample";
 import { tx, txn } from "../lib/i18n";
+
+// A note for the month: last month's result, a goal for this one built from the studio's own numbers, and a line to keep going.
+// Changes every month; the studio can hide it until next month.
+const LINES = [
+  "Every booking starts with one message. Send it today.",
+  "Your work is worth your full price. Quote it with confidence.",
+  "Past clients are your warmest leads. Check in with one this week.",
+  "Small steps every day beat a big push once a month.",
+  "A gallery delivered on time is your best advert.",
+  "Ask happy clients for a review. It's the easiest marketing you'll do.",
+  "Busy months are built in quiet weeks. Plan your next shoot now.",
+  "Raise one package by a little. Most clients won't blink.",
+  "Follow up on that quote. People are busy, not saying no.",
+  "Show your best work this month, not just your latest.",
+  "Collect what you're owed. You earned it.",
+  "Your next big client is one referral away. Make it easy to refer you.",
+];
+const nice = (x) => { if (!(x > 0)) return 0; const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(x)) - 1)); return Math.round(x / p) * p; };
+function MonthNote({ data, home }) {
+  const now = new Date();
+  const key = `jv-month-note-${now.getFullYear()}-${now.getMonth()}`;
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(key) === "1"; } catch { return false; } });
+  if (hidden) return null;
+  const monthName = (d) => new Intl.DateTimeFormat(locale(), { month: "long" }).format(d);
+  const lastDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const last = summary(data, "last", home), cur = summary(data, "month", home);
+  const hist = lastMonths(data, home, 7, now).slice(0, 6); // the 6 months before this one
+  const best = Math.max(0, ...hist.map((m) => m.income));
+  const paid = last.incomeRows.length ? last.income / last.incomeRows.length : 0;
+  const avg = paid || (data.invoices.filter((i) => i.currency === home && i.kind !== "quote").reduce((a, i, _, l) => a + Number(i.amount || 0) / l.length, 0));
+  const goal = Math.max(best, last.income) > 0 ? nice(Math.max(best, last.income) * 1.1) : 0;
+  const left = Math.max(0, goal - cur.income);
+  const jobs = avg > 0 ? Math.max(1, Math.ceil(left / avg)) : 0;
+  const line = tx(LINES[(now.getFullYear() * 12 + now.getMonth()) % LINES.length]);
+  const pct = goal ? Math.min(100, Math.round((cur.income / goal) * 100)) : 0;
+  const msg = !goal ? tx("New month, fresh start. One booked session this week gets {month} moving.", { month: monthName(now) })
+    : left === 0 ? tx("You've already beaten your goal for {month}. Everything from here is a record.", { month: monthName(now) })
+    : last.income > 0 ? (jobs && avg ? tx("You made {amount} in {last}. {n} more sessions at about {avg} would make {month} your best month yet.", { amount: money(last.income, home), last: monthName(lastDate), n: jobs, avg: money(nice(avg), home), month: monthName(now) })
+        : tx("You made {amount} in {last}. Aim for {goal} in {month}.", { amount: money(last.income, home), last: monthName(lastDate), goal: money(goal, home), month: monthName(now) }))
+    : tx("Your best recent month was {best}. Let's beat it in {month}.", { best: money(best, home), month: monthName(now) });
+  return (
+    <section className="card month-note">
+      <div className="month-note-top">
+        <p className="eyebrow">{tx("Your {month}", { month: monthName(now) })}</p>
+        <button type="button" className="x" aria-label={tx("Hide until next month")} title={tx("Hide until next month")} onClick={() => { try { localStorage.setItem(key, "1"); } catch { /* fine */ } setHidden(true); }}><Icon name="x" /></button>
+      </div>
+      <b className="month-note-msg">{msg}</b>
+      {goal > 0 && <div className="month-note-goal"><div className="month-note-bar"><span style={{ width: pct + "%" }} /></div>
+        <span className="sub">{tx("{have} of {goal} goal", { have: money(cur.income, home), goal: money(goal, home) })}</span></div>}
+      <p className="sub month-note-line">“{line}”</p>
+    </section>
+  );
+}
 
 export default function Today() {
   const { studio, clients, projects, invoices, bookings, galleries, messages, expenses, subscriptions, client, reload } = useData();
@@ -88,6 +142,7 @@ export default function Today() {
           <p className="sub" style={{ marginTop: 6, fontSize: 17 }}>{fday(new Date().toISOString())} · {todos.length ? txn(todos.length, "{n} thing needs you today", "{n} things need you today") : tx("You're all caught up. Enjoy the shoot!")}</p></div>
         <Link className="btn btn-secondary" to="/projects"><Icon name="folder" />{tx("Open pipeline")}</Link>
       </div>
+      <MonthNote data={{ invoices, expenses: expenses || [], subscriptions: subscriptions || [] }} home={home} />
       <div className="grid g-4">
         <Link to="/money?tab=invoices" className="card stat hero" style={{ textDecoration: "none" }}><p className="label">{tx("Owed to you")}</p><p className="val num">{owed.main}</p>
           <p className="note">{txn(unpaid.length, "{n} invoice", "{n} invoices")}{overdue ? " · " + txn(overdue, "{n} late", "{n} late") : ""}{owed.others.startsWith("+") ? " · " + owed.others : ""}</p></Link>

@@ -1,9 +1,23 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabase";
 import Icon, { Mark } from "../components/Icon";
 import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
+import Turnstile, { TURNSTILE_SITE_KEY } from "../components/Turnstile";
+
+// After 5 wrong passwords, this browser waits 15 minutes before trying again (Supabase also limits attempts per network)
+const LOCK_KEY = "jv-signin-fails";
+const MAX_FAILS = 5, LOCK_MIN = 15;
+const readFails = () => { try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "{}"); } catch { return {}; } };
+const writeFails = (v) => { try { localStorage.setItem(LOCK_KEY, JSON.stringify(v)); } catch { /* private mode */ } };
+const lockedFor = (email) => { const r = readFails()[email]; return r?.until && r.until > Date.now() ? Math.ceil((r.until - Date.now()) / 60000) : 0; };
+function noteFail(email) {
+  const all = readFails(), r = all[email] && all[email].since > Date.now() - LOCK_MIN * 60000 ? all[email] : { n: 0, since: Date.now() };
+  r.n += 1; if (r.n >= MAX_FAILS) { r.until = Date.now() + LOCK_MIN * 60000; r.n = 0; r.since = Date.now(); }
+  all[email] = r; writeFails(all); return r.until && r.until > Date.now() ? LOCK_MIN : MAX_FAILS - r.n;
+}
+const clearFails = (email) => { const all = readFails(); delete all[email]; writeFails(all); };
 
 export default function Auth({ initial = "signup" }) {
   const [mode, setMode] = useState(initial);
@@ -12,15 +26,23 @@ export default function Auth({ initial = "signup" }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const [captcha, setCaptcha] = useState("");
+  const human = useRef(null);
+  const needCaptcha = !!TURNSTILE_SITE_KEY && !captcha;
 
   async function submit(e) {
     e.preventDefault();
+    if (needCaptcha) { setMsg({ ok: false, text: tx("Please complete the quick check above the button.") }); return; }
+    const email = f.email.trim().toLowerCase();
+    const wait = mode === "signin" ? lockedFor(email) : 0;
+    if (wait) { setMsg({ ok: false, text: tx("Too many wrong passwords. Try again in {n} minutes, or reset your password.", { n: wait }) }); return; }
+    const captchaToken = captcha || undefined;
     setBusy(true); setMsg(null);
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email: f.email, password: f.password,
-          options: { data: { first_name: f.first, studio_name: f.studio }, emailRedirectTo: window.location.origin },
+          options: { data: { first_name: f.first, studio_name: f.studio }, emailRedirectTo: window.location.origin, captchaToken },
         });
         if (error) throw error;
         if (!data.session) {
@@ -29,10 +51,17 @@ export default function Auth({ initial = "signup" }) {
           if (e2) setMsg({ ok: true, text: tx("Check your email to confirm your account, then sign in.") });
         }
       } else if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.password, options: { captchaToken } });
+        if (error) {
+          if (/invalid login credentials/i.test(error.message)) {
+            const left = noteFail(email);
+            throw new Error(lockedFor(email) ? tx("Too many wrong passwords. Try again in {n} minutes, or reset your password.", { n: left }) : left <= 2 ? tx("Wrong email or password. {n} tries left before a 15-minute pause.", { n: left }) : tx("Wrong email or password."));
+          }
+          throw error;
+        }
+        clearFails(email);
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: window.location.origin });
+        const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: window.location.origin, captchaToken });
         if (error) throw error;
         setMsg({ ok: true, text: tx("We've emailed you a link to reset your password.") });
       }
@@ -40,6 +69,7 @@ export default function Auth({ initial = "signup" }) {
       setMsg({ ok: false, text: err.message });
     } finally {
       setBusy(false);
+      human.current?.reset(); // each check works once
     }
   }
 
@@ -69,6 +99,7 @@ export default function Auth({ initial = "signup" }) {
           {mode !== "reset" && (
             <div className="field"><label htmlFor="a-pass">{tx("Password")}</label><div className="pw-field"><input id="a-pass" type={showPw ? "text" : "password"} required minLength={8} value={f.password} onChange={set("password")} autoComplete={mode === "signup" ? "new-password" : "current-password"} /><button type="button" className="pw-eye" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? tx("Hide password") : tx("Show password")} aria-pressed={showPw}><Icon name={showPw ? "eyeoff" : "eye"} /></button></div><span className="help">{tx("At least 8 characters.")}</span></div>
           )}
+          <Turnstile ref={human} onToken={setCaptcha} />
           {msg && <p className={msg.ok ? "sub" : "err"} role="status">{msg.text}</p>}
           <button className="btn btn-primary" disabled={busy} type="submit">
             {busy ? tx("One moment…") : mode === "signup" ? tx("Create my studio") : mode === "signin" ? tx("Sign in") : tx("Send reset link")}

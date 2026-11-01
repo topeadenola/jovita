@@ -1,0 +1,4 @@
+# app.getjovita.com and studio addresses: private pages carry "noindex", so search engines are allowed to read
+# that instruction. Only the Spotlight showcase is meant to appear in search.
+User-agent: *
+Allow: /

@@ -1443,3 +1443,15 @@ body{transition:background-color .2s}
 .ss-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.12)}
 .ss-progress span{display:block;height:100%;width:0;background:var(--marigold);animation:ss-bar linear forwards}
 @keyframes ss-bar{to{width:100%}}
+.turnstile{min-height:65px}
+/* Today: the note for the month */
+.month-note{display:flex;flex-direction:column;gap:10px;background:var(--lilac);border-color:var(--lilac)}
+.month-note-top{display:flex;justify-content:space-between;align-items:center}
+.month-note-top .x{border:0;background:transparent;color:var(--muted);cursor:pointer;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+.month-note-top .x svg{width:16px;height:16px}
+.month-note-msg{font-family:var(--font-display);font-size:20px;line-height:27px;font-weight:700;color:var(--ink)}
+.month-note-goal{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.month-note-bar{flex:1;min-width:160px;height:8px;border-radius:99px;background:rgba(38,20,51,.12);overflow:hidden}
+.month-note-bar span{display:block;height:100%;background:var(--marigold);border-radius:99px}
+.month-note-goal .sub{font-size:13px}
+.month-note-line{font-style:italic;font-size:14px}

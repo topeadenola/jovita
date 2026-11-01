@@ -1,0 +1,87 @@
+# Nightly backup of the Jovita database (clients, projects, invoices, galleries' records, accounts).
+# Runs every night at 03:17 Lagos time, encrypts the file, and keeps it in the private R2 bucket "jovita-backups".
+# Kept: every night for 30 days, plus the 1st of each month for a year. Run it now from GitHub › Actions › Database backup › Run workflow.
+#
+# Secrets (GitHub › Settings › Secrets and variables › Actions), never in this file:
+#   SUPABASE_DB_URL            Supabase › Connect › Session pooler connection string (with the database password filled in)
+#   BACKUP_PASSPHRASE          a long passphrase you choose; needed to open a backup, keep it in your password manager
+#   R2_ACCOUNT_ID              Cloudflare account ID (32 letters/numbers, R2 overview page)
+#   R2_BACKUP_ACCESS_KEY_ID    R2 API token (Object Read & Write, bucket jovita-backups only)
+#   R2_BACKUP_SECRET_ACCESS_KEY
+# Photos are not in here: they live in R2 (jovita-media) already.
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: jovita-backups
+    steps:
+      - name: Check the secrets are set
+        run: |
+          for v in SUPABASE_DB_URL BACKUP_PASSPHRASE R2_ACCOUNT_ID R2_BACKUP_ACCESS_KEY_ID R2_BACKUP_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || { echo "::error::Add the $v secret in GitHub › Settings › Secrets and variables › Actions"; exit 1; }
+          done
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Back up the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          NAME="jovita-$(date -u +%Y-%m-%d).dump"
+          # public = Jovita's data, auth = sign-in accounts, storage = file records
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage --file="$NAME"
+          ls -lh "$NAME"
+          [ "$(stat -c%s "$NAME")" -gt 10000 ] || { echo "::error::The backup looks empty"; exit 1; }
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Encrypt it
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$BACKUP_PASSPHRASE" --output "$NAME.gpg" "$NAME"
+          shred -u "$NAME"
+          ls -lh "$NAME.gpg"
+
+      - name: Save it to R2
+        run: |
+          aws s3 cp "$NAME.gpg" "s3://$BUCKET/db/$(date -u +%Y/%m)/$NAME.gpg" --endpoint-url "$R2" --only-show-errors
+          echo "Saved db/$(date -u +%Y/%m)/$NAME.gpg"
+
+      - name: Tidy old backups
+        run: |
+          now=$(date -u +%s)
+          aws s3 ls "s3://$BUCKET/db/" --recursive --endpoint-url "$R2" | awk '{print $4}' | while read -r key; do
+            d=$(echo "$key" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}') || continue
+            age=$(( (now - $(date -u -d "$d" +%s)) / 86400 ))
+            day=${d:8:2}
+            if { [ "$day" != "01" ] && [ "$age" -gt 30 ]; } || [ "$age" -gt 366 ]; then
+              aws s3 rm "s3://$BUCKET/$key" --endpoint-url "$R2" --only-show-errors && echo "Removed $key"
+            fi
+          done

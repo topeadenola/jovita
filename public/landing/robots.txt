@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /pages/
+Disallow: /email/
+
+Sitemap: https://getjovita.com/sitemap.xml
