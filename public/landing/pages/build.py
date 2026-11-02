@@ -262,8 +262,8 @@ PRIV = [
 <p>We never sell personal information, and we never use your clients' details to market to them.</p>"""),
  ("share", "Who we share it with", """<p>We use a small number of trusted providers to run Jovita. They only process information to provide their service to us:</p>
 <ul><li><b>Supabase</b> for our database, sign-in and file storage (hosted in London, United Kingdom).</li>
-<li><b>Cloudflare</b> to host and protect our website and app.</li>
-<li><b>Brevo</b> to send emails.</li>
+<li><b>Cloudflare</b> to host and protect our website and app, and to count visits to our website without cookies.</li>
+<li><b>Brevo</b> and <b>Resend</b> to send emails.</li>
 <li><b>Anthropic</b> to power Ask Jovita.</li>
 <li><b>Google</b>, only if you connect Google Calendar.</li>
 <li><b>Payment providers</b> you choose (Paystack, Flutterwave, PayPal, Stripe). Clients pay the creative directly through these providers; we don't receive or store card details.</li></ul>
@@ -273,7 +273,7 @@ PRIV = [
 <p><b>If you're a client</b> of a creative who uses Jovita, please contact that creative first, as they control your information. We'll help them respond.</p>
 <p>You can also complain to your local data protection authority, for example the ICO in the UK or the NDPC in Nigeria.</p>"""),
  ("security", "Security", """<p>Information is encrypted in transit and at rest. Each studio can only see its own data, enforced in the database itself. Secret keys are stored encrypted and are never shown in the app. No system is perfectly secure, but we work hard to protect your information and will tell you promptly if a breach affects you.</p>"""),
- ("cookies", "Cookies and local storage", """<p>We use only what's needed to run Jovita: keeping you signed in and remembering your language and display settings. We don't use advertising cookies.</p>"""),
+ ("cookies", "Cookies and local storage", """<p>We use only what's needed to run Jovita: keeping you signed in and remembering your language and display settings. We don't use advertising cookies. To see how many people visit our website, we use Cloudflare Web Analytics, which doesn't use cookies, doesn't track you across sites and doesn't identify you.</p>"""),
  ("children", "Children", """<p>Jovita is for adults running a business. Creatives may add information about children they photograph (for example, at a family session), with a parent or guardian's permission. We don't knowingly let children create accounts.</p>"""),
  ("international", "International transfers", """<p>Our main servers are in the United Kingdom. Some providers may process information in other countries. When they do, we use safeguards such as standard contractual clauses.</p>"""),
  ("changes", "Changes to this policy", """<p>If we make important changes, we'll tell you by email or in the app before they take effect. The date at the top shows when this policy last changed.</p>"""),
@@ -283,7 +283,7 @@ priv_body = f"""
 <p class="eyebrow">Privacy</p>
 <h1>Privacy policy</h1>
 <p class="lead">Plain words on what we collect, why, and how you stay in control.</p>
-<p class="meta">Last updated 18 October 2026</p>
+<p class="meta">Last updated 2 November 2026</p>
 </div></section>
 <div class="wrap layout">
 {toc([(i, t) for i, t, _ in PRIV])}
