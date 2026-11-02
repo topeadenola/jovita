@@ -4,7 +4,7 @@
 // 7 days before, 3 days before, the last day, and the day after it ends. Plans past their end date go back to Free.
 // Safe to call any time: each email is sent at most once (plan_reminders), so it needs no secret.
 //
-// Secrets: BREVO_API_KEY (or BREVO). Provided automatically: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+// Secrets: RESEND_API_KEY (used first) and BREVO_API_KEY (backup). Provided automatically: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 const APP_URL = env("APP_URL") || "https://app.getjovita.com";
