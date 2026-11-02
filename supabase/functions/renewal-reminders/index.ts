@@ -65,8 +65,25 @@ export function renewEmail(o: { first: string; plan: string; cycle: string; date
   return { subject, html };
 }
 
+// Sends through Resend when RESEND_API_KEY is set (so a problem at Brevo can't stop reminders), otherwise or on failure through Brevo
+async function sendMail(to: string, name: string | null, m: { subject: string; html: string }) {
+  const from = { email: "hello@getjovita.com", name: "Jovita" };
+  if (env("RESEND_API_KEY")) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST", headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: `${from.name} <${from.email}>`, to: [to], reply_to: from.email, subject: m.subject, html: m.html }),
+    });
+    if (r.ok) return r;
+    console.error("Resend failed, trying Brevo:", await r.text());
+  }
+  return await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST", headers: { "api-key": env("BREVO_API_KEY") || env("BREVO"), "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ sender: from, replyTo: from, to: [{ email: to, name: name || undefined }], subject: m.subject, htmlContent: m.html }),
+  });
+}
+
 Deno.serve(async () => {
-  const key = env("SUPABASE_SERVICE_ROLE_KEY"), base = env("SUPABASE_URL"), brevoKey = env("BREVO_API_KEY") || env("BREVO");
+  const key = env("SUPABASE_SERVICE_ROLE_KEY"), base = env("SUPABASE_URL"), brevoKey = env("RESEND_API_KEY") || env("BREVO_API_KEY") || env("BREVO"); // any sender is enough
   const h = { Authorization: `Bearer ${key}`, apikey: key, Accept: "application/json", "Content-Type": "application/json" };
   const now = Date.now();
   const from = new Date(now - 2 * DAY).toISOString(), to = new Date(now + 11 * DAY).toISOString();
@@ -89,10 +106,7 @@ Deno.serve(async () => {
       const owner = ur.ok ? await ur.json() : null;
       if (!owner?.email) continue;
       const m = renewEmail({ first: String(s.owner_first_name || "there").split(" ")[0], plan: s.plan, cycle: s.plan_cycle, date: renew });
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST", headers: { "api-key": brevoKey, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ sender: { email: "hello@getjovita.com", name: "Jovita" }, replyTo: { email: "hello@getjovita.com", name: "Jovita" }, to: [{ email: owner.email, name: s.owner_first_name || undefined }], subject: m.subject, htmlContent: m.html }),
-      });
+      const res = await sendMail(owner.email, s.owner_first_name, m);
       if (res.ok) { sent++; await fetch(`${base}/rest/v1/events`, { method: "POST", headers: h, body: JSON.stringify({ studio_id: s.id, kind: "renewal_reminder", meta: { plan: s.plan, days: left, auto: true } }) }); }
       else console.error("renewal notice failed", s.id, await res.text());
       continue;
@@ -116,10 +130,7 @@ Deno.serve(async () => {
     const owner = ur.ok ? await ur.json() : null;
     if (!owner?.email) continue;
     const m = email({ first: String(s.owner_first_name || "there").split(" ")[0], plan: s.plan, gift, days, until: new Date(until.getTime() - (gift ? DAY : 0)) });
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST", headers: { "api-key": brevoKey, "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ sender: { email: "hello@getjovita.com", name: "Jovita" }, replyTo: { email: "hello@getjovita.com", name: "Jovita" }, to: [{ email: owner.email, name: s.owner_first_name || undefined }], subject: m.subject, htmlContent: m.html }),
-    });
+    const res = await sendMail(owner.email, s.owner_first_name, m);
     if (res.ok) {
       sent++;
       await fetch(`${base}/rest/v1/events`, { method: "POST", headers: h, body: JSON.stringify({ studio_id: s.id, kind: "renewal_reminder", meta: { plan: s.plan, days: Math.max(0, days) } }) });

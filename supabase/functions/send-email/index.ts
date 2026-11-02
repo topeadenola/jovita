@@ -99,7 +99,42 @@ ${pw}${pin}
   return { subject: "Your photos are ready ✨", html };
 }
 
-async function brevo(templateId: number | { subject: string; html: string }, to: Who, params: Record<string, unknown>, sender = FROM, replyTo?: Who, bcc?: Who) {
+// Resend: a second email service, used for reminders (and by Supabase for password resets), so a problem at Brevo
+// can't stop them. Needs the RESEND_API_KEY secret and getjovita.com verified in Resend. Falls back to Brevo if it fails.
+const tplCache: Record<number, { subject: string; html: string }> = {};
+async function brevoTemplate(id: number) {
+  if (tplCache[id]) return tplCache[id];
+  const r = await fetch(`https://api.brevo.com/v3/smtp/templates/${id}`, { headers: { "api-key": env("BREVO_API_KEY") || env("BREVO"), Accept: "application/json" } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.htmlContent) throw new Error(`Couldn't load email template ${id}`);
+  return (tplCache[id] = { subject: j.subject, html: j.htmlContent });
+}
+// Fills a Brevo-style template: {{ params.x }} and {% if params.x %}…{% else %}…{% endif %}
+function fill(t: string, params: Record<string, unknown>, raw = false) {
+  const v = (k: string) => params[k];
+  const e = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return t.replace(/\{%\s*if\s+params\.(\w+)\s*%\}([\s\S]*?)(?:\{%\s*else\s*%\}([\s\S]*?))?\{%\s*endif\s*%\}/g, (_m, k, a, b) => (v(k) ? a : b || ""))
+    .replace(/\{\{\s*params\.(\w+)\s*\}\}/g, (_m, k) => (raw ? String(v(k) ?? "") : e(v(k))));
+}
+async function resend(msg: { subject: string; html: string }, to: Who, sender: Who, replyTo?: Who, bcc?: Who) {
+  const key = env("RESEND_API_KEY");
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: sender.name ? `${sender.name.replace(/[<>"]/g, "")} <${sender.email}>` : sender.email, to: [to.email], subject: msg.subject, html: msg.html,
+      ...(replyTo ? { reply_to: replyTo.email } : {}), ...(bcc && bcc.email !== to.email ? { bcc: [bcc.email] } : {}) }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.message || `Resend error ${r.status}`);
+  return String(j.id);
+}
+
+async function brevo(templateId: number | { subject: string; html: string }, to: Who, params: Record<string, unknown>, sender = FROM, replyTo?: Who, bcc?: Who, viaResend = false) {
+  if (viaResend && env("RESEND_API_KEY")) {
+    try {
+      const t = typeof templateId === "number" ? await brevoTemplate(templateId) : templateId;
+      return await resend(typeof templateId === "number" ? { subject: fill(t.subject, params, true), html: fill(t.html, params) } : t, to, sender, replyTo, bcc);
+    } catch (e) { console.error("Resend failed, trying Brevo:", (e as Error).message); }
+  }
   const key = (env("BREVO_API_KEY") || env("BREVO"));
   if (!key) throw new Error("Email isn't set up on the server yet (missing BREVO_API_KEY).");
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -258,7 +293,7 @@ Deno.serve(async (req) => {
         paid_at: day(inv.paid_at || new Date().toISOString()), method: inv.payment_method || "—",
         balance: money(inv.status === "paid" ? 0 : Math.max(0, Number(inv.amount) - Number(inv.amount_paid || 0)), inv.currency),
       };
-      id = await brevo(TEMPLATES[kind], { email: c.email, name: c.name }, params, asStudio, replyToStudio, copy);
+      id = await brevo(TEMPLATES[kind], { email: c.email, name: c.name }, params, asStudio, replyToStudio, copy, kind === "payment_reminder"); // reminders go through Resend
     } else if (kind === "contract") {
       const p = await one(get(`projects?id=eq.${body.project_id}&select=*`), "Project");
       const c = await one(get(`clients?id=eq.${p.client_id}&select=name,email`), "Client");
