@@ -1573,5 +1573,15 @@
   "{n} photo selected": "Picha {n} imechaguliwa",
   "{n} photos selected": "Picha {n} zimechaguliwa",
   "{n} with notes": "{n} zenye maoni",
-  "Open {name}": "Fungua {name}"
+  "Open {name}": "Fungua {name}",
+  "The two passwords don't match.": "Manenosiri mawili hayalingani.",
+  "Your new password is saved. Taking you to your studio…": "Nenosiri lako jipya limehifadhiwa. Tunakupeleka kwenye studio yako…",
+  "This reset link has expired": "Kiungo hiki cha kuweka upya kimeisha muda",
+  "Reset links work once and only for a short time. Ask for a new one and use it straight away.": "Viungo vya kuweka upya hufanya kazi mara moja tu na kwa muda mfupi. Omba kipya na ukitumie mara moja.",
+  "Send me a new link": "Nitumie kiungo kipya",
+  "Choose a new password": "Chagua nenosiri jipya",
+  "New password": "Nenosiri jipya",
+  "Type it again": "Liandike tena",
+  "Save new password": "Hifadhi nenosiri jipya",
+  "The quick human check didn't load. Refresh the page, or try another browser or network.": "Ukaguzi mfupi haukupakia. Onyesha upya ukurasa, au jaribu kivinjari au mtandao mwingine."
 }

@@ -1571,5 +1571,15 @@
   "{n} photo selected": "{n} foto elegida",
   "{n} photos selected": "{n} fotos elegidas",
   "{n} with notes": "{n} con notas",
-  "Open {name}": "Abrir {name}"
+  "Open {name}": "Abrir {name}",
+  "The two passwords don't match.": "Las dos contraseñas no coinciden.",
+  "Your new password is saved. Taking you to your studio…": "Tu nueva contraseña está guardada. Te llevamos a tu estudio…",
+  "This reset link has expired": "Este enlace de restablecimiento ha caducado",
+  "Reset links work once and only for a short time. Ask for a new one and use it straight away.": "Los enlaces de restablecimiento solo funcionan una vez y por poco tiempo. Pide uno nuevo y úsalo enseguida.",
+  "Send me a new link": "Envíame un enlace nuevo",
+  "Choose a new password": "Elige una nueva contraseña",
+  "New password": "Nueva contraseña",
+  "Type it again": "Escríbela de nuevo",
+  "Save new password": "Guardar nueva contraseña",
+  "The quick human check didn't load. Refresh the page, or try another browser or network.": "La comprobación rápida no se cargó. Recarga la página o prueba otro navegador o red."
 }

@@ -1,6 +1,7 @@
 // Cloudflare Turnstile: a free, privacy-friendly "are you human?" check on sign-in, sign-up and password reset.
 // Supabase checks the token on its side (Authentication › Attack Protection › CAPTCHA), so bots can't skip it.
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { tx } from "../lib/i18n";
 
 // The site key is public (it's in every page that shows the check). Only on the live site, so local testing isn't blocked.
 const LIVE = typeof location !== "undefined" && /(^|\.)getjovita\.com$/.test(location.hostname);
@@ -17,6 +18,7 @@ const load = () => (loading ||= new Promise((ok, no) => {
 const Turnstile = forwardRef(function Turnstile({ onToken }, ref) {
   const box = useRef(null);
   const id = useRef(null);
+  const [failed, setFailed] = useState(false);
   useImperativeHandle(ref, () => ({ reset: () => { if (id.current != null) window.turnstile?.reset(id.current); onToken(""); } }));
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return;
@@ -25,12 +27,12 @@ const Turnstile = forwardRef(function Turnstile({ onToken }, ref) {
       if (gone || !box.current) return;
       id.current = window.turnstile.render(box.current, {
         sitekey: TURNSTILE_SITE_KEY, theme: "light", size: "flexible",
-        callback: (t) => onToken(t), "expired-callback": () => onToken(""), "error-callback": () => onToken(""),
+        callback: (t) => { setFailed(false); onToken(t); }, "expired-callback": () => onToken(""), "error-callback": () => { onToken(""); setFailed(true); },
       });
-    }).catch(() => {});
+    }).catch(() => setFailed(true));
     return () => { gone = true; if (id.current != null) window.turnstile?.remove(id.current); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!TURNSTILE_SITE_KEY) return null;
-  return <div ref={box} className="turnstile" />;
+  return <><div ref={box} className="turnstile" />{failed && <p className="err" role="status">{tx("The quick human check didn't load. Refresh the page, or try another browser or network.")}</p>}</>;
 });
 export default Turnstile;

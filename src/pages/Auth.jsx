@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import Icon, { Mark } from "../components/Icon";
 import { tx } from "../lib/i18n";
@@ -20,7 +20,7 @@ function noteFail(email) {
 const clearFails = (email) => { const all = readFails(); delete all[email]; writeFails(all); };
 
 export default function Auth({ initial = "signup" }) {
-  const [mode, setMode] = useState(initial);
+  const [mode, setMode] = useState(() => (typeof location !== "undefined" && /[?&]reset=1/.test(location.search) ? "reset" : initial));
   const [f, setF] = useState({ first: "", studio: "", email: "", password: "" });
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -61,7 +61,7 @@ export default function Auth({ initial = "signup" }) {
         }
         clearFails(email);
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: window.location.origin, captchaToken });
+        const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: `${window.location.origin}/reset-password`, captchaToken });
         if (error) throw error;
         setMsg({ ok: true, text: tx("We've emailed you a link to reset your password.") });
       }
@@ -110,6 +110,53 @@ export default function Auth({ initial = "signup" }) {
             {mode === "signin" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMode("reset")}>{tx("Forgot password?")}</button>}
           </p>
         </form>
+      </main>
+    </div>
+  );
+}
+
+// Opened from the "reset your password" email: the link signs the person in for a few minutes so they can choose a new password.
+export function NewPassword({ session }) {
+  const nav = useNavigate();
+  const [pw, setPw] = useState({ a: "", b: "" });
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  async function save(e) {
+    e.preventDefault();
+    if (pw.a !== pw.b) { setMsg({ ok: false, text: tx("The two passwords don't match.") }); return; }
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.auth.updateUser({ password: pw.a });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: error.message }); return; }
+    setMsg({ ok: true, text: tx("Your new password is saved. Taking you to your studio…") });
+    setTimeout(() => nav("/", { replace: true }), 1500);
+  }
+  return (
+    <div className="auth">
+      <section className="auth-side">
+        <Link to="/" className="brand" style={{ textDecoration: "none" }}><Mark dot="#261433" smile="#261433" style={{ width: 30, height: 42 }} /><b>jovita</b></Link>
+        <LangSwitch />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}><h1>{tx("Run your creative business with joy.")}</h1></div>
+        <span />
+      </section>
+      <main className="auth-main">
+        {session === undefined ? <div className="loading">{tx("Loading…")}</div> : !session ? (
+          <div className="auth-card">
+            <h2 className="h-l">{tx("This reset link has expired")}</h2>
+            <p className="sub">{tx("Reset links work once and only for a short time. Ask for a new one and use it straight away.")}</p>
+            <Link className="btn btn-primary" to="/login?reset=1">{tx("Send me a new link")}</Link>
+          </div>
+        ) : (
+          <form className="auth-card" onSubmit={save}>
+            <h2 className="h-l">{tx("Choose a new password")}</h2>
+            <p className="sub">{session.user?.email}</p>
+            <div className="field"><label htmlFor="np-a">{tx("New password")}</label><div className="pw-field"><input id="np-a" type={show ? "text" : "password"} required minLength={8} autoFocus value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} autoComplete="new-password" /><button type="button" className="pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? tx("Hide password") : tx("Show password")} aria-pressed={show}><Icon name={show ? "eyeoff" : "eye"} /></button></div><span className="help">{tx("At least 8 characters.")}</span></div>
+            <div className="field"><label htmlFor="np-b">{tx("Type it again")}</label><input id="np-b" type={show ? "text" : "password"} required minLength={8} value={pw.b} onChange={(e) => setPw({ ...pw, b: e.target.value })} autoComplete="new-password" /></div>
+            {msg && <p className={msg.ok ? "sub" : "err"} role="status">{msg.text}</p>}
+            <button className="btn btn-primary" disabled={busy} type="submit">{busy ? tx("One moment…") : tx("Save new password")}</button>
+          </form>
+        )}
       </main>
     </div>
   );

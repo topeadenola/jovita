@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "./supabase";
 import { DataProvider, useData } from "./lib/data";
 import Shell from "./components/Shell";
-import Auth from "./pages/Auth";
+import Auth, { NewPassword } from "./pages/Auth";
 import { TwoStepGate, needsCode } from "./components/TwoStep";
 import Portal from "./pages/Portal";
 import Today from "./pages/Today";
@@ -86,6 +86,7 @@ export default function App() {
 }
 
 function JovitaApp() {
+  const nav = useNavigate();
   const [session, setSession] = useState(undefined);
   const [gate, setGate] = useState(undefined); // two-step code still needed (undefined while checking)
   useEffect(() => { if (session !== undefined) markSignedIn(!!session); }, [session]);
@@ -93,9 +94,13 @@ function JovitaApp() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      setSession(s);
+      // Opened from a reset email (old emails link to the home page): go straight to choosing a new password
+      if (e === "PASSWORD_RECOVERY" && window.location.pathname !== "/reset-password") nav("/reset-password", { replace: true });
+    });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -107,6 +112,7 @@ function JovitaApp() {
       {["/about", "/help", "/privacy", "/pricing"].map((p) => <Route key={p} path={p} element={<ToSite />} />)}
       <Route path="/spotlight" element={<SpotlightList />} />
       <Route path="/spotlight/:slug" element={<SpotlightPost />} />
+      <Route path="/reset-password" element={<NewPassword session={session} />} />
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Auth initial="signin" />} />
       <Route path="/signup" element={session ? <Navigate to="/" replace /> : <Auth initial="signup" />} />
       <Route
