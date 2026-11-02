@@ -246,8 +246,6 @@ function ConnectionsTab() {
           <div className="field"><label>{tx("Your Jovita inbox address")}</label>
             <InboxAddress />
             <span className="help">{tx("When clients reply to Jovita emails, their answer lands in your Inbox like a chat, and you reply from there. Want other client emails in too? Forward them to this address from Gmail or Outlook.")}</span></div>
-          <div className="switch"><div><b>{tx("Also send replies to my own email")}</b><span>{tx("A copy of every client email that lands in your Jovita inbox.")}</span></div>
-            <Toggle on={studio.forward_inbox !== false} label={tx("Also send replies to my own email")} onChange={async (v) => { try { await updateStudio({ forward_inbox: v }); } catch (e) { toast(e.message); } }} /></div>
         </>}
         <p className="sub" style={{ fontSize: 13 }}><a href="https://getjovita.com/help/#connect-email" target="_blank" rel="noreferrer">{tx("How email works in Jovita")}</a></p>
       </section>

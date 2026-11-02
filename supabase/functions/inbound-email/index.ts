@@ -2,13 +2,12 @@
 //
 // Cloudflare Email Routing sends anything addressed to inbox+<studio name or code>@getjovita.com to the jovita-mail Worker,
 // which posts it here. We find the studio by <code>, match the sender to a client (or keep a new sender in the Inbox),
-// save it as an Inbox message, and send the creative a copy so nothing is missed.
+// and save it as an Inbox message. Nothing is sent back out.
 //
-// Secrets (Supabase → Edge Functions → Secrets): INBOUND_SECRET (the same value as in the jovita-mail Worker), BREVO_API_KEY.
+// Secrets (Supabase → Edge Functions → Secrets): INBOUND_SECRET (the same value as in the jovita-mail Worker). This function never sends email.
 // Deployed with verify_jwt off: the shared secret is the check.
 
 const env = (k: string) => Deno.env.get(k) ?? "";
-const APP_URL = env("APP_URL") || "https://app.getjovita.com";
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
 
 // Senders that are machines, not clients: we pass these to the creative but don't make them clients
@@ -35,7 +34,6 @@ function newPart(text: string) {
 }
 const fromHtml = (h: string) => h.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "")
   .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Not found" }, 404);
@@ -72,9 +70,9 @@ Deno.serve(async (req) => {
   // People you said aren't clients (Inbox › Not a client)
   const blocked: string[] = (studio.blocked_senders || []).map((x: string) => String(x).toLowerCase());
   if (from && (blocked.includes(from) || blocked.includes("@" + from.split("@")[1]))) return json({ ok: true, ignored: "blocked" });
-  // Other no-reply / notification mail is skipped too; only Google's forwarding confirmation is passed on to you
+  // Other no-reply / notification mail is skipped too; only Google's forwarding confirmation is kept
   if (system && !/forwarding-noreply@google\.com/.test(from)) return json({ ok: true, ignored: "system" });
-  // Jovita's own emails (e.g. the inbox copy we send you) coming back through Gmail forwarding: drop them, so nothing loops
+  // Jovita's own emails coming back through Gmail forwarding: drop them, so nothing loops
   if (/@getjovita\.com$/.test(from) || /^(new email in your jovita inbox|forwarded by jovita)/i.test(text)) return json({ ok: true, ignored: "own" });
 
   // Same email twice (retries): ignore
@@ -94,28 +92,12 @@ Deno.serve(async (req) => {
     await post("messages", { studio_id: studio.id, client_id: client.id, channel: "email", from_client: true, read: false, body: text, subject, email_id: m.message_id || null });
   }
 
-  // A copy to the creative's own inbox (always for system mail, e.g. Gmail's forwarding confirmation)
-  if (studio.forward_inbox !== false || system) {
-    const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
-    const owner = ur.ok ? await ur.json() : null;
-    const to = studio.reply_email || owner?.email;
-    const apiKey = (env("BREVO_API_KEY") || env("BREVO"));
-    if (to && apiKey) {
-      const who = fromName ? `${fromName} <${from}>` : from;
-      const html = `<div style="font:15px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#261433;max-width:600px">
-        <p style="color:#5E5069;margin:0 0 12px">${system ? "Forwarded by Jovita" : `New email in your Jovita inbox from <b>${esc(who)}</b>`}</p>
-        <div style="white-space:pre-wrap;background:#F4EFFA;border-radius:14px;padding:16px">${esc(system ? fromHtml(m.html || "") || m.text || "" : text)}</div>
-        ${system ? "" : `<p style="margin:16px 0"><a href="${APP_URL}/inbox" style="background:#261433;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">Reply in Jovita</a></p>
-        <p style="color:#5E5069;font-size:13px">Or just reply to this email to answer ${esc(fromName || from)} directly.</p>`}</div>`;
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST", headers: { "api-key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          sender: { email: "hello@getjovita.com", name: "Jovita inbox" }, to: [{ email: to }],
-          ...(system ? {} : { replyTo: { email: from, name: fromName || undefined } }),
-          subject: system ? subject : `${fromName || from}: ${subject || "New message"}`, htmlContent: html,
-        }),
-      }).catch(() => {});
-    }
+  // Gmail's forwarding confirmation (the code to finish setting up forwarding) goes into the Jovita Inbox, so you can read it there.
+  // Nothing is ever re-sent out by email: incoming mail stays in Jovita, and Gmail already has the original.
+  if (system) {
+    let [g] = await get(`clients?studio_id=eq.${studio.id}&email=eq.forwarding-noreply%40google.com&select=id&limit=1`);
+    if (!g) { const row = { studio_id: studio.id, name: "Gmail forwarding", email: "forwarding-noreply@google.com", phone: "", city: "", status: "inbox" }; try { g = await post("clients", row); } catch { g = await post("clients", { ...row, status: "lead" }); } }
+    await post("messages", { studio_id: studio.id, client_id: g.id, channel: "email", from_client: true, read: false, body: (fromHtml(m.html || "") || m.text || "").slice(0, 4000) || "(no text)", subject, email_id: m.message_id || null });
   }
   return json({ ok: true, client_id: client?.id || null });
 });
