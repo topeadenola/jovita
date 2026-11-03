@@ -35,7 +35,7 @@ function Studio() {
   useEffect(() => { if (studio?.theme && studio.theme !== getSaved()) applyTheme(studio.theme); }, [studio?.theme]);
   if (loading) return <div className="loading">{tx("Loading your studio…")}</div>;
   if (error) return <div className="loading"><p className="err">{error}</p></div>;
-  if (studio.suspended) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("Your studio is paused")}</b><p>{tx("Please contact Jovita support to switch it back on. Your clients' links still work.")}</p><button className="btn btn-secondary" onClick={() => supabase.auth.signOut()}>{tx("Sign out")}</button></div></div>;
+  if (studio.suspended) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("Your studio is paused")}</b><p>{tx("Please contact Jovita support to switch it back on. Your clients' links still work.")}</p><button className="btn btn-secondary" onClick={() => supabase.auth.signOut({ scope: "local" })}>{tx("Sign out")}</button></div></div>;
   if (!studio.onboarded) return <Onboarding />;
   return (
     <Shell>

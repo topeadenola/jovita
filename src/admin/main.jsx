@@ -29,7 +29,7 @@ function Gate() {
   if (!session) return <Login />;
   if (!admin) return (
     <div className="loading"><div className="empty"><SmileMark size={56} /><b>This area is for the Jovita team</b><p className="sub">You're signed in as {session.user.email}, which isn't an admin account.</p>
-      <div className="row"><a className="a-btn a-btn-ghost" href="/">Go to my studio</a><button className="a-btn a-btn-primary" onClick={() => supabase.auth.signOut()}>Sign in as someone else</button></div></div></div>
+      <div className="row"><a className="a-btn a-btn-ghost" href="/">Go to my studio</a><button className="a-btn a-btn-primary" onClick={() => supabase.auth.signOut({ scope: "local" })}>Sign in as someone else</button></div></div></div>
   );
   return <HQ session={session} />;
 }
@@ -143,7 +143,7 @@ function HQ({ session }) {
         <div className="hq-side-foot">
           <div className="hq-me"><span className="av">{name[0]}</span><div><b>{name}</b><small>Founder · Owner</small></div></div>
           <a className="link" href="/" target="_blank" rel="noreferrer"><Icon name="external" />Open the studio app</a>
-          <button type="button" className="link" onClick={() => supabase.auth.signOut()}><Icon name="logout" />Sign out</button>
+          <button type="button" className="link" onClick={() => supabase.auth.signOut({ scope: "local" })}><Icon name="logout" />Sign out</button>
         </div>
       </aside>
       <div className="hq-main">

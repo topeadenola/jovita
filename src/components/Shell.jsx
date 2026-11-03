@@ -110,7 +110,7 @@ export default function Shell({ children }) {
             </div>
             <a className="side-link" href="/spotlight" target="_blank" rel="noreferrer"><Icon name="star" />{tx("Spotlight")}</a>
             <LangSwitch onPick={(l) => { const p = langPatch(studio, l); updateStudio(p).then(() => p.home_currency && setTimeout(() => toast(tx("Prices now show in {cur}. You can change this in Settings.", { cur: p.home_currency })), 60)).catch(() => {}); }} />
-            <button type="button" onClick={() => supabase.auth.signOut()}><Icon name="logout" />{tx("Sign out")}</button>
+            <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })}><Icon name="logout" />{tx("Sign out")}</button>
           </div>
         </aside>
         <main className="main">

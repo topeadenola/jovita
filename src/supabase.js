@@ -8,4 +8,6 @@ if (!url || !key) {
   console.error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Copy .env.example to .env.");
 }
 
-export const supabase = createClient(url, key);
+// Jovita HQ (/admin) keeps its own sign-in, separate from the studio app, so signing out of one never signs you out of the other
+const HQ = typeof location !== "undefined" && location.pathname.startsWith("/admin");
+export const supabase = createClient(url, key, HQ ? { auth: { storageKey: "jovita-hq-auth" } } : undefined);

@@ -58,7 +58,7 @@ export function TwoStepGate({ onDone }) {
           {err && <p className="err" role="status">{err}</p>}
           <button className="btn btn-primary" disabled={busy || code.length !== 6}>{busy ? tx("One moment…") : tx("Continue")}</button>
           <p className="sub" style={{ fontSize: 14 }}>{tx("Lost your phone? Email hello@getjovita.com from your account email and we'll help.")}{" "}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut()}>{tx("Sign out")}</button></p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut({ scope: "local" })}>{tx("Sign out")}</button></p>
         </form>
       </main>
     </div>
