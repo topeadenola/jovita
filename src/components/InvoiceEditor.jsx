@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { tidyBullets } from "../lib/bullets";
 import ContractPreview from "./ContractPreview";
+import PeoplePicker from "./PeoplePicker";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
@@ -31,6 +32,9 @@ export function totals(d) {
 }
 
 // Turn a stored invoice into an editable draft (older invoices only had a label and amount)
+// "Onyeka Obi & Ada Eze": the main client plus everyone else on it
+const billNames = (c, ids, clients) => [c.name, ...(ids || []).filter((x) => x !== c.id).map((x) => clients.find((k) => k.id === x)?.name).filter(Boolean)].join(" & ");
+
 function toDraft(i) {
   const items = Array.isArray(i.items) && i.items.length ? i.items : [{ id: uid(), name: i.label || "", description: "", qty: 1, price: Number(i.amount) || 0 }];
   return {
@@ -38,6 +42,7 @@ function toDraft(i) {
     items: items.map((it) => keepItem(it)),
     notes: i.notes || "", discount: i.discount || 0, discount_type: i.discount_type || "amount", tax_rate: i.tax_rate || 0,
     schedule: Array.isArray(i.schedule) ? i.schedule : [], methods: Array.isArray(i.methods) ? i.methods : ["transfer"],
+    people: Array.isArray(i.people) ? i.people : [],
     reminders_on: i.reminders_on ?? true, reminder_days: i.reminder_days || [-7, 0, 3, 7, 14], allow_tip: !!i.allow_tip,
   };
 }
@@ -47,7 +52,7 @@ function Field({ label, children, help, id }) {
 }
 
 function Preview({ d, t, inv }) {
-  const { studio, client } = useData();
+  const { studio, client, clients = [] } = useData();
   const c = client(d.client_id);
   const lay = layout(d.items);
   return (
@@ -55,7 +60,7 @@ function Preview({ d, t, inv }) {
       <div className="doc-head"><StudioLogo studio={studio} />
         <div style={{ flex: 1 }}><b>{studio.name}</b><br /><span className="sub" style={{ fontSize: 13 }}>{inv.kind === "quote" ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number })}</span></div>
         <div style={{ textAlign: "right" }}><span className="sub" style={{ fontSize: 12 }}>{inv.kind === "quote" ? tx("Valid until") : tx("Due")}</span><br /><b>{fdate(d.due_date)}</b></div></div>
-      <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{c.company ? <><br /><span style={{ fontSize: 14 }}>{c.company}</span></> : null}{c.email ? <><br /><span className="sub" style={{ fontSize: 13 }}>{c.email}</span></> : null}</div>
+      <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{billNames(c, d.people, clients)}</b>{c.company ? <><br /><span style={{ fontSize: 14 }}>{c.company}</span></> : null}{c.email ? <><br /><span className="sub" style={{ fontSize: 13 }}>{c.email}</span></> : null}</div>
       {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
       <table className="doc-table"><tbody>
         {lay.lines.map(({ it, head }) => (<Fragment key={it.id}>
@@ -141,7 +146,7 @@ function RecordPayment({ inv, total, onClose, onDone }) {
 
 // Before sending: optionally add a contract for the client to sign on the same page as the quote or invoice
 function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }) {
-  const { templates, projects, client, insert, update } = useData();
+  const { templates, projects, client, clients = [], insert, update } = useData();
   const toast = useToast();
   const c = client(d.client_id);
   const contracts = templates.filter((t) => t.kind === "contract").sort((a, b) => (b.is_default - a.is_default) || a.name.localeCompare(b.name));
@@ -160,19 +165,24 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
       // No project yet: make one for this job.
       if ((quote || (add && tid)) && !signed) {
         if (!projectId) {
-          const np = await insert("projects", { client_id: d.client_id, title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || (quote ? tx("Quote") : tx("Invoice")), type: "Portrait", stage: quote ? "inquiry" : "booked", amount: total, currency: d.currency, contract_template_id: add && tid ? tid : null });
+          const np = await insert("projects", { ...(d.people?.length ? { people: d.people } : {}), client_id: d.client_id, title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || (quote ? tx("Quote") : tx("Invoice")), type: "Portrait", stage: quote ? "inquiry" : "booked", amount: total, currency: d.currency, contract_template_id: add && tid ? tid : null });
           projectId = np.id;
           await update("invoices", inv.id, { project_id: projectId });
         } else if (add && tid && p.contract_template_id !== tid) await update("projects", projectId, { contract_template_id: tid });
       }
+      // Everyone on the quote / invoice is on the job too (they get the client page and the contract email)
+      const pr = projects.find((x) => x.id === projectId);
+      const extra = (d.people || []).filter((x) => !(pr?.people || []).includes(x));
+      if (projectId && pr && extra.length) await update("projects", projectId, { people: [...(pr.people || []), ...extra] });
       await onSend(projectId);
     } catch (x) { toast(x.message); setBusy(false); }
   };
+  const all = billNames(c, [...new Set([...(d.people || []), ...(p?.people || [])])], clients).split(" & ");
   return (
     <Modal label={quote ? tx("Send quote") : tx("Send invoice")} onClose={onClose}>
       <form className="stack" onSubmit={go}>
         <h2 className="h-m">{inv.status === "sent" ? (quote ? tx("Send updated quote") : tx("Send updated invoice")) : quote ? tx("Send quote") : tx("Send invoice")}</h2>
-        <p className="sub" style={{ fontSize: 13 }}>{tx("{name} gets an email with a link to {what}: {total}.", { name: c.name, what: quote ? tx("the quote") : tx("the invoice"), total: money(total, d.currency) })}</p>
+        <p className="sub" style={{ fontSize: 13 }}>{tx(all.length > 1 ? "{name} each get an email with a link to {what}: {total}." : "{name} gets an email with a link to {what}: {total}.", { name: all.join(" & "), what: quote ? tx("the quote") : tx("the invoice"), total: money(total, d.currency) })}</p>
         {signed ? <p className="sub" style={{ fontSize: 13 }}><Icon name="check" /> {tx("{name} has already signed the contract for this job.", { name: first(c.name) })}</p> : contracts.length ? (
           <>
             <label className="check"><input type="checkbox" checked={add} onChange={(e) => setAdd(e.target.checked)} />{tx("Add a contract for {name} to sign", { name: first(c.name) })}</label>
@@ -203,7 +213,9 @@ export default function InvoiceEditor({ id, onClose, startSend = false }) {
   const [d, setD, status, flush] = useAutosave(inv ? toDraft(inv) : null, async (v) => {
     const t = totals(v);
     const label = v.label.trim() || v.items.find((it) => it.name.trim())?.name.trim() || (inv?.kind === "quote" ? tx("Quote") : tx("Invoice"));
-    await update("invoices", id, { ...v, project_id: v.project_id || null, label, amount: t.total, schedule: schedRows(v, t).map(({ id: sid, percent, due }) => ({ id: sid, percent, due: due || null })), updated_at: new Date().toISOString() });
+    // people is sent only once it's used (it needs update 34 in Supabase)
+    const { people, ...rest } = v;
+    await update("invoices", id, { ...rest, ...(people.length || Array.isArray(inv?.people) ? { people } : {}), project_id: v.project_id || null, label, amount: t.total, schedule: schedRows(v, t).map(({ id: sid, percent, due }) => ({ id: sid, percent, due: due || null })), updated_at: new Date().toISOString() });
   });
 
   useEffect(() => {
@@ -331,12 +343,14 @@ export default function InvoiceEditor({ id, onClose, startSend = false }) {
                 <h2 className="h-m">{tx("Bill to")}</h2>
                 <div className="inv-bill">
                   <Avatar name={c.name} />
-                  <div style={{ flex: 1, minWidth: 0 }}><b>{c.name}</b>{c.company ? <span className="sub">{" · "}{c.company}</span> : null}<div className="sub" style={{ fontSize: 13 }}>{[c.email, c.phone].filter(Boolean).join(" · ") || tx("No contact details yet")}</div></div>
+                  <div style={{ flex: 1, minWidth: 0 }}><b>{billNames(c, d.people, clients)}</b>{c.company ? <span className="sub">{" · "}{c.company}</span> : null}<div className="sub" style={{ fontSize: 13 }}>{[c.email, c.phone].filter(Boolean).join(" · ") || tx("No contact details yet")}</div></div>
                 </div>
                 <div className="form-grid">
-                  <Field label={tx("Client")} id="ie-client"><ClientPicker id="ie-client" value={d.client_id} clients={clients} onChange={(v) => setD((x) => ({ ...x, client_id: v, project_id: "" }))} /></Field>
-                  <Field label={tx("Project")} id="ie-project"><select id="ie-project" value={d.project_id} onChange={(e) => set("project_id", e.target.value)}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></Field>
+                  <Field label={tx("Client")} id="ie-client"><ClientPicker id="ie-client" value={d.client_id} clients={clients} onChange={(v) => setD((x) => ({ ...x, client_id: v, project_id: "", people: x.people.filter((y) => y !== v) }))} /></Field>
+                  <Field label={tx("Project")} id="ie-project"><select id="ie-project" value={d.project_id} onChange={(e) => { const pr = projects.find((x) => x.id === e.target.value); setD((x) => ({ ...x, project_id: e.target.value, people: x.people.length ? x.people : (pr?.people || []) })); }}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></Field>
                 </div>
+                <Field label={tx("Also send to (optional)")} id="ie-people" help={tx("They get the emails and the client page too. {name} signs and accepts.", { name: first(c.name) })}>
+                  <PeoplePicker id="ie-people" value={d.people} main={d.client_id} clients={clients} onChange={(v) => set("people", v)} /></Field>
                 <Field label={quote ? tx("Quote title") : tx("Invoice title")} id="ie-label" help={tx("Shown to your client, e.g. \"Wedding balance\". Leave blank to use the first item.")}><input id="ie-label" value={d.label} onChange={(e) => set("label", e.target.value)} placeholder={tx("e.g. Deposit (50%)")} /></Field>
               </section>
 

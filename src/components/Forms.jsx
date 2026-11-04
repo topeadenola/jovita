@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ClientPicker from "./ClientPicker";
+import PeoplePicker from "./PeoplePicker";
 import { useData } from "../lib/data";
 import { CURRENCIES, PROJECT_TYPES, SYM, addDays, first, money } from "../lib/format";
 import { CloseBtn, Modal, MoneyInput, useToast } from "./ui";
@@ -92,7 +93,7 @@ export function ProjectForm({ pre, onClose, onCreated }) {
     <FormModal title={tx("New project")} onClose={onClose} onSubmit={async () => {
       if (!f.title.trim()) throw new Error(tx("Say what the job is, e.g. Engagement shoot."));
       const p = await insert("projects", {
-        ...f, title: f.title.trim(), amount: Number(f.amount) || 0,
+        ...f, title: f.title.trim(), amount: Number(f.amount) || 0, people: undefined, ...(f.people?.length ? { people: f.people } : {}),
         session_date: f.session_date || null,
         contract_template_id: f.contract_template_id || null, release_template_id: f.release_template_id || null,
       });
@@ -100,7 +101,10 @@ export function ProjectForm({ pre, onClose, onCreated }) {
       onCreated ? onCreated(p) : onClose();
     }}>
       <div className="field"><label htmlFor="p-client">{tx("Client")}</label>
-        <ClientPicker id="p-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v })} /></div>
+        <ClientPicker id="p-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v, people: (f.people || []).filter((x) => x !== v) })} /></div>
+      <div className="field"><label htmlFor="p-people">{tx("Also send to (optional)")}</label>
+        <PeoplePicker id="p-people" value={f.people || []} main={f.client_id} clients={clients} onChange={(v) => setF({ ...f, people: v })} />
+        <span className="help">{tx("They get the emails and the client page too. {name} signs and accepts.", { name: (clients.find((c) => c.id === f.client_id)?.name || "").split(" ")[0] || tx("Your client") })}</span></div>
       <div className="form-grid">
         <div className="field"><label htmlFor="p-title">{tx("What's the job?")}</label><input id="p-title" autoFocus value={f.title} onChange={set("title")} placeholder={tx("e.g. Engagement shoot")} /></div>
         <div className="field"><label htmlFor="p-type">{tx("Type")}</label><select id="p-type" value={f.type} onChange={set("type")}>{PROJECT_TYPES.map((t) => <option key={t} value={t}>{tx(t)}</option>)}</select></div>

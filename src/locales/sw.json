@@ -1717,5 +1717,12 @@
   "Company (optional)": "Kampuni (si lazima)",
   "e.g. Global Cars": "mfano Global Cars",
   "Client company": "Kampuni ya mteja",
-  "Company": "Kampuni"
+  "Company": "Kampuni",
+  "Also send to (optional)": "Tuma pia kwa (si lazima)",
+  "They get the emails and the client page too. {name} signs and accepts.": "Nao wanapata barua pepe na ukurasa wa mteja. {name} anasaini na kukubali.",
+  "Your client": "Mteja wako",
+  "(no email)": "(hakuna barua pepe)",
+  "Remove {name}": "Ondoa {name}",
+  "Add someone: type a name or email": "Ongeza mtu: andika jina au barua pepe",
+  "{name} each get an email with a link to {what}: {total}.": "{name} kila mmoja anapata barua pepe yenye kiungo cha {what}: {total}."
 }

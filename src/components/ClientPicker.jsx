@@ -8,7 +8,7 @@ import { useData } from "../lib/data";
 
 const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
 
-export default function ClientPicker({ id, value, onChange, clients, autoFocus }) {
+export default function ClientPicker({ id, value, onChange, clients, autoFocus, placeholder }) {
   const current = clients.find((c) => c.id === value);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -45,7 +45,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
   return (
     <div className="cpick" ref={box}>
       <input id={id} type="text" role="combobox" aria-expanded={open} aria-autocomplete="list" autoComplete="off" autoFocus={autoFocus}
-        value={open ? q : current?.name || ""} placeholder={open ? (current?.name || tx("Type a name or email")) : tx("Choose a client")}
+        value={open ? q : current?.name || ""} placeholder={open ? (current?.name || tx("Type a name or email")) : placeholder || tx("Choose a client")}
         onFocus={() => { setOpen(true); setQ(""); }}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onKeyDown={(e) => {

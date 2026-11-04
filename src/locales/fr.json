@@ -1717,5 +1717,12 @@
   "Company (optional)": "Entreprise (facultatif)",
   "e.g. Global Cars": "ex. Global Cars",
   "Client company": "Entreprise du client",
-  "Company": "Entreprise"
+  "Company": "Entreprise",
+  "Also send to (optional)": "Envoyer aussi à (facultatif)",
+  "They get the emails and the client page too. {name} signs and accepts.": "Ils reçoivent aussi les e-mails et la page client. {name} signe et accepte.",
+  "Your client": "Votre client",
+  "(no email)": "(pas d'e-mail)",
+  "Remove {name}": "Retirer {name}",
+  "Add someone: type a name or email": "Ajouter quelqu'un : tapez un nom ou un e-mail",
+  "{name} each get an email with a link to {what}: {total}.": "{name} reçoivent chacun un e-mail avec un lien vers {what} : {total}."
 }

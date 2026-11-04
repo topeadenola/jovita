@@ -1,3 +1,4 @@
+import PeoplePicker from "./PeoplePicker";
 import { useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
@@ -11,7 +12,7 @@ import { fill, values } from "../lib/merge";
 import SendContract from "./SendContract";
 
 export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
-  const { project, client, invoices, templates, update, remove, studio, bookings = [] } = useData();
+  const { project, client, clients = [], invoices, templates, update, remove, studio, bookings = [] } = useData();
   const { projectAction, invoiceAction } = useActions();
   const toast = useToast();
   const ui = useUi();
@@ -20,7 +21,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const [sendingContract, setSendingContract] = useState(false);
   const [delDocs, setDelDocs] = useState(false);
   const p = project(id);
-  const [f, setF] = useState(() => p ? { title: p.title, type: p.type, session_date: p.session_date || "", amount: String(Number(p.amount) || ""), currency: p.currency } : null);
+  const [f, setF] = useState(() => p ? { title: p.title, type: p.type, session_date: p.session_date || "", amount: String(Number(p.amount) || ""), currency: p.currency, people: p.people || [] } : null);
   const [saving, setSaving] = useState(false);
   if (!p) return null;
   const c = client(p.client_id);
@@ -77,7 +78,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
         e.preventDefault();
         if (!f.title.trim()) return toast(tx("Say what the job is, e.g. Engagement shoot."));
         setSaving(true);
-        await set({ title: f.title.trim(), type: f.type, session_date: f.session_date || null, amount: Number(f.amount) || 0, currency: f.currency }, tx("Project saved"));
+        await set({ title: f.title.trim(), type: f.type, session_date: f.session_date || null, amount: Number(f.amount) || 0, currency: f.currency, ...(f.people.length || p.people?.length ? { people: f.people } : {}) }, tx("Project saved"));
         setSaving(false);
       }}>
         <h3 className="h-m">{tx("Details")}</h3>
@@ -88,6 +89,9 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
           <div className="field"><label htmlFor="pd-fee">{tx("Fee")}</label><MoneyInput id="pd-fee" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} />
             {invTotal > 0 && Math.round(invTotal) !== Math.round(Number(f.amount) || 0) && <span className="help">{tx("Invoiced so far: {amt}.", { amt: money(invTotal, p.currency) })} <button type="button" className="linkish" onClick={() => setF({ ...f, amount: String(invTotal) })}>{tx("Use this")}</button></span>}</div>
           <div className="field"><label htmlFor="pd-cur">{tx("Currency")}</label><CurrencySelect id="pd-cur" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} /></div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}><label htmlFor="pd-people">{tx("Also send to (optional)")}</label>
+            <PeoplePicker id="pd-people" value={f.people} main={p.client_id} clients={clients} onChange={(v) => setF({ ...f, people: v })} />
+            <span className="help">{tx("They get the emails and the client page too. {name} signs and accepts.", { name: first(c.name) })}</span></div>
         </div>
         <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={saving}>{saving ? tx("Saving…") : tx("Save")}</button>
       </form>

@@ -147,6 +147,15 @@ async function brevo(templateId: number | { subject: string; html: string }, to:
   return j.messageId as string;
 }
 
+// The other people on a project / quote / invoice (not the main client), with an email, each once
+async function others(get: (q: string) => Promise<any[]>, ids: string[], mainId: string, mainEmail: string): Promise<Who[]> {
+  const list = [...new Set((ids || []).filter((x) => x && x !== mainId && /^[0-9a-f-]{36}$/i.test(x)))];
+  if (!list.length) return [];
+  const rows = await get(`clients?id=in.(${list.join(",")})&select=name,email`);
+  const seen = new Set([String(mainEmail || "").toLowerCase()]);
+  return rows.filter((r: any) => r.email && !seen.has(r.email.toLowerCase()) && seen.add(r.email.toLowerCase())).map((r: any) => ({ email: r.email, name: r.name }));
+}
+
 // The client accepted a quote on their page (portal_accept_quote already turned it into an invoice).
 // Uses the service key, so it trusts only the page token, and sends at most once per quote.
 async function quoteAccepted(token: string, invoiceId: string) {
@@ -156,7 +165,7 @@ async function quoteAccepted(token: string, invoiceId: string) {
   const base = env("SUPABASE_URL");
   const h = { Authorization: `Bearer ${key}`, apikey: key, Accept: "application/json", "Content-Type": "application/json" };
   const get = async (path: string) => { const r = await fetch(`${base}/rest/v1/${path}`, { headers: h }); return r.ok ? await r.json() : []; };
-  const [p] = await get(`projects?portal_token=eq.${token}&select=id,title,client_id,studio_id`);
+  const [p] = await get(`projects?portal_token=eq.${token}&select=*`);
   if (!p) return { error: "Not found." };
   // Claim the send first, so two clicks can't send twice
   const claim = await fetch(`${base}/rest/v1/invoices?id=eq.${invoiceId}&project_id=eq.${p.id}&kind=eq.invoice&accepted_at=not.is.null&accept_emailed_at=is.null`, {
@@ -180,6 +189,11 @@ async function quoteAccepted(token: string, invoiceId: string) {
     }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, (inbox || ownerEmail) ? { email: inbox || ownerEmail, name: studio.name } : undefined,
       studio.copy_me && ownerEmail ? { email: ownerEmail } : undefined);
     sent.push("client");
+    for (const x of await others(get, [...(inv.people || []), ...(p.people || [])], p.client_id, c.email))
+      await brevo(TEMPLATES.invoice, { email: x.email, name: x.name }, {
+        studio_name: studio.name || "Your photographer", studio_logo: logo, client_first_name: firstName(x.name), invoice_number: inv.number,
+        amount: money(inv.amount, inv.currency), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
+      }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, (inbox || ownerEmail) ? { email: inbox || ownerEmail, name: studio.name } : undefined).catch(() => {});
   }
   if (owner?.email) {
     await brevo(TEMPLATES.quote_accepted, { email: owner.email, name: studio.owner_first_name || undefined }, {
@@ -281,7 +295,7 @@ Deno.serve(async (req) => {
       const inv = await one(get(`invoices?id=eq.${body.invoice_id}&select=*`), "Invoice");
       const c = await one(get(`clients?id=eq.${inv.client_id}&select=name,email`), "Client");
       if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
-      const p = inv.project_id ? (await get(`projects?id=eq.${inv.project_id}&select=title,portal_token`))[0] : null;
+      const p = inv.project_id ? (await get(`projects?id=eq.${inv.project_id}&select=*`))[0] : null;
       // The client page when there's a project, otherwise the invoice's own page (never the Jovita sign-in)
       const link = p ? `${siteOf(studio)}/p/${p.portal_token}` : inv.view_token ? `${siteOf(studio)}/i/${inv.view_token}` : APP_URL;
       const due = inv.due_date ? new Date(inv.due_date) : null;
@@ -294,12 +308,17 @@ Deno.serve(async (req) => {
         balance: money(inv.status === "paid" ? 0 : Math.max(0, Number(inv.amount) - Number(inv.amount_paid || 0)), inv.currency),
       };
       id = await brevo(TEMPLATES[kind], { email: c.email, name: c.name }, params, asStudio, replyToStudio, copy, kind === "payment_reminder"); // reminders go through Resend
+      // Everyone else on it (e.g. the groom, or a colleague) gets their own copy, by name
+      for (const x of await others(get, [...(inv.people || []), ...(p?.people || [])], inv.client_id, c.email))
+        await brevo(TEMPLATES[kind], { email: x.email, name: x.name }, { ...params, client_first_name: firstName(x.name) }, asStudio, replyToStudio, undefined, kind === "payment_reminder").catch(() => {});
     } else if (kind === "contract") {
       const p = await one(get(`projects?id=eq.${body.project_id}&select=*`), "Project");
       const c = await one(get(`clients?id=eq.${p.client_id}&select=name,email`), "Client");
       if (!c.email) throw new Error(`Add an email for ${c.name} first.`);
-      id = await brevo(TEMPLATES.contract, { email: c.email, name: c.name },
-        { ...studioParams, client_first_name: firstName(c.name), project_name: p.title || "your session", link: `${siteOf(studio)}/p/${p.portal_token}` }, asStudio, replyToStudio, copy);
+      const cp = { ...studioParams, client_first_name: firstName(c.name), project_name: p.title || "your session", link: `${siteOf(studio)}/p/${p.portal_token}` };
+      id = await brevo(TEMPLATES.contract, { email: c.email, name: c.name }, cp, asStudio, replyToStudio, copy);
+      for (const x of await others(get, p.people || [], p.client_id, c.email))
+        await brevo(TEMPLATES.contract, { email: x.email, name: x.name }, { ...cp, client_first_name: firstName(x.name) }, asStudio, replyToStudio).catch(() => {});
     } else if (kind === "gallery") {
       const g = await one(get(`galleries?id=eq.${body.gallery_id}&select=*`), "Gallery");
       // To one invited person (their own link, so you see when they open it), or to the gallery's client
