@@ -1704,5 +1704,8 @@
   "{n} client updated": "Mteja {n} amesasishwa",
   "{n} clients updated": "Wateja {n} wamesasishwa",
   "Update {n} client": "Sasisha mteja {n}",
-  "Update {n} clients": "Sasisha wateja {n}"
+  "Update {n} clients": "Sasisha wateja {n}",
+  "Pick what you'd like, then accept to book your date.": "Chagua unachotaka, kisha kubali ili kuweka tarehe yako.",
+  "Like what you see?": "Umependa?",
+  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Kubali nukuu ili kuweka tarehe yako. Jibu barua pepe ya {studio} ukiwa na maswali."
 }

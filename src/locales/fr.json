@@ -1704,5 +1704,8 @@
   "{n} client updated": "{n} client mis à jour",
   "{n} clients updated": "{n} clients mis à jour",
   "Update {n} client": "Mettre à jour {n} client",
-  "Update {n} clients": "Mettre à jour {n} clients"
+  "Update {n} clients": "Mettre à jour {n} clients",
+  "Pick what you'd like, then accept to book your date.": "Choisissez ce qui vous plaît, puis acceptez pour réserver votre date.",
+  "Like what you see?": "Ça vous plaît ?",
+  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Acceptez le devis pour réserver votre date. Répondez à l'e-mail de {studio} si vous avez des questions."
 }

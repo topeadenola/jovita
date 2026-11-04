@@ -89,7 +89,13 @@ export default function InvoiceView() {
         </div>
 
         <aside className="iv-side">
-          {paid ? (
+          {quote ? (
+            <section className="card iv-pay">
+              <h2 className="h-m">{tx("Like what you see?")}</h2>
+              <p className="sub">{tx("Accept the quote to book your date. Reply to {studio}'s email if you have questions.", { studio: s.name })}</p>
+              {payLink && <a className="btn btn-primary" href={payLink}>{tx("See quote and accept")}</a>}
+            </section>
+          ) : paid ? (
             <section className="card iv-paid"><Icon name="check" /><div><b>{tx("Paid. Thank you!")}</b><p className="sub">{tx("{studio} has your payment.", { studio: s.name })}</p></div></section>
           ) : (
             <section className="card iv-pay">

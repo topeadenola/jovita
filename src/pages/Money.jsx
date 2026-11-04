@@ -17,7 +17,7 @@ const inTab = (i, tab) => tab === "All" || (tab === "Quotes" ? i.kind === "quote
 function Invoices() {
   const { invoices, studio, client, project, updateStudio } = useData();
   const { invoiceAction } = useActions();
-  const { q, open, setOpenInvoice } = useUi();
+  const { q, open, setOpenInvoice, sendInvoice } = useUi();
   const toast = useToast();
   const [tab, setTab] = useState("All");
   const home = studio.home_currency;
@@ -69,7 +69,7 @@ function Invoices() {
                       {studio.reminders_on && (i.reminders_on ?? true) ? tx("On") : tx("Off")}</span>) : <span className="sub">—</span>}</td>
                   <td className="right num"><b>{money(i.amount, i.currency)}</b>{Number(i.amount_paid) > 0 && i.status === "sent" && <small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{tx("{amount} left", { amount: money(balanceOf(i), i.currency) })}</small>}</td>
                   <td className="right" style={{ whiteSpace: "nowrap" }}>
-                    {i.status === "draft" && <button className="btn btn-primary btn-sm" onClick={() => invoiceAction(i, "send")}><Icon name="send" />{tx("Send")}</button>}
+                    {i.status === "draft" && <button className="btn btn-primary btn-sm" onClick={() => sendInvoice(i.id)}><Icon name="send" />{tx("Send")}</button>}
                     {i.status === "sent" && i.kind === "quote" && <span className="sub" style={{ fontSize: 13 }}>{tx("Waiting for a yes")}</span>}
                     {i.status === "sent" && i.kind !== "quote" && <>{st.k !== "Sent" && <button className="btn btn-secondary btn-sm" onClick={() => invoiceAction(i, "nudge")}>{tx("Nudge")}</button>}{" "}
                       <button className="btn btn-ghost btn-sm" onClick={() => invoiceAction(i, "markpaid")}><Icon name="check" />{tx("Mark paid")}</button></>}

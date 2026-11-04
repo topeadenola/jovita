@@ -169,7 +169,7 @@ export default function Portal() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(live[q.id] ?? q.amount, q.currency)}</span></div>
               {Array.isArray(q.items) && <QuoteItems q={q} items={picks[q.id] ? applyPicks(q.items, picks[q.id]) : q.items} onPick={(it, on) => pick(q, it, on)} />}
               {q.notes && <p className="sub" style={{ whiteSpace: "pre-line", fontSize: 14 }}>{q.notes}</p>}
-              <p className="sub" style={{ fontSize: 13 }}>{tx("Accepting books your date. The quote becomes an invoice right here so you can pay.")}</p>
+              <p className="sub" style={{ fontSize: 13 }}>{tx("Pick what you'd like, then accept to book your date.")}</p>
               <button className="btn btn-joy" style={{ alignSelf: "flex-start" }} disabled={accepting} onClick={() => acceptQuote(q)}><Icon name="check" />{accepting ? tx("Booking…") : tx("Accept quote")}</button>
             </section>
           ))}
@@ -179,7 +179,8 @@ export default function Portal() {
           })} done={p.contract_signed} doneText={tx("Signed. Thank you!")} text={fill(d.contract, vals)} signLabel={tx("Sign contract")}
             onSign={async (name) => { const { error } = await supabase.rpc("portal_sign_contract", { p_token: token, p_name: name }); if (error) throw error; toast(tx("Contract signed. Thank you!"), true); load(); }} />}
 
-          <section className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* While there is only a quote, nothing about paying shows: that comes once they accept */}
+          {(open || d.invoices.some((i) => i.kind !== "quote")) && <section className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{++step}. {open ? tx("Pay {v0}", {
               v0: open.label.toLowerCase()
             }) : tx("Payments")}</h2>
@@ -211,7 +212,7 @@ export default function Portal() {
                 )}
               </>
             ) : <p className="sub">{d.invoices.some((i) => i.kind !== "quote") ? tx("All paid. Thank you!") : quotes.length ? tx("Accept your quote above and your invoice appears here.") : tx("No payment due right now.")}</p>}
-          </section>
+          </section>}
 
           {d.release && <SignBlock title={tx("{v0}. Model release (optional)", {
             v0: ++step

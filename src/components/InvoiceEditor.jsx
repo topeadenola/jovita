@@ -154,13 +154,14 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
     setBusy(true);
     try {
       let projectId = d.project_id || null;
-      if (add && tid && !signed) {
-        // A contract lives on a project (the client's page). No project yet: make one for this job.
+      // A quote always goes to the client's page (where they pick options and accept), and a contract lives there too.
+      // No project yet: make one for this job.
+      if ((quote || (add && tid)) && !signed) {
         if (!projectId) {
-          const np = await insert("projects", { client_id: d.client_id, title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || (quote ? tx("Quote") : tx("Invoice")), type: "Portrait", stage: quote ? "inquiry" : "booked", amount: total, currency: d.currency, contract_template_id: tid });
+          const np = await insert("projects", { client_id: d.client_id, title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || (quote ? tx("Quote") : tx("Invoice")), type: "Portrait", stage: quote ? "inquiry" : "booked", amount: total, currency: d.currency, contract_template_id: add && tid ? tid : null });
           projectId = np.id;
           await update("invoices", inv.id, { project_id: projectId });
-        } else if (p.contract_template_id !== tid) await update("projects", projectId, { contract_template_id: tid });
+        } else if (add && tid && p.contract_template_id !== tid) await update("projects", projectId, { contract_template_id: tid });
       }
       await onSend(projectId);
     } catch (x) { toast(x.message); setBusy(false); }
@@ -186,7 +187,7 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
   );
 }
 
-export default function InvoiceEditor({ id, onClose }) {
+export default function InvoiceEditor({ id, onClose, startSend = false }) {
   const { invoices, clients, projects, templates, studio, client, update, remove } = useData();
   const { invoiceAction } = useActions();
   const toast = useToast();
@@ -249,7 +250,7 @@ export default function InvoiceEditor({ id, onClose }) {
   };
   const title = quote ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number });
   const send = async (projectId) => { await flush(); await invoiceAction({ ...inv, ...d, project_id: projectId === undefined ? d.project_id : projectId, amount: t.total }, "send", { copy_me: copyMe }); onClose(); };
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState(startSend);
   const openSend = async () => { await flush(); setSending(true); };
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
   const canPay = !quote && (inv.status === "sent" || inv.status === "draft");

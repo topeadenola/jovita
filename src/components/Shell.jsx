@@ -42,6 +42,7 @@ export default function Shell({ children }) {
   const [upgrade, setUpgrade] = useState(false);
   useEffect(() => { loadPlan(studio).then(setPlan); }, [studio.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [openInvoice, setOpenInvoice] = useState(null);
+  const [sendFirst, setSendFirst] = useState(false); // open the invoice straight on its Send dialog
   const [openGallery, setOpenGallery] = useState(null);
   const [mode, setMode] = useState(() => document.documentElement.dataset.theme || resolve(studio.theme || "auto"));
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function Shell({ children }) {
   };
 
   return (
-    <UiCtx.Provider value={{ q, setQ, open, openProject, setOpenProject, openAsk: () => setAsk(true), setOpenInvoice, setOpenGallery, plan, setPlan, openUpgrade: () => setUpgrade(true) }}>
+    <UiCtx.Provider value={{ q, setQ, open, openProject, setOpenProject, openAsk: () => setAsk(true), setOpenInvoice: (id) => { setSendFirst(false); setOpenInvoice(id); }, sendInvoice: (id) => { setSendFirst(true); setOpenInvoice(id); }, setOpenGallery, plan, setPlan, openUpgrade: () => setUpgrade(true) }}>
       <div className="app">
         <aside className="side">
           <div className="brand"><Mark dot="#261433" /><b>{tx("jovita")}</b></div>
@@ -150,7 +151,7 @@ export default function Shell({ children }) {
       {modal?.kind === "client" && <ClientForm onClose={() => setModal(null)} />}
       {modal?.kind === "project" && <ProjectForm pre={modal.pre} onClose={() => setModal(null)} onCreated={(p) => { setModal(null); nav("/projects"); setOpenProject(p.id); }} />}
       {(modal?.kind === "invoice" || modal?.kind === "quote") && <InvoiceForm pre={modal.pre} kind={modal.kind} onClose={() => setModal(null)} onCreated={(iid) => { setModal(null); setOpenInvoice(iid); }} />}
-      {openInvoice && <InvoiceEditor key={openInvoice} id={openInvoice} onClose={() => setOpenInvoice(null)} />}
+      {openInvoice && <InvoiceEditor key={openInvoice} id={openInvoice} startSend={sendFirst} onClose={() => { setOpenInvoice(null); setSendFirst(false); }} />}
       {openGallery && <GalleryEditor key={openGallery} id={openGallery} onClose={() => setOpenGallery(null)} />}
       {modal?.kind === "session" && <SessionForm onClose={() => setModal(null)} />}
       {!ask && (

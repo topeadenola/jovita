@@ -125,7 +125,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <Pill c={st.c}>{st.k}</Pill>
                 {i.status === "sent" && <button className="btn btn-ghost btn-sm" onClick={() => invoiceAction(i, "markpaid")}>{tx("Mark paid")}</button>}
-                {i.status === "draft" && <button className="btn btn-ghost btn-sm" onClick={() => invoiceAction(i, "send")}>{tx("Send")}</button>}
+                {i.status === "draft" && <button className="btn btn-ghost btn-sm" onClick={() => ui?.sendInvoice(i.id)}>{tx("Send")}</button>}
               </div>
             </div>
           );
