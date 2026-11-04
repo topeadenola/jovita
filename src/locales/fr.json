@@ -1610,5 +1610,7 @@
   "A wide photo at the top or bottom": "Une photo large en haut ou en bas",
   "Choose one": "Choisissez-en une",
   "Optional extra: tick to add": "Option en supplément : cochez pour ajouter",
-  "This quote has options. You choose them when you accept it.": "Ce devis propose des options. Vous les choisissez en l'acceptant."
+  "This quote has options. You choose them when you accept it.": "Ce devis propose des options. Vous les choisissez en l'acceptant.",
+  "Send updated quote": "Envoyer le devis mis à jour",
+  "Send updated invoice": "Envoyer la facture mise à jour"
 }

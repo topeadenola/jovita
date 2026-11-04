@@ -239,6 +239,7 @@ export default function InvoiceEditor({ id, onClose }) {
                 {inv.status !== "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction({ ...inv, amount: t.total }, "markpaid"); onClose(); }}><Icon name="check" />{tx("Mark as paid")}</button>}
                 {inv.status === "draft" && <button type="button" onClick={() => { setMenu(false); update("invoices", id, { kind: quote ? "invoice" : "quote" }); toast(quote ? tx("Changed to an invoice") : tx("Changed to a quote")); }}><Icon name="file" />{quote ? tx("Change to an invoice") : tx("Change to a quote")}</button>}
                 {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); invoiceAction(inv, "nudge", { copy_me: copyMe }); }}><Icon name="send" />{tx("Send a nudge")}</button>}
+                {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await send(); }}><Icon name="send" />{tx("Send updated invoice")}</button>}
                 {inv.status !== "paid" && inv.status !== "cancelled" && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction(inv, "cancel"); onClose(); }}><Icon name="x" />{quote ? tx("Withdraw quote") : tx("Cancel invoice")}</button>}
                 {inv.status === "draft" && <button type="button" onClick={async () => { setMenu(false); if (!window.confirm(quote ? tx("Delete this draft quote?") : tx("Delete this draft invoice?"))) return; await remove("invoices", id); toast(tx("Draft deleted")); onClose(); }}><Icon name="x" />{tx("Delete draft")}</button>}
               </div>
@@ -250,7 +251,12 @@ export default function InvoiceEditor({ id, onClose }) {
             <button type="button" className="btn btn-primary btn-sm" onClick={send}><Icon name="send" />{quote ? tx("Send quote") : tx("Send invoice")}</button></>
             : inv.status === "sent" && !quote ? <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a payment")}</button>
             : inv.status === "paid" && !quote ? <><span className="sub" style={{ fontSize: 13 }}>{tx("Paid {fdate}", { fdate: fdate(inv.paid_at) })}</span><button type="button" className="btn btn-ghost btn-sm" onClick={markUnpaid}>{tx("Mark as unpaid")}</button></>
-            : <span className="sub" style={{ fontSize: 13 }}>{inv.status === "paid" ? tx("Paid {fdate}", { fdate: fdate(inv.paid_at) }) : quote && inv.status === "sent" ? (inv.viewed_at ? tx("Viewed, waiting for a yes") : tx("Waiting for {name}", { name: c.name.split(" ")[0] })) : tx("Sent")}</span>}
+            : quote && inv.status === "sent" ? <>
+              {/* Changed the quote after sending it (a discount, an item removed)? Send the updated one */}
+              <span className="sub" style={{ fontSize: 13 }}>{inv.viewed_at ? tx("Viewed, waiting for a yes") : tx("Waiting for {name}", { name: c.name.split(" ")[0] })}</span>
+              <label className="check copyme" title={tx("Get a copy of this email in your inbox")}><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>
+              <button type="button" className="btn btn-primary btn-sm" onClick={send}><Icon name="send" />{tx("Send updated quote")}</button></>
+            : <span className="sub" style={{ fontSize: 13 }}>{inv.status === "paid" ? tx("Paid {fdate}", { fdate: fdate(inv.paid_at) }) : tx("Sent")}</span>}
         </header>
 
         <div className="sheet-body">
