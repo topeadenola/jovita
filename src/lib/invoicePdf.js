@@ -1,4 +1,5 @@
 // Download an invoice or quote as a real PDF (sharp text, not a screenshot), laid out like the preview.
+import { counts } from "./items";
 // Fonts: Figtree for text, Bricolage Grotesque for headings and amounts (it has ₦ and ₵; Figtree doesn't).
 import { tx } from "./i18n";
 import { fdate, money } from "./format";
@@ -80,7 +81,8 @@ export async function invoicePdf(doc) {
     y += 13;
   };
   head();
-  (doc.items || []).forEach((it) => {
+  // Only what counts towards the total (no unpicked options, no pictures)
+  (doc.items || []).filter(counts).forEach((it) => {
     font("Figtree", "normal", MUTED, 9);
     const desc = it.description ? pdf.splitTextToSize(String(it.description).split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim(), cQty - M - 50) : [];
     font("Figtree", "bold", PLUM, 10.5);

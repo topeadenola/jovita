@@ -1456,3 +1456,47 @@ body{transition:background-color .2s}
 .month-note-bar span{display:block;height:100%;background:var(--marigold);border-radius:99px}
 .month-note-goal .sub{font-size:13px}
 .month-note-line{font-style:italic;font-size:14px}
+
+/* Package and quote items: client's choice, optional extras, pictures */
+.inv-item-wrap{display:flex;flex-direction:column;gap:6px}
+.inv-item-wrap.is-choice{background:var(--info-tint);padding:0 8px;margin:0 -8px}
+.inv-item-wrap.is-choice.first{border-radius:var(--r-md) var(--r-md) 0 0;padding-top:10px}
+.inv-item-wrap.is-choice.last{border-radius:0 0 var(--r-md) var(--r-md);padding-bottom:8px}
+.inv-item-wrap.is-optional{background:var(--warning-tint);border-radius:var(--r-md);padding:10px 8px 8px;margin:0 -8px}
+.inv-kind{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.inv-name-row{display:flex;align-items:center}
+.inv-name-row input[type=radio],.inv-name-row input[type=checkbox]{width:18px;height:18px;margin:12px 0 0 16px;flex:none;accent-color:var(--plum,#261433)}
+.inv-name-row .inv-name{flex:1;min-width:0}
+.inv-name-row input[type=radio]+.inv-name,.inv-name-row input[type=checkbox]+.inv-name{padding-left:10px}
+.inv-add-opt{align-self:flex-start}
+.inv-add-menu{left:0;right:auto;top:auto;bottom:calc(100% + 6px);min-width:280px}
+.inv-add-menu button{align-items:flex-start}
+.inv-add-menu small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.inv-mi{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-weight:700}
+.inv-mi .ic{width:16px;height:16px}
+.inv-item-pic{display:block}
+.inv-pic{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+.inv-pic img{width:100%;aspect-ratio:16/7;object-fit:cover;border-radius:10px;display:block}
+.inv-pic-empty{width:100%;aspect-ratio:16/7;border:1.5px dashed var(--line-strong);border-radius:10px;background:var(--sunken);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600;cursor:pointer}
+.inv-pic-empty .ic{width:20px;height:20px}
+.inv-pic-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.doc-pic{width:100%;aspect-ratio:16/7;object-fit:cover;border-radius:12px;display:block}
+.doc-table tr.doc-kind td{padding:12px 0 4px;border-top:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5E5069}
+.doc-table tr.doc-off{opacity:.55}
+.doc-mark{font-weight:400}
+.portal-pic{width:100%;aspect-ratio:16/7;object-fit:cover;border-radius:14px;display:block}
+.portal-items li{flex-wrap:wrap}
+.portal-kind{flex-basis:100%;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:-4px}
+.portal-items li.pick label{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;width:100%;cursor:pointer;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.portal-items li.pick.on label{border-color:var(--plum,#261433);box-shadow:0 0 0 1px var(--plum,#261433)}
+.portal-items li.pick label>div{flex:1;min-width:0}
+.portal-items li.pick input{width:18px;height:18px;margin-top:2px;flex:none;accent-color:var(--plum,#261433)}
+/* Package templates: the form is narrow, so each item stacks like on phones */
+.tpl-form .inv-items-head{display:none}
+.tpl-form .inv-item{grid-template-columns:72px 1fr;grid-template-areas:"main main" "qty price" "amt amt"}
+.tpl-form .inv-item-main{grid-area:main}.tpl-form .inv-num{grid-area:qty}.tpl-form .inv-price{grid-area:price}.tpl-form .inv-amt{grid-area:amt;flex-direction:row;justify-content:space-between;padding-top:0}
+.inv-item-main input.inv-name,.inv-item-main textarea.inv-desc{border:0;border-radius:0;box-shadow:none;background:transparent;height:auto;min-height:0}
+.portal-items li.pick{border-bottom:0;padding:5px 0}
+.portal-items li.pick:has(+ li:not(.pick)),.portal-items li.pick:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
+.field .inv-item-main input.inv-name{padding:12px 14px 4px}.field .inv-item-main textarea.inv-desc{padding:4px 14px 12px;height:auto;resize:vertical}
+.field .inv-name-row input[type=radio],.field .inv-name-row input[type=checkbox]{width:18px;height:18px;padding:0;border:0}

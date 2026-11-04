@@ -1,6 +1,6 @@
 // What a client sees at /i/<link>: one invoice or quote, how to pay it (the studio's bank account), and a PDF download.
 // No sign-in. Opened from the invoice email, on the studio's own address.
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import { tx } from "../lib/i18n";
@@ -10,6 +10,7 @@ import { invoicePdf } from "../lib/invoicePdf";
 import { METHODS, schedRows, totals } from "../components/InvoiceEditor";
 import { logoUrl } from "../components/StudioLogo";
 import { useToast } from "../components/ui";
+import { counts, isChoice, isOptional, layout, picUrl } from "../lib/items";
 import Icon, { Mark } from "../components/Icon";
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -37,6 +38,7 @@ export default function InvoiceView() {
   );
   const { invoice: i, studio: s, client: c, project: p } = v;
   const { d, t, rows } = calc;
+  const lay = layout(d.items);
   const quote = i.kind === "quote";
   const paid = i.status === "paid";
   const balance = Math.max(0, n(i.amount) - n(i.amount_paid));
@@ -63,11 +65,13 @@ export default function InvoiceView() {
             <div style={{ textAlign: "right" }}><span className="sub" style={{ fontSize: 12 }}>{paid ? tx("Paid") : quote ? tx("Valid until") : tx("Due")}</span><br /><b>{fdate(paid ? i.paid_at : i.due_date)}</b></div>
           </div>
           <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{p?.title ? <><br /><span className="sub" style={{ fontSize: 13 }}>{p.title}</span></> : null}</div>
+          {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
           <table className="doc-table"><tbody>
-            {d.items.map((it, k) => (
-              <tr key={k}><td><b>{it.name || tx("Item")}</b>{clean(it.description) && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{clean(it.description)}</div>}</td>
+            {lay.lines.filter(({ it }) => quote || counts(it)).map(({ it, head }, k) => (<Fragment key={it.id || k}>
+              {quote && head && <tr className="doc-kind"><td colSpan={3}>{head === "choice" ? tx("Choose one") : tx("Optional extra")}</td></tr>}
+              <tr className={quote && (isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{quote && (isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}</b>{clean(it.description) && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{clean(it.description)}</div>}</td>
                 <td className="right" style={{ whiteSpace: "nowrap" }}>{n(it.qty)} × {money(it.price, i.currency)}</td><td className="right"><b>{money(n(it.qty) * n(it.price), i.currency)}</b></td></tr>
-            ))}
+            </Fragment>))}
             <tr><td colSpan={2} className="right">{tx("Subtotal")}</td><td className="right">{money(t.subtotal, i.currency)}</td></tr>
             {t.discount > 0 && <tr><td colSpan={2} className="right">{tx("Discount")}</td><td className="right">− {money(t.discount, i.currency)}</td></tr>}
             {t.tax > 0 && <tr><td colSpan={2} className="right">{tx("Tax ({rate}%)", { rate: i.tax_rate })}</td><td className="right">{money(t.tax, i.currency)}</td></tr>}
@@ -76,6 +80,8 @@ export default function InvoiceView() {
               <tr><td colSpan={2} className="right">{tx("Paid so far")}</td><td className="right">− {money(i.amount_paid, i.currency)}</td></tr>
               <tr><td colSpan={2} className="right"><b>{tx("Balance due")}</b></td><td className="right"><b>{money(balance, i.currency)}</b></td></tr></>}
           </tbody></table>
+          {lay.bottom.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
+          {quote && d.items.some((it) => isChoice(it) || isOptional(it)) && <p className="sub" style={{ fontSize: 13 }}>{tx("This quote has options. You choose them when you accept it.")}</p>}
           {rows.length > 1 && <div><b style={{ fontSize: 13 }}>{tx("Payment schedule")}</b>
             {rows.map((r, k) => <div key={k} className="doc-sign" style={{ borderTop: 0, paddingTop: 4 }}><span>{tx("Payment {a} of {b}", { a: k + 1, b: rows.length })} · {r.due ? fdate(r.due) : tx("On receipt")}</span><b>{money(r.amount, i.currency)}</b></div>)}</div>}
           {i.notes && <div className="doc-text" style={{ fontSize: 13 }}>{i.notes}</div>}

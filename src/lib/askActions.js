@@ -3,6 +3,7 @@
 // Anything touching money or a client's inbox (mark paid, send) asks you to confirm first.
 import { addDays, first, invState, money, PROJECT_TYPES } from "./format";
 import { tx } from "./i18n";
+import { copyItems, counts } from "./items";
 
 const has = (q, words) => words.some((w) => q.includes(w));
 const STOP = new Set(["a", "an", "the", "my", "me", "her", "him", "them", "new", "client", "customer", "she", "he", "they", "who", "is", "was", "for", "with", "of", "worth", "at", "and", "please", "pls", "invoice", "project", "gallery", "today", "tomorrow", "now", "it", "this", "that", "as", "to", "on", "in", "about", "amount", "called", "named", "shoot", "session", "wedding", "newborn", "portrait", "birthday", "maternity", "family", "event", "lead", "contact"]);
@@ -219,9 +220,9 @@ async function create(what, c, name, opts, ctx) {
     const pkg = opts.label && templates.find((t) => t.kind === "invoice" && t.name.toLowerCase().includes(opts.label.toLowerCase().split(" ")[0]));
     const price = opts.amount?.value ?? (pkg ? null : Number(p?.amount) || 0);
     const items = opts.items?.length ? opts.items.map((it) => ({ id: uid(), name: it.name || "", description: it.description || "", qty: Number(it.qty ?? 1) || 1, price: Number(it.price) || 0 }))
-      : pkg && !opts.amount ?(pkg.items || []).map((it) => ({ id: uid(), name: it.name || "", description: it.description || "", qty: it.qty ?? 1, price: it.price ?? 0 }))
+      : pkg && !opts.amount ? copyItems(pkg.items)
       : [{ id: uid(), name: opts.label || p?.title || "", description: "", qty: 1, price: price || 0 }];
-    const total = items.reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+    const total = items.filter(counts).reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
     const inv = await ctx.ui.insert("invoices", {
       client_id: c.id, project_id: p?.id || null, label: opts.label || pkg?.name || p?.title || tx("Invoice"), amount: total,
       currency: opts.currency || opts.amount?.currency || pkg?.currency || p?.currency || studio.home_currency, due_date: addDays(14), status: "draft", items,

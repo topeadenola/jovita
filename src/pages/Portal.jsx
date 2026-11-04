@@ -10,6 +10,32 @@ import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
 import { PROVIDERS, bankText } from "../lib/payments";
 import { payFlutterwave, payPaystack, renderPayPal } from "../lib/checkout";
+import { applyPicks, counts, hasOptions, isChoice, isOptional, layout, picUrl } from "../lib/items";
+
+// A quote's items. With options, the client picks one from each "Choose one" group and ticks any extras they want.
+function QuoteItems({ q, items, onPick }) {
+  const lay = layout(items);
+  const line = (it) => <><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></>;
+  return (
+    <>
+      {lay.top.map((p) => <img key={p.id} className="portal-pic" src={picUrl(p.path)} alt="" />)}
+      {lay.lines.some(({ it }) => it.name || it.description) && (
+        <ul className="portal-items">{lay.lines.filter(({ it }) => it.name || it.description).map(({ it, head }, i) => (
+          <li key={it.id || i} className={isChoice(it) || isOptional(it) ? `pick${it.selected ? " on" : ""}` : undefined}>
+            {head && <span className="portal-kind">{head === "choice" ? tx("Choose one") : tx("Optional extra: tick to add")}</span>}
+            {isChoice(it) || isOptional(it) ? (
+              <label>
+                <input type={isChoice(it) ? "radio" : "checkbox"} name={isChoice(it) ? `q-${q.id}-${it.group}` : undefined} checked={!!it.selected} onChange={(e) => onPick(it, e.target.checked)} />
+                {line(it)}
+              </label>
+            ) : line(it)}
+          </li>
+        ))}</ul>
+      )}
+      {lay.bottom.map((p) => <img key={p.id} className="portal-pic" src={picUrl(p.path)} alt="" />)}
+    </>
+  );
+}
 
 function SignBlock({ title, done, doneText, text, onSign, signLabel }) {
   const [name, setName] = useState("");
@@ -64,6 +90,9 @@ export default function Portal() {
   // Let the studio know their client opened the page (quote / invoice "Viewed")
   useEffect(() => { supabase.rpc("portal_seen", { p_token: token }).then(() => {}, () => {}); }, [token]);
   const [accepting, setAccepting] = useState(false);
+  // The client's picks on quotes with options: { [quote id]: [item ids] }, and the total for those picks (worked out by the server)
+  const [picks, setPicks] = useState({});
+  const [live, setLive] = useState({});
 
   if (d === undefined) return <div className="loading">{tx("Loading…")}</div>;
   if (!d) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("This link isn't working")}</b><p>{tx("Ask your photographer or creative to send you a fresh link.")}</p></div></div>;
@@ -74,10 +103,21 @@ export default function Portal() {
   const open0 = d.invoices.find((i) => i.status === "sent" && i.kind !== "quote");
   // Part paid: what's left is what they pay now
   const open = open0 && Number(open0.amount_paid) > 0 ? { ...open0, total: open0.amount, amount: balanceOf(open0) } : open0;
+  const picksOf = (q) => picks[q.id] || (q.items || []).filter((it) => (isChoice(it) || isOptional(it)) && it.selected).map((it) => it.id);
+  const pick = async (q, it, on) => {
+    const cur = picksOf(q).filter((id) => !(isChoice(it) && q.items.some((x) => x.id === id && isChoice(x) && x.group === it.group)) && id !== it.id);
+    const next = on ? [...cur, it.id] : cur;
+    setPicks((p) => ({ ...p, [q.id]: next }));
+    const { data } = await supabase.rpc("portal_quote_amount", { p_token: token, p_invoice: q.id, p_picks: next });
+    if (data != null) setLive((l) => ({ ...l, [q.id]: Number(data) }));
+  };
   const acceptQuote = async (q) => {
     setAccepting(true);
     try {
-      const { data: ok, error } = await supabase.rpc("portal_accept_quote", { p_token: token, p_invoice: q.id });
+      const withOptions = hasOptions(q.items);
+      let { data: ok, error } = await supabase.rpc("portal_accept_quote_v2", { p_token: token, p_invoice: q.id, p_picks: picksOf(q) });
+      // Before update 29 is run: plain quotes still work the old way
+      if (error && !withOptions) ({ data: ok, error } = await supabase.rpc("portal_accept_quote", { p_token: token, p_invoice: q.id }));
       if (error || !ok) throw new Error(error?.message || tx("This quote can't be accepted any more. Please contact {name}.", { name: s.name }));
       supabase.functions.invoke("send-email", { body: { kind: "quote_accepted", token, invoice_id: q.id } }).catch(() => {});
       toast(tx("Quote accepted. Your date is booked! Your invoice is below."), true);
@@ -125,12 +165,8 @@ export default function Portal() {
           {quotes.map((q) => (
             <section className="card quote-box" key={q.id}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{tx("Your quote")}</h2><Pill c="p-info">{tx("Waiting for you")}</Pill></div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(q.amount, q.currency)}</span></div>
-              {Array.isArray(q.items) && q.items.some((it) => it.name || it.description) && (
-                <ul className="portal-items">{q.items.filter((it) => it.name || it.description).map((it, i) => (
-                  <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></li>
-                ))}</ul>
-              )}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(live[q.id] ?? q.amount, q.currency)}</span></div>
+              {Array.isArray(q.items) && <QuoteItems q={q} items={picks[q.id] ? applyPicks(q.items, picks[q.id]) : q.items} onPick={(it, on) => pick(q, it, on)} />}
               {q.notes && <p className="sub" style={{ whiteSpace: "pre-line", fontSize: 14 }}>{q.notes}</p>}
               <p className="sub" style={{ fontSize: 13 }}>{tx("Accepting books your date. The quote becomes an invoice right here so you can pay.")}</p>
               <button className="btn btn-joy" style={{ alignSelf: "flex-start" }} disabled={accepting} onClick={() => acceptQuote(q)}><Icon name="check" />{accepting ? tx("Booking…") : tx("Accept quote")}</button>
@@ -150,8 +186,8 @@ export default function Portal() {
             {open ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Invoice #")}{open.number}{" "}{tx("· due")}{" "}{fdate(open.due_date)}{open.total ? " · " + tx("{paid} of {total} paid", { paid: money(open0.amount_paid, open.currency), total: money(open.total, open.currency) }) : ""}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(open.amount, open.currency)}</span></div>
-                {Array.isArray(open.items) && open.items.some((it) => it.name || it.description) && (
-                  <ul className="portal-items">{open.items.filter((it) => it.name || it.description).map((it, i) => (
+                {Array.isArray(open.items) && open.items.filter(counts).some((it) => it.name || it.description) && (
+                  <ul className="portal-items">{open.items.filter(counts).filter((it) => it.name || it.description).map((it, i) => (
                     <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), open.currency)}</span></li>
                   ))}</ul>
                 )}

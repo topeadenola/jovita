@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../lib/data";
 import { supabase } from "../supabase";
 import Icon from "../components/Icon";
@@ -8,6 +8,8 @@ import { FIELDS, fill, values } from "../lib/merge";
 import { tx } from "../lib/i18n";
 import StudioLogo from "../components/StudioLogo";
 import { guardLeave, useUnsaved } from "../lib/unsaved";
+import ItemsEditor from "../components/ItemsEditor";
+import { counts, isChoice, isOptional, keepItem, layout, picUrl } from "../lib/items";
 
 const KINDS = [
   ["contract", "Contracts", "The agreement clients sign in their portal before you shoot."],
@@ -18,22 +20,25 @@ const KINDS = [
 const BLANK = {
   contract: { name: "New contract", body: "This agreement is between {studio_name} and {client_name} for a {project_type} session on {session_date}.\n\n1. Fee\nThe total fee is {project_amount}.\n" },
   model_release: { name: "New model release", body: "I, {client_name}, give {studio_name} permission to use images taken on {session_date} for portfolio and promotional use.\n" },
-  invoice: { name: "New package", body: "Thank you for your business.", items: [{ name: "Session", qty: 1, price: 0 }] },
+  invoice: { name: "New package", body: "Thank you for your business.", items: [{ name: "Session", description: "", qty: 1, price: 0 }] },
   email: { name: "New email", subject: "A note from {studio_name}", body: "Hi {client_first_name},\n\n\n\n{studio_name}" },
 };
 
 function Editor({ t, onDirty }) {
   const { studio, update, insert, remove, templates } = useData();
   const toast = useToast();
-  const [f, setF] = useState(() => ({ name: t.name, subject: t.subject || "", body: t.body || "", items: t.items || [], currency: t.currency, is_default: t.is_default }));
+  // Items get ids once (older packages didn't store them), so "unsaved" compares like with like
+  const [base] = useState(() => ({ name: t.name, subject: t.subject || "", body: t.body || "", items: (t.items || []).map((it) => keepItem(it)), currency: t.currency, is_default: t.is_default }));
+  const [f, setF] = useState(base);
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const area = useRef(null);
-  const dirty = JSON.stringify(f) !== JSON.stringify({ name: t.name, subject: t.subject || "", body: t.body || "", items: t.items || [], currency: t.currency, is_default: t.is_default });
+  const dirty = JSON.stringify(f) !== JSON.stringify(base);
   useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   useUnsaved(dirty, () => save(true));
   const vals = values({ studio });
-  const total = f.items.reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+  const lay = layout(f.items);
+  const total = f.items.filter(counts).reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
 
   const insertField = (key) => {
     const el = area.current; const token = `{${key}}`;
@@ -43,7 +48,6 @@ function Editor({ t, onDirty }) {
     setF({ ...f, body });
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
   };
-  const setItem = (ix, k, v) => setF({ ...f, items: f.items.map((it, j) => (j === ix ? { ...it, [k]: k === "name" ? v : Number(v) } : it)) });
 
   async function save(strict) {
     if (!f.name.trim()) { toast(tx("Give the template a name.")); if (strict) throw new Error("name"); return; }
@@ -66,29 +70,9 @@ function Editor({ t, onDirty }) {
         {t.kind === "invoice" && (
           <div className="field">
             <span style={{ fontSize: 13, fontWeight: 600 }}>{tx("Line items")}</span>
-            <div className="items">
-              <div className="items-row items-head"><span>{tx("Item")}</span><span>{tx("Qty")}</span><span>{tx("Price (")}{SYM[f.currency]})</span><span /></div>
-              {f.items.map((it, ix) => (
-                <div className="items-row" key={ix}>
-                  <input aria-label={tx("Item {v0} name", {
-                    v0: ix + 1
-                  })} value={it.name} onChange={(e) => setItem(ix, "name", e.target.value)} />
-                  <input aria-label={tx("Item {v0} quantity", {
-                    v0: ix + 1
-                  })} type="number" min="0" value={it.qty} onChange={(e) => setItem(ix, "qty", e.target.value)} />
-                  <MoneyInput aria-label={tx("Item {v0} price", {
-                    v0: ix + 1
-                  })} value={it.price} onChange={(v) => setItem(ix, "price", v)} />
-                  <button type="button" className="x" aria-label={tx("Remove item {v0}", {
-                    v0: ix + 1
-                  })} onClick={() => setF({ ...f, items: f.items.filter((_, j) => j !== ix) })}><Icon name="x" /></button>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setF({ ...f, items: [...f.items, { name: "", qty: 1, price: 0 }] })}><Icon name="plus" />{tx("Add line")}</button>
-              <b className="num">{tx("Total")}{" "}{money(total, f.currency)}</b>
-            </div>
+            <div className="inv-items-head" aria-hidden="true"><span>{tx("Item")}</span><span>{tx("Qty")}</span><span>{tx("Price")}</span><span className="right">{tx("Amount")}</span></div>
+            <ItemsEditor items={f.items} onChange={(items) => setF({ ...f, items })} currency={f.currency} minItems={0} />
+            <b className="num" style={{ alignSelf: "flex-end" }}>{tx("Total")}{" "}{money(total, f.currency)}</b>
             <div className="field" style={{ maxWidth: 220 }}><label htmlFor="t-cur">{tx("Currency")}</label>
               <select id="t-cur" value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c} value={c}>{c} ({SYM[c]})</option>)}</select></div>
           </div>
@@ -128,10 +112,15 @@ function Editor({ t, onDirty }) {
           {t.kind === "invoice" ? (
             <>
               <h3 className="h-m">{f.name}</h3>
+              {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
               <table className="doc-table"><tbody>
-                {f.items.filter((it) => it.qty > 0).map((it, ix) => <tr key={ix}><td>{it.name || tx("Item")}{it.qty > 1 ? ` × ${it.qty}` : ""}</td><td className="right num">{money(it.qty * it.price, f.currency)}</td></tr>)}
+                {lay.lines.filter(({ it }) => Number(it.qty) > 0).map(({ it, head }) => (<Fragment key={it.id}>
+                  {head && <tr className="doc-kind"><td colSpan={2}>{head === "choice" ? tx("Choose one") : tx("Optional extra")}</td></tr>}
+                  <tr className={(isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{(isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}{it.qty > 1 ? ` × ${it.qty}` : ""}</b>{String(it.description || "").replace(/^\s*-\s*$/, "") && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{it.description}</div>}</td><td className="right num">{money(it.qty * it.price, f.currency)}</td></tr>
+                </Fragment>))}
                 <tr><td><b>{tx("Total")}</b></td><td className="right num"><b>{money(total, f.currency)}</b></td></tr>
               </tbody></table>
+              {lay.bottom.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
               <p className="doc-text">{f.body}</p>
             </>
           ) : <p className="doc-text">{fill(f.body, vals)}</p>}

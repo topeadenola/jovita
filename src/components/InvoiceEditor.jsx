@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
@@ -12,6 +12,8 @@ import StudioLogo, { logoUrl } from "./StudioLogo";
 import ClientPicker from "./ClientPicker";
 import { studioBase } from "../lib/links";
 import { invoicePdf } from "../lib/invoicePdf";
+import ItemsEditor from "./ItemsEditor";
+import { copyItems, counts, isChoice, isOptional, keepItem, layout, picUrl } from "../lib/items";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -19,7 +21,7 @@ const REMIND = [[-7, "7 days before"], [0, "On due date"], [3, "3 days after"], 
 export const METHODS = [["transfer", "Bank transfer", "pay_transfer"], ["paystack", "Paystack", "pay_paystack"], ["flutterwave", "Flutterwave", "pay_flutterwave"], ["stripe", "Card (Stripe)", "pay_stripe"], ["paypal", "PayPal", "pay_paypal"]];
 
 export function totals(d) {
-  const subtotal = (d.items || []).reduce((s, it) => s + n(it.qty) * n(it.price), 0);
+  const subtotal = (d.items || []).filter(counts).reduce((s, it) => s + n(it.qty) * n(it.price), 0);
   const discount = d.discount_type === "percent" ? subtotal * n(d.discount) / 100 : n(d.discount);
   const taxed = Math.max(0, subtotal - discount);
   const tax = taxed * n(d.tax_rate) / 100;
@@ -31,7 +33,7 @@ function toDraft(i) {
   const items = Array.isArray(i.items) && i.items.length ? i.items : [{ id: uid(), name: i.label || "", description: "", qty: 1, price: Number(i.amount) || 0 }];
   return {
     client_id: i.client_id, project_id: i.project_id || "", label: i.label || "", currency: i.currency, due_date: i.due_date,
-    items: items.map((it) => ({ id: it.id || uid(), name: it.name || "", description: it.description || "", qty: it.qty ?? 1, price: it.price ?? 0 })),
+    items: items.map((it) => keepItem(it)),
     notes: i.notes || "", discount: i.discount || 0, discount_type: i.discount_type || "amount", tax_rate: i.tax_rate || 0,
     schedule: Array.isArray(i.schedule) ? i.schedule : [], methods: Array.isArray(i.methods) ? i.methods : ["transfer"],
     reminders_on: i.reminders_on ?? true, reminder_days: i.reminder_days || [-7, 0, 3, 7, 14], allow_tip: !!i.allow_tip,
@@ -45,17 +47,20 @@ function Field({ label, children, help, id }) {
 function Preview({ d, t, inv }) {
   const { studio, client } = useData();
   const c = client(d.client_id);
+  const lay = layout(d.items);
   return (
     <div className="doc inv-doc">
       <div className="doc-head"><StudioLogo studio={studio} />
         <div style={{ flex: 1 }}><b>{studio.name}</b><br /><span className="sub" style={{ fontSize: 13 }}>{inv.kind === "quote" ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number })}</span></div>
         <div style={{ textAlign: "right" }}><span className="sub" style={{ fontSize: 12 }}>{inv.kind === "quote" ? tx("Valid until") : tx("Due")}</span><br /><b>{fdate(d.due_date)}</b></div></div>
       <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{c.email ? <><br /><span className="sub" style={{ fontSize: 13 }}>{c.email}</span></> : null}</div>
+      {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
       <table className="doc-table"><tbody>
-        {d.items.map((it) => (
-          <tr key={it.id}><td><b>{it.name || tx("Item")}</b>{it.description && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{it.description}</div>}</td>
+        {lay.lines.map(({ it, head }) => (<Fragment key={it.id}>
+          {head && <tr className="doc-kind"><td colSpan={3}>{head === "choice" ? tx("Choose one") : tx("Optional extra")}</td></tr>}
+          <tr className={(isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{(isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}</b>{it.description && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{it.description}</div>}</td>
             <td className="right" style={{ whiteSpace: "nowrap" }}>{n(it.qty)} × {money(it.price, d.currency)}</td><td className="right"><b>{money(n(it.qty) * n(it.price), d.currency)}</b></td></tr>
-        ))}
+        </Fragment>))}
         <tr><td colSpan={2} className="right">{tx("Subtotal")}</td><td className="right">{money(t.subtotal, d.currency)}</td></tr>
         {t.discount > 0 && <tr><td colSpan={2} className="right">{tx("Discount")}</td><td className="right">− {money(t.discount, d.currency)}</td></tr>}
         {t.tax > 0 && <tr><td colSpan={2} className="right">{tx("Tax ({rate}%)", { rate: d.tax_rate })}</td><td className="right">{money(t.tax, d.currency)}</td></tr>}
@@ -64,6 +69,7 @@ function Preview({ d, t, inv }) {
           <tr><td colSpan={2} className="right">{tx("Paid so far")}</td><td className="right">− {money(inv.amount_paid, d.currency)}</td></tr>
           <tr><td colSpan={2} className="right"><b>{tx("Balance due")}</b></td><td className="right"><b>{money(Math.max(0, t.total - Number(inv.amount_paid)), d.currency)}</b></td></tr></>}
       </tbody></table>
+      {lay.bottom.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
       {d.schedule.length > 1 && (
         <div><b style={{ fontSize: 13 }}>{tx("Payment schedule")}</b>
           {schedRows(d, t).map((r, i) => <div key={i} className="doc-sign" style={{ borderTop: 0, paddingTop: 4 }}><span>{tx("Payment {a} of {b}", { a: i + 1, b: d.schedule.length })} · {r.due ? fdate(r.due) : tx("On receipt")}</span><b>{money(r.amount, d.currency)}</b></div>)}
@@ -160,15 +166,9 @@ export default function InvoiceEditor({ id, onClose }) {
   const clientProjects = projects.filter((p) => p.client_id === d.client_id);
   const packages = templates.filter((x) => x.kind === "invoice");
   const set = (k, v) => setD((x) => ({ ...x, [k]: v }));
-  const setItem = (iid, k, v) => setD((x) => ({ ...x, items: x.items.map((it) => (it.id === iid ? { ...it, [k]: v } : it)) }));
-  const moveItem = (iid, dir) => setD((x) => {
-    const a = [...x.items]; const i = a.findIndex((it) => it.id === iid); const j = i + dir;
-    if (j < 0 || j >= a.length) return x;
-    [a[i], a[j]] = [a[j], a[i]]; return { ...x, items: a };
-  });
   const addPackage = (tid) => {
     const p = packages.find((x) => x.id === tid); if (!p) return;
-    setD((x) => ({ ...x, items: [...x.items.filter((it) => it.name || n(it.price)), ...(p.items || []).map((it) => ({ id: uid(), name: it.name || "", description: it.description || "", qty: it.qty ?? 1, price: it.price ?? 0 }))] }));
+    setD((x) => ({ ...x, items: [...x.items.filter((it) => it.name || n(it.price)), ...copyItems(p.items)] }));
     toast(tx("Added {name}", { name: p.name }));
   };
   const rows = d.schedule.length ? schedRows(d, t) : [];
@@ -273,39 +273,7 @@ export default function InvoiceEditor({ id, onClose }) {
                 <div className="set-head"><h2 className="h-m">{tx("Items")}</h2>
                   {packages.length > 0 && <select className="inv-pkg" value="" onChange={(e) => addPackage(e.target.value)} aria-label={tx("Add from a package")}><option value="">{tx("+ Add from a package")}</option>{packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}</div>
                 <div className="inv-items-head" aria-hidden="true"><span>{tx("Item")}</span><span>{tx("Qty")}</span><span>{tx("Price")}</span><span className="right">{tx("Amount")}</span></div>
-                {d.items.map((it, ix) => (
-                  <div className="inv-item" key={it.id}>
-                    <div className="inv-item-main">
-                      <input className="inv-name" value={it.name} onChange={(e) => setItem(it.id, "name", e.target.value)} placeholder={tx("Heading, e.g. Amber Portrait Package")} aria-label={tx("Item name")} />
-                      <textarea className="inv-desc" value={it.description} onChange={(e) => setItem(it.id, "description", e.target.value)}
-                        onKeyDown={(e) => {
-                          // Enter starts the next "- " line, like a list
-                          if (e.key !== "Enter" || e.shiftKey) return;
-                          const t = e.currentTarget, v = t.value, a = t.selectionStart;
-                          const line = v.slice(v.lastIndexOf("\n", a - 1) + 1, a);
-                          if (!/^\s*[-•]\s/.test(line) && v.trim()) return;
-                          e.preventDefault();
-                          if (/^\s*[-•]\s*$/.test(line)) { const st = a - line.length; setItem(it.id, "description", v.slice(0, st) + v.slice(a)); return; }
-                          const ins = (v.trim() ? "\n" : "") + "- ";
-                          // insertText keeps the cursor in the right place and fires the normal change
-                          if (!document.execCommand?.("insertText", false, ins)) setItem(it.id, "description", v.slice(0, a) + ins + v.slice(t.selectionEnd));
-                        }}
-                        onFocus={(e) => { if (!it.description) setItem(it.id, "description", "- "); }}
-                        onBlur={() => { if (/^\s*-\s*$/.test(it.description)) setItem(it.id, "description", ""); }}
-                        placeholder={tx("- Lead photographer\n- 1 hour, 1 look\n- 5 retouched photos")} aria-label={tx("Item description")} rows={Math.min(12, Math.max(2, it.description.split("\n").length + 1))} />
-                    </div>
-                    <input className="inv-num" type="number" min="0" step="1" value={it.qty} onChange={(e) => setItem(it.id, "qty", e.target.value)} aria-label={tx("Quantity")} />
-                    <label className="inv-price"><span>{SYM[d.currency] || ""}</span><MoneyInput value={it.price} onChange={(v) => setItem(it.id, "price", v)} aria-label={tx("Price")} /></label>
-                    <div className="inv-amt"><b className="num">{money(n(it.qty) * n(it.price), d.currency)}</b>
-                      <div className="inv-tools">
-                        <button type="button" onClick={() => moveItem(it.id, -1)} disabled={ix === 0} aria-label={tx("Move up")}>↑</button>
-                        <button type="button" onClick={() => moveItem(it.id, 1)} disabled={ix === d.items.length - 1} aria-label={tx("Move down")}>↓</button>
-                        <button type="button" onClick={() => setD((x) => ({ ...x, items: x.items.filter((y) => y.id !== it.id) }))} disabled={d.items.length === 1} aria-label={tx("Remove item")}><Icon name="x" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setD((x) => ({ ...x, items: [...x.items, { id: uid(), name: "", description: "", qty: 1, price: 0 }] }))}><Icon name="plus" />{tx("Add item")}</button>
+                <ItemsEditor items={d.items} onChange={(items) => setD((x) => ({ ...x, items }))} currency={d.currency} />
                 <div className="inv-totals">
                   <div><span>{tx("Subtotal")}</span><b className="num">{money(t.subtotal, d.currency)}</b></div>
                   <div><span>{tx("Discount")}</span>
