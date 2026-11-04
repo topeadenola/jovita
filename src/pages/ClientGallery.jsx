@@ -146,8 +146,16 @@ export default function ClientGallery({ token: given }) {
     if (em && (shared ? name : who)) return fn(shared ? name : who, String(em).toLowerCase());
     setAskEmail(true); setAsk(() => fn);
   };
+  // The first download by an email adds them to the studio's Clients (as a lead), once per browser
+  const addToClients = (nm, em) => {
+    const k = "jv-dl-added-" + token;
+    if (!em || readLS(k) === em) return;
+    writeLS(k, em);
+    supabase.rpc("gallery_add_downloader", { p_token: token, p_password: pass || null, p_email: em, p_name: nm || "" }).then(() => {}, () => {});
+  };
   const withPin = (args, go) => needEmail(async (nm, em) => {
     const res = await clearance(args, undefined, nm, em);
+    if (res === "ok" || res === "pin") addToClients(nm, em);
     if (res === "ok") return go();
     if (res === "pin") return setPinAsk(() => async (p2) => { const r2 = await clearance(args, p2, nm, em); if (r2 === "ok") { setPin(p2); writeLS("jv-gpin-" + token, p2); setPinAsk(null); go(); } else return tx("That PIN didn't work. Ask your photographer for it."); });
     window.alert?.(tx("Downloads are switched off for this gallery."));
