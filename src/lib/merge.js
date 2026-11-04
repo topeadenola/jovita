@@ -30,9 +30,10 @@ export function values({ studio, client, project, invoice, booking }) {
     studio_name: studio?.name || "Your studio",
     project_title: project?.title || "Maternity shoot",
     project_type: (project?.type || "portrait").toLowerCase(),
-    session_date: project?.session_date ? fday(project.session_date) : "Sat 24 Oct",
+    // A real job without a date or fee yet never shows the example ones
+    session_date: project?.session_date ? fday(project.session_date) : project ? "a date to be agreed" : "Sat 24 Oct",
     session_location: booking?.location || (project ? "" : "Lekki, Lagos"),
-    project_amount: project ? money(project.amount, project.currency) : "₦450,000",
+    project_amount: project ? (Number(project.amount) > 0 ? money(project.amount, project.currency) : "the agreed fee") : "₦450,000",
     portal_link: project ? portalUrl(project.portal_token) : "https://app.getjovita.com/p/your-client-link",
     invoice_number: invoice ? `#${invoice.number}` : "#1001",
     invoice_amount: invoice ? money(invoice.amount, invoice.currency) : "₦225,000",

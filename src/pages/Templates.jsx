@@ -25,7 +25,8 @@ const BLANK = {
 };
 
 function Editor({ t, onDirty }) {
-  const { studio, update, insert, remove, templates } = useData();
+  const { studio, update, insert, remove, templates, clients = [], projects = [], bookings = [] } = useData();
+  const [who, setWho] = useState(""); // preview with one of your clients ("" = example client)
   const toast = useToast();
   // Items get ids once (older packages didn't store them), so "unsaved" compares like with like
   const [base] = useState(() => ({ name: t.name, subject: t.subject || "", body: t.body || "", items: (t.items || []).map((it) => keepItem(it)), currency: t.currency, is_default: t.is_default }));
@@ -36,7 +37,9 @@ function Editor({ t, onDirty }) {
   const dirty = JSON.stringify(f) !== JSON.stringify(base);
   useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   useUnsaved(dirty, () => save(true));
-  const vals = values({ studio });
+  const pc = clients.find((c) => c.id === who);
+  const pp = pc ? projects.filter((x) => x.client_id === pc.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] : null;
+  const vals = values({ studio, client: pc, project: pp, booking: pp ? bookings.find((b) => b.project_id === pp.id) : null });
   const lay = layout(f.items);
   const total = f.items.filter(counts).reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
 
@@ -105,7 +108,14 @@ function Editor({ t, onDirty }) {
         </div>
       </section>
       <section className="tpl-preview" aria-label={tx("Preview")}>
-        <p className="eyebrow" style={{ marginBottom: 8 }}>{tx("Preview with example client")}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <p className="eyebrow" style={{ margin: 0 }}>{tx("Preview with")}</p>
+          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label={tx("Preview with")} style={{ width: "auto", minWidth: 180 }}>
+            <option value="">{tx("An example client")}</option>
+            {[...clients].sort((a, b) => a.name.localeCompare(b.name)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        {!who && <p className="sub" style={{ fontSize: 12, marginBottom: 8 }}>{tx("When you send it, each client sees their own name, address, fee and date.")}</p>}
         <div className="doc">
           <div className="doc-head"><StudioLogo studio={studio} /><div><b>{studio.name}</b><p className="sub" style={{ fontSize: 12 }}>{tx(KINDS.find((k) => k[0] === t.kind)[1].replace(/s$/, ""))}</p></div></div>
           {t.kind === "email" && <p style={{ fontWeight: 700 }}>{fill(f.subject, vals)}</p>}

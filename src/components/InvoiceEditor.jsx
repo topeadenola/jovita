@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { tidyBullets } from "../lib/bullets";
+import ContractPreview from "./ContractPreview";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
@@ -149,6 +150,7 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
   const [add, setAdd] = useState(!!p?.contract_template_id && !signed);
   const [tid, setTid] = useState(p?.contract_template_id || contracts[0]?.id || "");
   const [busy, setBusy] = useState(false);
+  const [look, setLook] = useState(false);
   const go = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -176,7 +178,9 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
             <label className="check"><input type="checkbox" checked={add} onChange={(e) => setAdd(e.target.checked)} />{tx("Add a contract for {name} to sign", { name: first(c.name) })}</label>
             {add && <div className="field"><label htmlFor="sd-contract">{tx("Contract")}</label>
               <select id="sd-contract" value={tid} onChange={(e) => setTid(e.target.value)}>{contracts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-              <span className="help">{tx("It shows on the same page as the {what}, so they can sign it and accept in one go.", { what: quote ? tx("quote") : tx("invoice") })}</span></div>}
+              <span className="help">{tx("It shows on the same page as the {what}, so they can sign it and accept in one go.", { what: quote ? tx("quote") : tx("invoice") })}</span>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", marginTop: 6 }} onClick={() => setLook(!look)}><Icon name="eye" />{look ? tx("Hide preview") : tx("Preview what {name} sees", { name: first(c.name) })}</button>
+              {look && <ContractPreview template={contracts.find((t) => t.id === tid)} client={c} project={p || { title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || tx("Quote"), type: "Portrait", amount: total, currency: d.currency }} />}</div>}
           </>
         ) : <p className="sub" style={{ fontSize: 13 }}>{tx("No contracts yet. Add one in Settings › Templates to send it with your quotes.")}</p>}
         <label className="check"><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>

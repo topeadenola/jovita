@@ -1702,5 +1702,11 @@
   "Update {n} clients": "Atualizar {n} clientes",
   "Pick what you'd like, then accept to book your date.": "Escolha o que quiser e aceite para reservar sua data.",
   "Like what you see?": "Gostou?",
-  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Aceite o orçamento para reservar sua data. Responda ao e-mail de {studio} se tiver dúvidas."
+  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Aceite o orçamento para reservar sua data. Responda ao e-mail de {studio} se tiver dúvidas.",
+  "Preview what {name} sees": "Ver o que {name} vai ver",
+  "Hide preview": "Ocultar prévia",
+  "Preview with": "Prévia com",
+  "An example client": "Um cliente de exemplo",
+  "When you send it, each client sees their own name, address, fee and date.": "Ao enviar, cada cliente vê o próprio nome, endereço, valor e data.",
+  "New job": "Novo trabalho"
 }

@@ -1707,5 +1707,11 @@
   "Update {n} clients": "Sasisha wateja {n}",
   "Pick what you'd like, then accept to book your date.": "Chagua unachotaka, kisha kubali ili kuweka tarehe yako.",
   "Like what you see?": "Umependa?",
-  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Kubali nukuu ili kuweka tarehe yako. Jibu barua pepe ya {studio} ukiwa na maswali."
+  "Accept the quote to book your date. Reply to {studio}'s email if you have questions.": "Kubali nukuu ili kuweka tarehe yako. Jibu barua pepe ya {studio} ukiwa na maswali.",
+  "Preview what {name} sees": "Ona {name} ataona nini",
+  "Hide preview": "Ficha onyesho",
+  "Preview with": "Onyesho na",
+  "An example client": "Mteja wa mfano",
+  "When you send it, each client sees their own name, address, fee and date.": "Ukiutuma, kila mteja anaona jina lake, anwani, ada na tarehe yake.",
+  "New job": "Kazi mpya"
 }

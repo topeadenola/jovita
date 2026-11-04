@@ -7,6 +7,7 @@ import { addDays, first } from "../lib/format";
 import { tx } from "../lib/i18n";
 import { Modal, useToast } from "./ui";
 import Icon from "./Icon";
+import ContractPreview from "./ContractPreview";
 
 export default function SendContract({ clientId, projectId, onClose }) {
   const { templates, projects, client, insert, update, studio } = useData();
@@ -21,6 +22,7 @@ export default function SendContract({ clientId, projectId, onClose }) {
   const cur = projects.find((p) => p.id === pid);
   const [tid, setTid] = useState(cur?.contract_template_id || contracts[0]?.id || "");
   const [busy, setBusy] = useState(false);
+  const [look, setLook] = useState(false);
   const send = async (e) => {
     e.preventDefault();
     if (!tid) return;
@@ -49,6 +51,8 @@ export default function SendContract({ clientId, projectId, onClose }) {
                   {theirs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}<option value="new">{tx("A new job…")}</option></select>
                 {pid === "new" && <input style={{ marginTop: 8 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tx("e.g. Wedding photography")} aria-label={tx("Job title")} autoFocus />}</div>
             )}
+            <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setLook(!look)}><Icon name="eye" />{look ? tx("Hide preview") : tx("Preview what {name} sees", { name: first(c.name) })}</button>
+            {look && <ContractPreview template={contracts.find((t) => t.id === tid)} client={c} project={pid === "new" ? { title: title.trim() || tx("New job"), type: "Portrait", amount: 0, currency: studio.home_currency } : cur} />}
             <p className="sub" style={{ fontSize: 13 }}>{tx("{name} gets an email with a link to read and sign it. You'll see when it's signed.", { name: first(c.name) })}</p>
           </>
         )}
