@@ -3,7 +3,8 @@
 // Anything touching money or a client's inbox (mark paid, send) asks you to confirm first.
 import { addDays, first, invState, money, PROJECT_TYPES } from "./format";
 import { tx } from "./i18n";
-import { copyItems, counts } from "./items";
+import { copyItems, counts, keepItem } from "./items";
+import { totals } from "../components/InvoiceEditor";
 
 const has = (q, words) => words.some((w) => q.includes(w));
 const STOP = new Set(["a", "an", "the", "my", "me", "her", "him", "them", "new", "client", "customer", "she", "he", "they", "who", "is", "was", "for", "with", "of", "worth", "at", "and", "please", "pls", "invoice", "project", "gallery", "today", "tomorrow", "now", "it", "this", "that", "as", "to", "on", "in", "about", "amount", "called", "named", "shoot", "session", "wedding", "newborn", "portrait", "birthday", "maternity", "family", "event", "lead", "contact"]);
@@ -278,6 +279,40 @@ export function fromBrain(actions = [], ctx) {
       const opts = { label: a.label || a.title || "", items: a.items, currency: a.currency, type: a.type, session_date: a.session_date, amount: a.amount ? { value: Number(a.amount), currency: a.currency } : null };
       const L = { invoice: "Create the draft invoice", project: "Create the project", gallery: "Create the gallery" }[what];
       buttons.push({ label: c ? tx(L) : tx("Add {name} and continue", { name: first(name) }), primary: true, run: async () => create(what, c || null, name, opts, ctx) });
+    } else if (tool === "edit_invoice") {
+      // Changes to an existing invoice or quote: discount, lines removed / changed / added, then (optionally) send the updated one
+      const i = invoices.find((x) => x.id === a.invoice_id);
+      if (!i) continue;
+      const apply = async (resend) => {
+        const base = (Array.isArray(i.items) && i.items.length ? i.items : [{ name: i.label || "", description: "", qty: 1, price: Number(i.amount) || 0 }]).map((it) => keepItem(it));
+        const drop = new Set(a.remove_item_ids || []);
+        let items = base.filter((it) => !drop.has(it.id)).map((it) => {
+          const u = (a.update_items || []).find((x) => x.id === it.id);
+          if (!u) return it;
+          const o = { ...it };
+          ["name", "description"].forEach((k) => { if (typeof u[k] === "string") o[k] = u[k]; });
+          ["qty", "price"].forEach((k) => { if (u[k] != null && Number.isFinite(Number(u[k]))) o[k] = Number(u[k]); });
+          return o;
+        });
+        items = [...items, ...(a.add_items || []).filter((x) => x.name).map((x) => ({ id: uid(), name: x.name, description: x.description || "", qty: Number(x.qty ?? 1) || 1, price: Number(x.price) || 0 }))];
+        const patch = { items, updated_at: new Date().toISOString() };
+        if (a.discount != null && Number.isFinite(Number(a.discount))) { patch.discount = Math.max(0, Number(a.discount)); patch.discount_type = a.discount_type === "percent" ? "percent" : "amount"; }
+        if (a.tax_rate != null && Number.isFinite(Number(a.tax_rate))) patch.tax_rate = Math.max(0, Number(a.tax_rate));
+        if (a.label) patch.label = a.label;
+        if (typeof a.notes === "string") patch.notes = a.notes;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(a.due_date || "")) patch.due_date = a.due_date;
+        const t = totals({ ...i, ...patch });
+        patch.amount = t.total;
+        await ctx.ui.updateInvoice(i.id, patch);
+        const done = tx("Updated #{number}. New total {total}.", { number: i.number, total: money(t.total, i.currency) });
+        if (resend && i.status === "sent") { await ctx.ui.sendInvoice({ ...i, ...patch }); return { text: done + " " + tx("We've emailed the updated one to {name}.", { name: first(clients.find((c) => c.id === i.client_id)?.name || "") }) }; }
+        return { text: done, buttons: [{ label: tx("Open it"), run: () => { ctx.ui.openInvoice(i.id); return null; } }] };
+      };
+      if (a.resend && i.status === "sent") {
+        buttons.push({ label: tx("Update and send #{number}", { number: i.number }), primary: true, run: () => apply(true) });
+        buttons.push({ label: tx("Update only"), run: () => apply(false) });
+      } else buttons.push({ label: tx("Update #{number}", { number: i.number }), primary: true, run: () => apply(false) });
+      buttons.push({ label: tx("Open it first"), run: () => { ctx.ui.openInvoice(i.id); return null; } });
     } else if (tool === "send_invoice" || tool === "mark_paid") {
       const i = invoices.find((x) => x.id === a.invoice_id);
       if (!i) continue;

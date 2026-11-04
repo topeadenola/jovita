@@ -96,6 +96,7 @@ export default function AskJovita({ onClose }) {
     openProject: (id) => { nav("/projects"); ui?.setOpenProject(id); },
     markPaid: (i) => invoiceAction(i, "markpaid"),
     sendInvoice: (i) => invoiceAction(i, "send"),
+    updateInvoice: (id, patch) => data.update("invoices", id, patch),
   };
   const say = (m) => setLog((l) => [...l, { who: "jo", at: Date.now(), ...m }]);
   // After a refresh, bring back the buttons that weren't tapped yet

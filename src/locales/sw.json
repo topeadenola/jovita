@@ -1612,5 +1612,11 @@
   "Optional extra: tick to add": "Nyongeza ya hiari: weka alama kuongeza",
   "This quote has options. You choose them when you accept it.": "Nukuu hii ina machaguo. Unayachagua unapoikubali.",
   "Send updated quote": "Tuma nukuu iliyosasishwa",
-  "Send updated invoice": "Tuma ankara iliyosasishwa"
+  "Send updated invoice": "Tuma ankara iliyosasishwa",
+  "Updated #{number}. New total {total}.": "#{number} imesasishwa. Jumla mpya {total}.",
+  "We've emailed the updated one to {name}.": "Tumemtumia {name} toleo lililosasishwa.",
+  "Open it": "Ifungue",
+  "Update and send #{number}": "Sasisha na utume #{number}",
+  "Update only": "Sasisha tu",
+  "Update #{number}": "Sasisha #{number}"
 }

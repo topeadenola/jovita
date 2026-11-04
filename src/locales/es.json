@@ -1610,5 +1610,11 @@
   "Optional extra: tick to add": "Extra opcional: márcalo para añadir",
   "This quote has options. You choose them when you accept it.": "Este presupuesto tiene opciones. Las eliges al aceptarlo.",
   "Send updated quote": "Enviar presupuesto actualizado",
-  "Send updated invoice": "Enviar factura actualizada"
+  "Send updated invoice": "Enviar factura actualizada",
+  "Updated #{number}. New total {total}.": "#{number} actualizado. Nuevo total {total}.",
+  "We've emailed the updated one to {name}.": "Hemos enviado la versión actualizada a {name}.",
+  "Open it": "Abrirlo",
+  "Update and send #{number}": "Actualizar y enviar #{number}",
+  "Update only": "Solo actualizar",
+  "Update #{number}": "Actualizar #{number}"
 }

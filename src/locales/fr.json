@@ -1612,5 +1612,11 @@
   "Optional extra: tick to add": "Option en supplément : cochez pour ajouter",
   "This quote has options. You choose them when you accept it.": "Ce devis propose des options. Vous les choisissez en l'acceptant.",
   "Send updated quote": "Envoyer le devis mis à jour",
-  "Send updated invoice": "Envoyer la facture mise à jour"
+  "Send updated invoice": "Envoyer la facture mise à jour",
+  "Updated #{number}. New total {total}.": "#{number} mis à jour. Nouveau total {total}.",
+  "We've emailed the updated one to {name}.": "Nous avons envoyé la version mise à jour à {name}.",
+  "Open it": "L'ouvrir",
+  "Update and send #{number}": "Mettre à jour et envoyer #{number}",
+  "Update only": "Mettre à jour seulement",
+  "Update #{number}": "Mettre à jour #{number}"
 }
