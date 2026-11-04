@@ -8,6 +8,7 @@ import { Avatar, CloseBtn, CopyBox, Drawer, MoneyInput, Pill, useToast } from ".
 import { tx } from "../lib/i18n";
 import { useUi } from "./Shell";
 import { fill, values } from "../lib/merge";
+import SendContract from "./SendContract";
 
 export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const { project, client, invoices, templates, update, remove, studio, bookings = [] } = useData();
@@ -16,6 +17,8 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const ui = useUi();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showContract, setShowContract] = useState(false);
+  const [sendingContract, setSendingContract] = useState(false);
+  const [delDocs, setDelDocs] = useState(false);
   const p = project(id);
   const [f, setF] = useState(() => p ? { title: p.title, type: p.type, session_date: p.session_date || "", amount: String(Number(p.amount) || ""), currency: p.currency } : null);
   const [saving, setSaving] = useState(false);
@@ -44,7 +47,11 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
         <div><p className="eyebrow">{tx(p.type)} · {tx(STAGE_LABEL[p.stage])}</p><h2 className="h-l">{tx("{name}'s {title}", { name: first(c.name), title: p.title.toLowerCase() })}</h2><p className="sub">{fday(p.session_date)}{c.city ? ` · ${c.city}` : ""}</p></div>
         <CloseBtn onClick={onClose} />
       </div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><Pill c={pill.c}>{pill.k}</Pill><Pill c="p-neutral">{money(p.amount, p.currency)}</Pill></div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}><Pill c={pill.c}>{pill.k}</Pill><Pill c="p-neutral">{money(p.amount, p.currency)}</Pill>
+        <span style={{ flex: 1 }} />
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const el = document.getElementById("pd-title"); el?.scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => el?.focus(), 350); }}><Icon name="edit" />{tx("Edit")}</button>
+        {!p.contract_signed && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSendingContract(true)}><Icon name="send" />{tx("Send contract")}</button>}
+        <button type="button" className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} onClick={() => { setConfirmDelete(true); setTimeout(() => document.getElementById("pd-delete")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); }}><Icon name="trash" />{tx("Delete")}</button></div>
       <div className="card" style={{ background: "var(--lilac)", borderColor: "var(--lilac)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 180 }}><p className="eyebrow">{tx("Next step")}</p><b style={{ fontSize: 17 }}>{n.t}</b></div>
         <button className="btn btn-primary" onClick={() => projectAction(p, n.a, { open: ui?.setOpenInvoice })}>{n.t}</button>
@@ -97,7 +104,7 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
             <select id="pd-contract" value={p.contract_template_id || ""} disabled={p.contract_signed} onChange={(e) => set({ contract_template_id: e.target.value || null }, tx("Contract updated"))}>
               {contracts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}<option value="">{tx("No contract")}</option></select>
             {p.contract_signed && <span className="help">{tx("Signed, so it can't be changed.")}</span>}
-            {!p.contract_signed && contracts.length > 0 && <span className="help">{tx("{name}'s name, address, fee and date fill in by themselves.", { name: first(c.name) })}{" "}<button type="button" className="linklike" onClick={() => setShowContract((v) => !v)}>{showContract ? tx("Hide") : tx("Preview")}</button></span>}</div>
+            {!p.contract_signed && contracts.length > 0 && <span className="help">{tx("{name}'s name, address, fee and date fill in by themselves.", { name: first(c.name) })}{" "}<button type="button" className="linklike" onClick={() => setShowContract((v) => !v)}>{showContract ? tx("Hide") : tx("Preview")}</button>{" · "}<button type="button" className="linklike" onClick={() => setSendingContract(true)}>{tx("Send it")}</button></span>}</div>
           <div className="field"><label htmlFor="pd-release">{tx("Model release")}</label>
             <select id="pd-release" value={p.release_template_id || ""} disabled={p.release_signed} onChange={(e) => set({ release_template_id: e.target.value || null }, tx("Model release updated"))}>
               {releases.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}<option value="">{tx("Not needed")}</option></select></div>
@@ -129,12 +136,21 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
         <div className="who"><Avatar name={c.name} /><div><b>{c.name}</b><small>{[c.email, c.phone].filter(Boolean).join(" · ")}</small></div></div>
       </section>
       {confirmDelete ? (
-        <div className="card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", borderColor: "var(--danger)" }}>
-          <p style={{ flex: 1, minWidth: 200 }}>{tx("Delete this project? Its invoices stay but lose the link.")}</p>
+        <div id="pd-delete" className="card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", borderColor: "var(--danger)" }}>
+          <p style={{ flex: 1, minWidth: 200 }}>{tx("Delete this project? This can't be undone.")}</p>
+          {inv.length > 0 && <label className="check" style={{ flexBasis: "100%" }}><input type="checkbox" checked={delDocs} onChange={(e) => setDelDocs(e.target.checked)} />{tx("Also delete its {n} quotes and invoices", { n: inv.length })}</label>}
           <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>{tx("Keep it")}</button>
-          <button className="btn btn-sm" style={{ background: "var(--danger-tint)", color: "var(--danger)" }} onClick={async () => { await remove("projects", p.id); toast(tx("Project deleted")); onClose(); }}>{tx("Delete project")}</button>
+          <button className="btn btn-sm" style={{ background: "var(--danger-tint)", color: "var(--danger)" }} onClick={async () => {
+            const docs = delDocs ? inv.map((i) => i.id) : [];
+            onClose();
+            try {
+              for (const id2 of docs) await remove("invoices", id2);
+              await remove("projects", p.id); toast(tx("Project deleted"));
+            } catch (x) { toast(x.message); }
+          }}>{tx("Delete project")}</button>
         </div>
       ) : <button className="btn btn-ghost" style={{ alignSelf: "flex-start", color: "var(--danger)" }} onClick={() => setConfirmDelete(true)}>{tx("Delete project")}</button>}
+      {sendingContract && <SendContract clientId={p.client_id} projectId={p.id} onClose={() => setSendingContract(false)} />}
     </Drawer>
   );
 }

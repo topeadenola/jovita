@@ -1647,5 +1647,16 @@
   "Client phone": "Simu ya mteja",
   "Client address": "Anwani ya mteja",
   "Session location": "Mahali pa kipindi",
-  "Today's date": "Tarehe ya leo"
+  "Today's date": "Tarehe ya leo",
+  "Send a contract": "Tuma mkataba",
+  "Send a contract to {name}": "Tuma mkataba kwa {name}",
+  "No contracts yet. Add one in Settings › Templates first.": "Bado hakuna mikataba. Ongeza mmoja kwenye Mipangilio › Violezo.",
+  "Which job is it for?": "Ni ya kazi gani?",
+  "A new job…": "Kazi mpya…",
+  "Job title": "Jina la kazi",
+  "{name} gets an email with a link to read and sign it. You'll see when it's signed.": "{name} anapata barua pepe yenye kiungo cha kuusoma na kuusaini. Utaona ukisainiwa.",
+  "Send contract": "Tuma mkataba",
+  "Send it": "Utume",
+  "Delete this project? This can't be undone.": "Futa mradi huu? Haiwezi kurejeshwa.",
+  "Also delete its {n} quotes and invoices": "Futa pia nukuu na ankara zake {n}"
 }

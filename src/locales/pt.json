@@ -1642,5 +1642,16 @@
   "Client phone": "Telefone do cliente",
   "Client address": "Morada do cliente",
   "Session location": "Local da sessão",
-  "Today's date": "Data de hoje"
+  "Today's date": "Data de hoje",
+  "Send a contract": "Enviar um contrato",
+  "Send a contract to {name}": "Enviar um contrato a {name}",
+  "No contracts yet. Add one in Settings › Templates first.": "Ainda sem contratos. Adicione um em Definições › Modelos.",
+  "Which job is it for?": "Para que trabalho é?",
+  "A new job…": "Um novo trabalho…",
+  "Job title": "Nome do trabalho",
+  "{name} gets an email with a link to read and sign it. You'll see when it's signed.": "{name} recebe um e-mail com um link para ler e assinar. Vai ver quando estiver assinado.",
+  "Send contract": "Enviar contrato",
+  "Send it": "Enviar",
+  "Delete this project? This can't be undone.": "Eliminar este projeto? Não pode ser anulado.",
+  "Also delete its {n} quotes and invoices": "Eliminar também os {n} orçamentos e faturas"
 }
