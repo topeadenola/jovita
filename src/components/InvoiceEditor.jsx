@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
-import { addDays, balanceOf, CURRENCIES, daysFrom, fdate, invState, isoDay, money, portalUrl, SYM } from "../lib/format";
+import { addDays, balanceOf, CURRENCIES, daysFrom, fdate, first, invState, isoDay, money, portalUrl, SYM } from "../lib/format";
 import { bankText } from "../lib/payments";
 import { supabase } from "../supabase";
 import { tx } from "../lib/i18n";
@@ -137,6 +137,54 @@ function RecordPayment({ inv, total, onClose, onDone }) {
   );
 }
 
+// Before sending: optionally add a contract for the client to sign on the same page as the quote or invoice
+function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }) {
+  const { templates, projects, client, insert, update } = useData();
+  const toast = useToast();
+  const c = client(d.client_id);
+  const contracts = templates.filter((t) => t.kind === "contract").sort((a, b) => (b.is_default - a.is_default) || a.name.localeCompare(b.name));
+  const p = projects.find((x) => x.id === d.project_id);
+  const signed = !!p?.contract_signed;
+  const [add, setAdd] = useState(!!p?.contract_template_id && !signed);
+  const [tid, setTid] = useState(p?.contract_template_id || contracts[0]?.id || "");
+  const [busy, setBusy] = useState(false);
+  const go = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      let projectId = d.project_id || null;
+      if (add && tid && !signed) {
+        // A contract lives on a project (the client's page). No project yet: make one for this job.
+        if (!projectId) {
+          const np = await insert("projects", { client_id: d.client_id, title: d.label?.trim() || d.items.find((it) => it.name?.trim())?.name.trim() || (quote ? tx("Quote") : tx("Invoice")), type: "Portrait", stage: quote ? "inquiry" : "booked", amount: total, currency: d.currency, contract_template_id: tid });
+          projectId = np.id;
+          await update("invoices", inv.id, { project_id: projectId });
+        } else if (p.contract_template_id !== tid) await update("projects", projectId, { contract_template_id: tid });
+      }
+      await onSend(projectId);
+    } catch (x) { toast(x.message); setBusy(false); }
+  };
+  return (
+    <Modal label={quote ? tx("Send quote") : tx("Send invoice")} onClose={onClose}>
+      <form className="stack" onSubmit={go}>
+        <h2 className="h-m">{inv.status === "sent" ? (quote ? tx("Send updated quote") : tx("Send updated invoice")) : quote ? tx("Send quote") : tx("Send invoice")}</h2>
+        <p className="sub" style={{ fontSize: 13 }}>{tx("{name} gets an email with a link to {what}: {total}.", { name: c.name, what: quote ? tx("the quote") : tx("the invoice"), total: money(total, d.currency) })}</p>
+        {signed ? <p className="sub" style={{ fontSize: 13 }}><Icon name="check" /> {tx("{name} has already signed the contract for this job.", { name: first(c.name) })}</p> : contracts.length ? (
+          <>
+            <label className="check"><input type="checkbox" checked={add} onChange={(e) => setAdd(e.target.checked)} />{tx("Add a contract for {name} to sign", { name: first(c.name) })}</label>
+            {add && <div className="field"><label htmlFor="sd-contract">{tx("Contract")}</label>
+              <select id="sd-contract" value={tid} onChange={(e) => setTid(e.target.value)}>{contracts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+              <span className="help">{tx("It shows on the same page as the {what}, so they can sign it and accept in one go.", { what: quote ? tx("quote") : tx("invoice") })}</span></div>}
+          </>
+        ) : <p className="sub" style={{ fontSize: 13 }}>{tx("No contracts yet. Add one in Settings › Templates to send it with your quotes.")}</p>}
+        <label className="check"><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn btn-ghost" onClick={onClose}>{tx("Cancel")}</button>
+          <button className="btn btn-primary" disabled={busy}><Icon name="send" />{busy ? tx("Sending…") : tx("Send")}</button></div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function InvoiceEditor({ id, onClose }) {
   const { invoices, clients, projects, templates, studio, client, update, remove } = useData();
   const { invoiceAction } = useActions();
@@ -199,7 +247,9 @@ export default function InvoiceEditor({ id, onClose }) {
     } catch (e) { toast(tx("That didn't work: {err}", { err: e.message })); }
   };
   const title = quote ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number });
-  const send = async () => { await flush(); await invoiceAction({ ...inv, ...d, amount: t.total }, "send", { copy_me: copyMe }); onClose(); };
+  const send = async (projectId) => { await flush(); await invoiceAction({ ...inv, ...d, project_id: projectId === undefined ? d.project_id : projectId, amount: t.total }, "send", { copy_me: copyMe }); onClose(); };
+  const [sending, setSending] = useState(false);
+  const openSend = async () => { await flush(); setSending(true); };
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
   const canPay = !quote && (inv.status === "sent" || inv.status === "draft");
   // Back to unpaid: payments you recorded stay (remove any below); the rest is owed again
@@ -239,7 +289,7 @@ export default function InvoiceEditor({ id, onClose }) {
                 {inv.status !== "paid" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction({ ...inv, amount: t.total }, "markpaid"); onClose(); }}><Icon name="check" />{tx("Mark as paid")}</button>}
                 {inv.status === "draft" && <button type="button" onClick={() => { setMenu(false); update("invoices", id, { kind: quote ? "invoice" : "quote" }); toast(quote ? tx("Changed to an invoice") : tx("Changed to a quote")); }}><Icon name="file" />{quote ? tx("Change to an invoice") : tx("Change to a quote")}</button>}
                 {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); invoiceAction(inv, "nudge", { copy_me: copyMe }); }}><Icon name="send" />{tx("Send a nudge")}</button>}
-                {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await send(); }}><Icon name="send" />{tx("Send updated invoice")}</button>}
+                {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await openSend(); }}><Icon name="send" />{tx("Send updated invoice")}</button>}
                 {inv.status !== "paid" && inv.status !== "cancelled" && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction(inv, "cancel"); onClose(); }}><Icon name="x" />{quote ? tx("Withdraw quote") : tx("Cancel invoice")}</button>}
                 {inv.status === "draft" && <button type="button" onClick={async () => { setMenu(false); if (!window.confirm(quote ? tx("Delete this draft quote?") : tx("Delete this draft invoice?"))) return; await remove("invoices", id); toast(tx("Draft deleted")); onClose(); }}><Icon name="x" />{tx("Delete draft")}</button>}
               </div>
@@ -247,15 +297,13 @@ export default function InvoiceEditor({ id, onClose }) {
           </div>
           <button type="button" className="btn btn-secondary btn-sm" aria-pressed={preview} onClick={() => setPreview(!preview)}><Icon name="eye" />{preview ? tx("Edit") : tx("Preview")}</button>
           {inv.status === "draft" ? <>
-            <label className="check copyme" title={tx("Get a copy of this email in your inbox")}><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>
-            <button type="button" className="btn btn-primary btn-sm" onClick={send}><Icon name="send" />{quote ? tx("Send quote") : tx("Send invoice")}</button></>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openSend}><Icon name="send" />{quote ? tx("Send quote") : tx("Send invoice")}</button></>
             : inv.status === "sent" && !quote ? <button type="button" className="btn btn-primary btn-sm" onClick={async () => { await flush(); setPaying(true); }}><Icon name="wallet" />{tx("Record a payment")}</button>
             : inv.status === "paid" && !quote ? <><span className="sub" style={{ fontSize: 13 }}>{tx("Paid {fdate}", { fdate: fdate(inv.paid_at) })}</span><button type="button" className="btn btn-ghost btn-sm" onClick={markUnpaid}>{tx("Mark as unpaid")}</button></>
             : quote && inv.status === "sent" ? <>
               {/* Changed the quote after sending it (a discount, an item removed)? Send the updated one */}
               <span className="sub" style={{ fontSize: 13 }}>{inv.viewed_at ? tx("Viewed, waiting for a yes") : tx("Waiting for {name}", { name: c.name.split(" ")[0] })}</span>
-              <label className="check copyme" title={tx("Get a copy of this email in your inbox")}><input type="checkbox" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />{tx("Send me a copy")}</label>
-              <button type="button" className="btn btn-primary btn-sm" onClick={send}><Icon name="send" />{tx("Send updated quote")}</button></>
+              <button type="button" className="btn btn-primary btn-sm" onClick={openSend}><Icon name="send" />{tx("Send updated quote")}</button></>
             : <span className="sub" style={{ fontSize: 13 }}>{inv.status === "paid" ? tx("Paid {fdate}", { fdate: fdate(inv.paid_at) }) : tx("Sent")}</span>}
         </header>
 
@@ -357,6 +405,7 @@ export default function InvoiceEditor({ id, onClose }) {
           )}
         </div>
       </div>
+      {sending && <SendDialog inv={inv} d={d} total={t.total} quote={quote} copyMe={copyMe} setCopyMe={setCopyMe} onSend={send} onClose={() => setSending(false)} />}
       {paying && <RecordPayment inv={inv} total={t.total} onClose={() => setPaying(false)} />}
     </div>
   );

@@ -1618,5 +1618,15 @@
   "Open it": "Ifungue",
   "Update and send #{number}": "Sasisha na utume #{number}",
   "Update only": "Sasisha tu",
-  "Update #{number}": "Sasisha #{number}"
+  "Update #{number}": "Sasisha #{number}",
+  "{name} gets an email with a link to {what}: {total}.": "{name} anapata barua pepe yenye kiungo cha {what}: {total}.",
+  "the quote": "nukuu",
+  "the invoice": "ankara",
+  "quote": "nukuu",
+  "invoice": "ankara",
+  "{name} has already signed the contract for this job.": "{name} tayari amesaini mkataba wa kazi hii.",
+  "Add a contract for {name} to sign": "Ongeza mkataba wa {name} kusaini",
+  "It shows on the same page as the {what}, so they can sign it and accept in one go.": "Unaonekana kwenye ukurasa mmoja na {what}, ili asaini na akubali mara moja.",
+  "No contracts yet. Add one in Settings › Templates to send it with your quotes.": "Bado hakuna mikataba. Ongeza mmoja kwenye Mipangilio › Violezo ili uutume pamoja na nukuu.",
+  "Sending…": "Inatuma…"
 }

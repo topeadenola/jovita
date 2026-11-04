@@ -1616,5 +1616,15 @@
   "Open it": "Abrirlo",
   "Update and send #{number}": "Actualizar y enviar #{number}",
   "Update only": "Solo actualizar",
-  "Update #{number}": "Actualizar #{number}"
+  "Update #{number}": "Actualizar #{number}",
+  "{name} gets an email with a link to {what}: {total}.": "{name} recibe un correo con un enlace a {what}: {total}.",
+  "the quote": "el presupuesto",
+  "the invoice": "la factura",
+  "quote": "presupuesto",
+  "invoice": "factura",
+  "{name} has already signed the contract for this job.": "{name} ya firmó el contrato de este trabajo.",
+  "Add a contract for {name} to sign": "Añadir un contrato para que {name} lo firme",
+  "It shows on the same page as the {what}, so they can sign it and accept in one go.": "Aparece en la misma página que el {what}, para firmar y aceptar a la vez.",
+  "No contracts yet. Add one in Settings › Templates to send it with your quotes.": "Aún no hay contratos. Añade uno en Ajustes › Plantillas para enviarlo con tus presupuestos.",
+  "Sending…": "Enviando…"
 }
