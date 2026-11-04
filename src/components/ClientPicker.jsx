@@ -59,7 +59,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
           {list.map((c, i) => (
             <button type="button" role="option" aria-selected={c.id === value} key={c.id} className={i === hi ? "hi" : ""}
               onMouseEnter={() => setHi(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(c)}>
-              <Avatar name={c.name} size={28} /><span><b>{c.name}{c.company ? <span className="sub" style={{ fontWeight: 400 }}>{" · "}{c.company}</span> : null}</b>{c.email && <small>{c.email}</small>}</span>
+              <Avatar name={c.name} size={28} /><span><b>{c.name}</b>{(c.company || c.email) && <small>{[c.company, c.email].filter(Boolean).join(" · ")}</small>}</span>
             </button>
           ))}
           {!list.length && <p className="sub">{tx("No client called \"{q}\"", { q: q.trim() })}</p>}
