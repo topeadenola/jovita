@@ -91,8 +91,8 @@ export default function Auth({ initial = "signup" }) {
           <h2 className="h-l">{mode === "signup" ? tx("Create your studio") : mode === "signin" ? tx("Welcome back") : tx("Reset your password")}</h2>
           {mode === "signup" && (
             <div className="form-grid">
-              <div className="field"><label htmlFor="a-first">{tx("Your first name")}</label><input id="a-first" required value={f.first} onChange={set("first")} placeholder={tx("Tope")} /></div>
-              <div className="field"><label htmlFor="a-studio">{tx("Studio name")}</label><input id="a-studio" required value={f.studio} onChange={set("studio")} placeholder={tx("HorploadWorks")} /></div>
+              <div className="field"><label htmlFor="a-first">{tx("Your first name")}</label><input id="a-first" required value={f.first} onChange={set("first")} placeholder={tx("Smith")} /></div>
+              <div className="field"><label htmlFor="a-studio">{tx("Studio name")}</label><input id="a-studio" required value={f.studio} onChange={set("studio")} placeholder={tx("SmithLine Photography")} /></div>
             </div>
           )}
           <div className="field"><label htmlFor="a-email">{tx("Email")}</label><input id="a-email" type="email" required value={f.email} onChange={set("email")} autoComplete="email" /></div>

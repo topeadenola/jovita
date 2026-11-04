@@ -145,7 +145,7 @@ export default function Landing() {
             <Link to="/signup" className="pill-solid">{tx("Try it with a test client")}</Link>
           </div>
           <div className="portal-mock" aria-label={tx("Example client portal")}>
-            <p className="pm-studio"><span>{tx("HW")}</span>{" "}{tx("HorploadWorks")}</p>
+            <p className="pm-studio"><span>{tx("SL")}</span>{" "}{tx("SmithLine Photography")}</p>
             <p className="pm-hi">{tx("Hi Adaeze, here's everything for your maternity shoot.")}</p>
             <div className="pm-row done"><Icon name="check" />{" "}{tx("Contract signed")}</div>
             <div className="pm-row now"><span className="pm-dot" />{" "}{tx("Pay deposit · ₦225,000")}</div>
