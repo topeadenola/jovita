@@ -1697,5 +1697,10 @@
   "sign your contract and pay your balance": "firma tu contrato y paga tu saldo",
   "{amount} still owed": "{amount} pendiente",
   "{n} file didn't upload.": "{n} archivo no se subió.",
-  "{n} files didn't upload.": "{n} archivos no se subieron."
+  "{n} files didn't upload.": "{n} archivos no se subieron.",
+  " ({n} of them get their missing phone or address filled in)": " (a {n} de ellos se les completa el teléfono o la dirección que faltaba)",
+  "{n} client updated": "{n} cliente actualizado",
+  "{n} clients updated": "{n} clientes actualizados",
+  "Update {n} client": "Actualizar {n} cliente",
+  "Update {n} clients": "Actualizar {n} clientes"
 }

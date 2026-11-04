@@ -1699,5 +1699,10 @@
   "sign your contract and pay your balance": "saini mkataba wako na ulipe salio lako",
   "{amount} still owed": "{amount} bado inadaiwa",
   "{n} file didn't upload.": "Faili {n} haikupakiwa.",
-  "{n} files didn't upload.": "Faili {n} hazikupakiwa."
+  "{n} files didn't upload.": "Faili {n} hazikupakiwa.",
+  " ({n} of them get their missing phone or address filled in)": " ({n} kati yao watajazwa simu au anwani iliyokosekana)",
+  "{n} client updated": "Mteja {n} amesasishwa",
+  "{n} clients updated": "Wateja {n} wamesasishwa",
+  "Update {n} client": "Sasisha mteja {n}",
+  "Update {n} clients": "Sasisha wateja {n}"
 }

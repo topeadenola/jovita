@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { tidyBullets } from "../lib/bullets";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
 import { SaveState, useAutosave } from "../lib/autosave";
@@ -58,7 +59,7 @@ function Preview({ d, t, inv }) {
       <table className="doc-table"><tbody>
         {lay.lines.map(({ it, head }) => (<Fragment key={it.id}>
           {head && <tr className="doc-kind"><td colSpan={3}>{head === "choice" ? tx("Choose one") : tx("Optional extra")}</td></tr>}
-          <tr className={(isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{(isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}</b>{it.description && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{it.description}</div>}</td>
+          <tr className={(isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{(isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}</b>{it.description && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{tidyBullets(it.description)}</div>}</td>
             <td className="right" style={{ whiteSpace: "nowrap" }}>{n(it.qty)} × {money(it.price, d.currency)}</td><td className="right"><b>{money(n(it.qty) * n(it.price), d.currency)}</b></td></tr>
         </Fragment>))}
         <tr><td colSpan={2} className="right">{tx("Subtotal")}</td><td className="right">{money(t.subtotal, d.currency)}</td></tr>

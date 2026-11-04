@@ -78,6 +78,15 @@ function ClientDrawer({ c, onClose }) {
   );
 }
 
+// Download the clients on screen (the tab and search you're on) as a CSV that opens in Excel, Google Sheets or Pixieset
+function exportClients(list) {
+  const q = (v) => { const t = String(v ?? ""); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const rows = [["Name", "Email", "Phone", "City", "Address", "Type", "Added"], ...list.map((c) => [c.name, c.email, c.phone, c.city, c.address, c.status === "lead" ? "Lead" : "Client", (c.created_at || "").slice(0, 10)])];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((r) => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }));
+  a.download = `jovita-clients-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 export default function Clients() {
   const { clients, projects, invoices } = useData();
   const { q, open } = useUi();
@@ -94,6 +103,7 @@ export default function Clients() {
       <div className="head"><div><p className="eyebrow">{tx("Clients")}</p><h1 className="h-l">{tx("Everyone you work with")}</h1></div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn btn-secondary" onClick={() => setImp(true)}><Icon name="file" />{tx("Import from file")}</button>
+          {clients.length > 0 && <button className="btn btn-secondary" onClick={() => exportClients(list)}><Icon name="download" />{tx("Export")}</button>}
           <button className="btn btn-primary" onClick={() => open("client")}><Icon name="plus" />{tx("Add client")}</button></div></div>
       {!clients.length ? <Empty icon="users" title={tx("No clients yet")} text={tx(
         "Add your first client, or bring everyone over from a spreadsheet in one go."

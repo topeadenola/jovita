@@ -1699,5 +1699,10 @@
   "sign your contract and pay your balance": "signer votre contrat et régler votre solde",
   "{amount} still owed": "{amount} restant dû",
   "{n} file didn't upload.": "{n} fichier n'a pas été envoyé.",
-  "{n} files didn't upload.": "{n} fichiers n'ont pas été envoyés."
+  "{n} files didn't upload.": "{n} fichiers n'ont pas été envoyés.",
+  " ({n} of them get their missing phone or address filled in)": " (le téléphone ou l'adresse manquants de {n} d'entre eux seront complétés)",
+  "{n} client updated": "{n} client mis à jour",
+  "{n} clients updated": "{n} clients mis à jour",
+  "Update {n} client": "Mettre à jour {n} client",
+  "Update {n} clients": "Mettre à jour {n} clients"
 }

@@ -13,11 +13,12 @@ const FIELDS = [
   ["email", "Email", ["email", "e-mail", "email address", "mail", "courriel", "adresse e-mail", "adresse mail", "correo", "correo electrónico", "barua pepe"]],
   ["phone", "Phone / WhatsApp", ["phone", "phone number", "mobile", "mobile number", "whatsapp", "tel", "telephone", "cell", "contact number", "téléphone", "telephone", "portable", "numéro", "teléfono", "móvil", "celular", "telefone", "telemóvel", "telemovel", "simu", "namba ya simu"]],
   ["city", "City", ["city", "town", "location", "state", "region", "ville", "commune", "ciudad", "cidade", "localidade", "mji"]],
+  ["address", "Address", ["address", "street", "street address", "address 1", "address line 1", "address1", "home address", "adresse", "dirección", "direccion", "endereço", "endereco", "anwani"]],
   ["status", "Lead or client", ["status", "type", "stage", "category", "statut", "estado", "hali"]],
 ];
 const norm = (s) => String(s ?? "").toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
 const digits = (s) => String(s ?? "").replace(/\D/g, "");
-const TEMPLATE = "Full name,Email,Phone,City,Status\nAdaeze Okafor,adaeze@example.com,+234 803 000 1101,Lagos,client\nChloe Bennett,chloe@example.co.uk,+44 7700 900123,London,lead\n";
+const TEMPLATE = "Full name,Email,Phone,City,Address,Status\nAdaeze Okafor,adaeze@example.com,+234 803 000 1101,Lagos,12 Admiralty Way Lekki,client\nChloe Bennett,chloe@example.co.uk,+44 7700 900123,London,,lead\n";
 
 function guessMap(headers) {
   const m = {};
@@ -26,7 +27,7 @@ function guessMap(headers) {
   // 1. exact names first, for every field
   FIELDS.forEach(([k, , words]) => { const i = exact(words); if (i >= 0) { m[k] = i; used.add(i); } });
   // 2. then looser matches ("Client E-mail", "Phone no."), most specific fields first
-  ["first", "last", "email", "phone", "city", "status", "name"].forEach((k) => {
+  ["first", "last", "email", "phone", "address", "city", "status", "name"].forEach((k) => {
     if (m[k] !== undefined) return;
     const words = FIELDS.find((f) => f[0] === k)[2];
     const i = headers.findIndex((h, j) => !used.has(j) && words.some((w) => w.length > 3 && norm(h).includes(w)));
@@ -82,12 +83,19 @@ export default function ImportClients({ onClose }) {
       const row = {
         name: name || email.split("@")[0] || "",
         email: /\S+@\S+\.\S+/.test(email) ? email : null,
-        phone: phone || null, city: get(r, "city") || null,
+        phone: phone || null, city: get(r, "city") || null, address: get(r, "address"),
         status: st ? (/(lead|prospect|enquir|inquir|potential|potentiel|posible|potencial|mtarajiwa)/.test(st) ? "lead" : "client") : defStatus,
       };
       if (!row.name) { bad.push(r); return; }
       const d = digits(phone);
-      if ((row.email && seenE.has(row.email)) || (d.length >= 7 && seenP.has(d))) { dupes.push(row); return; }
+      if ((row.email && seenE.has(row.email)) || (d.length >= 7 && seenP.has(d))) {
+        // Already in Jovita: fill in anything they're missing (phone, city, address), never overwrite
+        const c = clients.find((x) => (row.email && (x.email || "").toLowerCase() === row.email) || (d.length >= 7 && digits(x.phone) === d));
+        const patch = {};
+        if (c) ["phone", "city", "address"].forEach((k) => { if (row[k] && !String(c[k] || "").trim()) patch[k] = row[k]; });
+        dupes.push({ ...row, id: c?.id, patch });
+        return;
+      }
       if (row.email) seenE.add(row.email);
       if (d.length >= 7) seenP.add(d);
       ok.push(row);
@@ -95,6 +103,7 @@ export default function ImportClients({ onClose }) {
     return { ok, dupes, bad };
   }, [file, map, defStatus, clients]);
 
+  const fillCount = result ? result.dupes.filter((r) => r.id && Object.keys(r.patch).length).length : 0;
   const hasName = map.name !== undefined || map.first !== undefined || map.last !== undefined || map.email !== undefined;
 
   async function doImport() {
@@ -105,8 +114,10 @@ export default function ImportClients({ onClose }) {
         const { error } = await supabase.from("clients").insert(rows.slice(i, i + 500));
         if (error) throw error;
       }
+      const fills = result.dupes.filter((r) => r.id && Object.keys(r.patch).length);
+      for (const r of fills) await supabase.from("clients").update(r.patch).eq("id", r.id);
       await reload();
-      toast(txn(rows.length, "{n} client imported", "{n} clients imported"), true);
+      toast(rows.length ? txn(rows.length, "{n} client imported", "{n} clients imported") : txn(fills.length, "{n} client updated", "{n} clients updated"), true);
       onClose();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
@@ -181,6 +192,7 @@ export default function ImportClients({ onClose }) {
                   {result.dupes.length ? tx(" · {length} already in Jovita, skipped", {
                     length: result.dupes.length
                   }) : ""}
+                  {fillCount ? tx(" ({n} of them get their missing phone or address filled in)", { n: fillCount }) : ""}
                   {result.bad.length ? tx(" · {length} without a name, skipped", {
                     length: result.bad.length
                   }) : ""}
@@ -192,8 +204,8 @@ export default function ImportClients({ onClose }) {
         {err && <p className="err" role="alert">{err}</p>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button type="button" className="btn btn-ghost" data-dismiss onClick={onClose}>{tx("Cancel")}</button>
-          {file && <button type="button" className="btn btn-primary" disabled={busy || !hasName || !result?.ok.length} onClick={doImport}>
-            {busy ? tx("Importing…") : txn(result?.ok.length || 0, "Import {n} client", "Import {n} clients")}</button>}
+          {file && <button type="button" className="btn btn-primary" disabled={busy || !hasName || (!result?.ok.length && !fillCount)} onClick={doImport}>
+            {busy ? tx("Importing…") : !result?.ok.length && fillCount ? txn(fillCount, "Update {n} client", "Update {n} clients") : txn(result?.ok.length || 0, "Import {n} client", "Import {n} clients")}</button>}
         </div>
       </div>
     </Modal>

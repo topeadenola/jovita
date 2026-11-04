@@ -1,6 +1,7 @@
 // What a client sees at /i/<link>: one invoice or quote, how to pay it (the studio's bank account), and a PDF download.
 // No sign-in. Opened from the invoice email, on the studio's own address.
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { tidyBullets } from "../lib/bullets";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import { tx } from "../lib/i18n";
@@ -14,7 +15,7 @@ import { counts, isChoice, isOptional, layout, picUrl } from "../lib/items";
 import Icon, { Mark } from "../components/Icon";
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const clean = (s) => String(s || "").split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim();
+const clean = (s) => tidyBullets(String(s || "").split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim());
 
 export default function InvoiceView() {
   const { token } = useParams();

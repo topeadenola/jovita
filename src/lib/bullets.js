@@ -34,3 +34,6 @@ export function enterBullet(e, set) {
   const ins = (v.trim() ? "\n" : "") + "- ";
   if (!document.execCommand?.("insertText", false, ins)) set(v.slice(0, a) + ins + v.slice(t.selectionEnd));
 }
+
+// "- - Lead photographer" (an auto "- " plus one typed by hand) becomes "- Lead photographer"
+export const tidyBullets = (text) => String(text ?? "").replace(/^([ \t]*[-•][ \t]+)(?:[-•][ \t]+)+/gm, "$1");

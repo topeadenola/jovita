@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { tidyBullets } from "../lib/bullets";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import StudioLogo from "../components/StudioLogo";
@@ -15,7 +16,7 @@ import { applyPicks, counts, hasOptions, isChoice, isOptional, layout, picUrl } 
 // A quote's items. With options, the client picks one from each "Choose one" group and ticks any extras they want.
 function QuoteItems({ q, items, onPick }) {
   const lay = layout(items);
-  const line = (it) => <><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></>;
+  const line = (it) => <><div><b>{it.name}</b>{it.description && <p>{tidyBullets(it.description)}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></>;
   return (
     <>
       {lay.top.map((p) => <img key={p.id} className="portal-pic" src={picUrl(p.path)} alt="" />)}
@@ -188,7 +189,7 @@ export default function Portal() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Invoice #")}{open.number}{" "}{tx("· due")}{" "}{fdate(open.due_date)}{open.total ? " · " + tx("{paid} of {total} paid", { paid: money(open0.amount_paid, open.currency), total: money(open.total, open.currency) }) : ""}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(open.amount, open.currency)}</span></div>
                 {Array.isArray(open.items) && open.items.filter(counts).some((it) => it.name || it.description) && (
                   <ul className="portal-items">{open.items.filter(counts).filter((it) => it.name || it.description).map((it, i) => (
-                    <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{it.description}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), open.currency)}</span></li>
+                    <li key={it.id || i}><div><b>{it.name}</b>{it.description && <p>{tidyBullets(it.description)}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), open.currency)}</span></li>
                   ))}</ul>
                 )}
                 {open.payment_reported_at ? <p className="sub">{tx("Thanks! You told us you've paid.")}{" "}{s.name}{" "}{tx("will confirm shortly.")}</p> : (

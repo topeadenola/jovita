@@ -4,7 +4,7 @@ import { useData } from "../lib/data";
 import { supabase } from "../supabase";
 import { money, SYM } from "../lib/format";
 import { tx } from "../lib/i18n";
-import { enterBullet, pasteBullets, toBullets } from "../lib/bullets";
+import { enterBullet, pasteBullets, tidyBullets, toBullets } from "../lib/bullets";
 import { fixChoices, isChoice, isOptional, isPic, picUrl, uid } from "../lib/items";
 import { MoneyInput, Pill, useToast } from "./ui";
 import Icon from "./Icon";
@@ -105,7 +105,7 @@ export default function ItemsEditor({ items, onChange, currency, minItems = 1 })
                       setItem(it.id, { description: desc ? `${desc}\n${list}` : list });
                     }} />
                 </div>
-                <textarea className="inv-desc" value={it.description} onChange={(e) => setItem(it.id, { description: e.target.value })}
+                <textarea className="inv-desc" value={it.description} onChange={(e) => setItem(it.id, { description: tidyBullets(e.target.value) })}
                   onKeyDown={(e) => enterBullet(e, (v) => setItem(it.id, { description: v }))}
                   onPaste={(e) => pasteBullets(e, it.description || "", (v) => setItem(it.id, { description: v }))}
                   onFocus={() => { if (!it.description) setItem(it.id, { description: "- " }); }}
