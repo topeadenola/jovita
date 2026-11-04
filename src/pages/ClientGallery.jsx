@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
 import { GalleryPreview, downloadUrl, isRaw, isVideo, publicUrl, thumbUrl } from "../components/GalleryEditor";
 import Slideshow from "../components/Slideshow";
+import { wmProps } from "../lib/watermark";
 import StudioLogo from "../components/StudioLogo";
 import Icon, { Mark } from "../components/Icon";
 import { tx, txn } from "../lib/i18n";
@@ -61,7 +62,7 @@ export default function ClientGallery({ token: given }) {
     if (error) return setState({ error: "missing" });
     if (!data) return setState({ error: "missing" });
     if (data.error === "password" && password && !tried) { forget(); return load("", true); }
-    if (data.error) return setState({ error: data.error, title: data.title, cover: data.cover_path, date: data.event_date, studio: data.studio, tried: !!password });
+    if (data.error) return setState({ error: data.error, title: data.title, cover: data.cover_path, date: data.event_date, studio: data.studio, needs: data.needs || [], tried: !!password });
     // Remember the password on this device, so a refresh never asks again
     if (password) writeLS("jv-gpw-" + token, password);
     setPass(password || "");
@@ -268,6 +269,24 @@ export default function ClientGallery({ token: given }) {
       </form>
     </div>
   );
+  // The studio opens the gallery once the contract is signed and / or the bill is paid
+  if (state.error === "locked") {
+    const needs = state.needs || [];
+    const studioName = state.studio?.name || tx("your photographer");
+    const what = needs.includes("contract") && needs.includes("paid") ? tx("sign your contract and pay your balance") : needs.includes("contract") ? tx("sign your contract") : tx("pay your balance");
+    return (
+      <div className="cg-lock" style={state.cover ? { "--cg-bg": `url("${publicUrl(state.cover)}")` } : undefined}>
+        <div className="cg-lock-card">
+          {state.studio && <div className="cg-lock-brand"><StudioLogo studio={state.studio} className="studio-mark" /><span>{state.studio.name}</span></div>}
+          <span className="cg-lock-ic"><Icon name="lock" /></span>
+          <h1>{state.title || tx("Your photos")}</h1>
+          <p className="sub">{tx("Your photos are ready. To open them, please {what}.", { what })}</p>
+          <p className="sub" style={{ fontSize: 13, marginTop: -8 }}>{tx("Use the link in your email from {studio}. Then come back to this page.", { studio: studioName })}</p>
+          <button type="button" className="btn btn-primary" onClick={() => { let saved = ""; try { saved = localStorage.getItem("jv-gpw-" + token) || ""; } catch { /* private */ } load(saved || pw); }}>{tx("I've done it, open my photos")}</button>
+        </div>
+      </div>
+    );
+  }
   if (state.error) return (
     <div className="cg-gate"><div className="card"><Icon name="image" />
       <h1 className="h-m">{state.error === "expired" ? tx("This gallery has expired") : state.error === "not_published" ? tx("This gallery isn't ready yet") : tx("We couldn't find this gallery")}</h1>
@@ -340,12 +359,12 @@ export default function ClientGallery({ token: given }) {
           <button type="button" className="btn btn-primary" onClick={sendPicksBack}><Icon name="send" />{sentBefore ? tx("Send again") : tx("Send my picks to {name}", { name: g.share.by })}</button>
         </div>
       )}
-      {show && <Slideshow photos={slides} title={d.title} onClose={() => setShow(false)} />}
+      {show && <Slideshow photos={slides} title={d.title} onClose={() => setShow(false)} wm={wmProps(d.design?.watermark, g.studio?.name)} />}
       {g.studio && g.studio.branded === false && <p className="cg-made"><a href="https://getjovita.com" target="_blank" rel="noreferrer">{tx("Made with")} <Mark dot="currentColor" style={{ width: 9, height: 13 }} /> jovita</a></p>}
       {cur && (
         <div className="cg-light cg-view" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
           {isVideo(cur.path) ? <video key={cur.path} src={publicUrl(cur.path)} controls autoPlay playsInline poster={thumbUrl(cur.path)} />
-            : isRaw(cur.path) ? <img src={thumbUrl(cur.path)} alt={cur.name || ""} /> : <img src={publicUrl(cur.path)} alt={cur.name || ""} />}
+            : (() => { const im = isRaw(cur.path) ? <img src={thumbUrl(cur.path)} alt={cur.name || ""} /> : <img src={publicUrl(cur.path)} alt={cur.name || ""} />; const w = wmProps(d.design?.watermark, g.studio?.name); return w ? <span {...w}>{im}</span> : im; })()}
           {panel && !shared && (
             <aside className="lb-notes" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><b className="lb-file">{cur.name || tx("Photo {n}", { n: open + 1 })}</b><button type="button" className="x" onClick={() => setPanel(false)} aria-label={tx("Close notes")}><Icon name="x" /></button></div>

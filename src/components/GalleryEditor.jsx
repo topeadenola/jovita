@@ -11,6 +11,7 @@ import { sendEmail } from "../lib/email";
 import { useUi } from "./Shell";
 import { mediaDownloadUrl, mediaPut, mediaRemove, mediaUrl } from "../lib/media";
 import { publicGalleryLink, studioBase } from "../lib/links";
+import { WM_DEFAULT, WM_POS, wmProps } from "../lib/watermark";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 export const publicUrl = (path) => mediaUrl(path);
@@ -118,6 +119,7 @@ const slugify = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/
 
 function toDraft(g) {
   const settings = { ...DEF_SETTINGS, ...(g.settings || {}) };
+  if (settings.watermark === "studio" && !g.design?.watermark) g = { ...g, design: { ...(g.design || {}), watermark: { kind: "text", text: "", pos: "br", size: 22, opacity: 55 } } };
   settings.download = { ...DEF_SETTINGS.download, ...(g.settings?.download || {}) };
   settings.favorite = { ...DEF_SETTINGS.favorite, ...(g.settings?.favorite || {}) };
   const design = { ...DEF_DESIGN, ...(g.design || {}) };
@@ -175,15 +177,19 @@ export function GalleryPreview({ d, photos, studioName, device, full = false, on
     </span>
   );
   const gap = g.spacing === "large" ? 14 : 4;
+  // Watermark over each photo (and no "Save image" on right-click)
+  const wmp = wmProps(d.design.watermark, studioName);
+  const box = (el, style) => (wmp ? <span {...wmp} style={{ ...wmp.style, ...style }}>{el}</span> : el);
   return (
     <div className={`gp gp-${device}`} style={{ background: pal[1], color: pal[3] }}>
       {coverEl}
       <div className="gp-nav" style={{ borderColor: pal[2] }}><b style={titleStyle}>{title}</b><span>{studioName}</span><span className="gp-sets">{d.sets.map((s) => <i key={s.id}>{s.name}</i>)}</span></div>
       {photos.length ? (
         g.style === "horizontal"
-          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />))}</div>
+          ? <div className="gp-rows" style={{ gap, padding: gap }}>{(full ? photos : photos.slice(0, 18)).map((p, i) => item(p, i, box(<Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ height: device === "phone" ? 80 : g.size === "large" ? 180 : 120 }} />, { display: "inline-block" })))}</div>
           : <div className="gp-masonry" style={{ gap, padding: gap }}>{masonry(full ? photos : photos.slice(0, 24), cols).map((col, ci) => (
-              <div key={ci} className="gp-col">{col.map(({ p, i }) => item(p, i, <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />))}</div>))}</div>
+              <div key={ci} className="gp-col">{col.map(({ p, i }) => item(p, i, wmp ? box(<Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ display: "block" }} />, { marginBottom: gap })
+                : <Thumb path={p.path} alt={p.name || ""} thumb={p.has_thumb} width={p.width || undefined} height={p.height || undefined} onClick={onPhoto ? () => onPhoto(i) : undefined} style={{ marginBottom: gap }} />))}</div>))}</div>
       ) : <p className="gp-empty">{tx("There are no photos here yet.")}</p>}
     </div>
   );
@@ -208,7 +214,7 @@ function CoverArt({ k, url }) {
 
 /* ---------- The editor ---------- */
 export default function GalleryEditor({ id, onClose }) {
-  const { galleries, studio, client, clients, insert, update, remove, reload } = useData();
+  const { galleries, studio, client, clients, insert, update, remove, reload, updateStudio, projects = [], invoices = [] } = useData();
   const toast = useToast();
   const g = galleries.find((x) => x.id === id);
   const [tab, setTab] = useState("photos");
@@ -226,6 +232,20 @@ export default function GalleryEditor({ id, onClose }) {
   const [previews, setPreviews] = useState([]);
   const [deleting, setDeleting] = useState(null); // { done, total }  // files uploading right now, shown straight away
   const [uploading, setUploading] = useState(null);
+  const [retryList, setRetryList] = useState([]);
+  const [offline, setOffline] = useState(typeof navigator !== "undefined" && navigator.onLine === false);
+  useEffect(() => {
+    const on = () => setOffline(false), off = () => setOffline(true);
+    window.addEventListener("online", on); window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+  // Leaving mid-upload would stop it: ask first
+  useEffect(() => {
+    if (!uploading) return;
+    const h = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [uploading]);
   const [over, setOver] = useState(false);
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
   const [delSet, setDelSet] = useState(null); // the set being deleted
@@ -362,6 +382,7 @@ export default function GalleryEditor({ id, onClose }) {
     const start = photos.length;
     const setId = currentSet.id;
     const added = [];
+    const failedFiles = [];
     let next = 0;
     // Four at a time: much faster than one by one, without choking a slow connection
     const worker = async () => {
@@ -375,10 +396,26 @@ export default function GalleryEditor({ id, onClose }) {
           const raw = isRaw(file.name);
           const vid = isVideo(file.name) || /^video\//.test(file.type);
           const t = raw ? { blob: null } : vid ? await makeVideoThumb(file) : await makeThumb(file);
-          const ups = [mediaPut(path, file, file.type || "application/octet-stream", (n) => { sentBy[i] = n; })];
-          if (t.blob) ups.push(mediaPut(thumbPath(path), t.blob, "image/jpeg"));
-          const [r1] = await Promise.all(ups);
-          if (r1.error) throw r1.error;
+          // Bad Wi-Fi: each file tries again by itself (up to 6 times, waiting longer each time, and waiting for the
+          // connection to come back when it drops). Only real refusals (no space, not allowed) stop straight away.
+          for (let attempt = 0; ; attempt++) {
+            if (typeof navigator !== "undefined" && navigator.onLine === false) {
+              setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "wait-net" } : x)));
+              await new Promise((ok) => { const on = () => { window.removeEventListener("online", on); ok(); }; window.addEventListener("online", on); setTimeout(on, 60000); });
+              setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "up" } : x)));
+            }
+            sentBy[i] = 0;
+            const ups = [mediaPut(path, file, file.type || "application/octet-stream", (n) => { sentBy[i] = n; })];
+            if (t.blob) ups.push(mediaPut(thumbPath(path), t.blob, "image/jpeg"));
+            const [r1, r2] = await Promise.all(ups);
+            const err = r1.error || r2?.error;
+            if (!err) break;
+            const fatal = /\((400|401|403|404|413)\)|storage|space|not allowed|too large/i.test(err.message || "");
+            if (fatal || attempt >= 5) throw err;
+            setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "retry", tries: attempt + 1 } : x)));
+            await new Promise((ok) => setTimeout(ok, Math.min(30000, 2000 * 2 ** attempt)));
+            setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "up" } : x)));
+          }
           const row = { studio_id: studio.id, gallery_id: id, set_id: setId, path, name: file.name, width: t.width || null, height: t.height || null, position: start + i, bytes: file.size + (t.blob?.size || 0), has_thumb: !!t.blob };
           let { error: e2 } = await supabase.from("gallery_photos").insert(row);
           if (e2 && /bytes|has_thumb/.test(e2.message || "")) { delete row.bytes; delete row.has_thumb; ({ error: e2 } = await supabase.from("gallery_photos").insert(row)); }
@@ -389,6 +426,7 @@ export default function GalleryEditor({ id, onClose }) {
         } catch (e) {
           setPreviews((v) => v.map((x, j) => (j === i ? { ...x, state: "fail" } : x)));
           setUploading((u) => ({ ...u, done: u.done + 1, failed: u.failed + 1 }));
+          failedFiles.push(file);
           toast(tx("Couldn't upload {name}: {err}", { name: file.name, err: e.message }));
         }
       }
@@ -403,6 +441,7 @@ export default function GalleryEditor({ id, onClose }) {
     await update("galleries", id, patch);
     clearInterval(tick);
     setUploading(null);
+    setRetryList(failedFiles);
     if (added.length) toast(txn(added.length, "{n} file added", "{n} files added"), true);
   }
   const copyNames = async (list) => {
@@ -548,7 +587,7 @@ export default function GalleryEditor({ id, onClose }) {
 
   const RAIL = [["photos", "image", "Photos"], ["design", "edit", "Design"], ["settings", "settings", "Settings"], ["share", "send", "Share"], ["activity", "chart", "Activity"]];
   const SUBS = {
-    design: [["cover", "Cover", "image"], ["typography", "Typography", "file"], ["color", "Colour", "eye"], ["grid", "Grid", "folder"]],
+    design: [["cover", "Cover", "image"], ["typography", "Typography", "file"], ["color", "Colour", "eye"], ["grid", "Grid", "folder"], ["watermark", "Watermark", "lock", (d.design.watermark?.kind || "none") !== "none"]],
     settings: [["general", "General", "settings"], ["privacy", "Privacy", "lock"], ["download", "Download", "download", d.settings.download.on], ["favorite", "Favourites", "heart", d.settings.favorite.on]],
     share: [["invite", "Invite people", "users"], ["link", "Gallery link", "link"]],
     activity: [["views", "View activity", "eye"], ["downloads", "Download activity", "download"], ["favorites", "Favourite activity", "heart"]],
@@ -623,9 +662,14 @@ export default function GalleryEditor({ id, onClose }) {
                     return (
                       <div className="ge-progress" role="status" aria-live="polite"><span style={{ width: `${pct}%` }} />
                         <b>{tx("Uploading {a} of {b}", { a: Math.min(uploading.done + 1, uploading.total), b: uploading.total })} · {pct}%</b>
-                        <em>{fmtBytes(uploading.sent)} / {fmtBytes(uploading.bytes)}{uploading.speed ? ` · ${fmtBytes(uploading.speed)}/s` : ""}{eta ? ` · ${eta}` : ""}</em></div>
+                        <em>{offline ? tx("Connection lost. It carries on by itself when you're back online.") : <>{fmtBytes(uploading.sent)} / {fmtBytes(uploading.bytes)}{uploading.speed ? ` · ${fmtBytes(uploading.speed)}/s` : ""}{eta ? ` · ${eta}` : ""}</>}</em></div>
                     );
                   })()}
+                  {!uploading && retryList.length > 0 && (
+                    <div className="ge-retry" role="status"><span>{txn(retryList.length, "{n} file didn't upload.", "{n} files didn't upload.")}</span>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => { const l = retryList; setRetryList([]); upload(l, true); }}>{tx("Try again")}</button>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetryList([])}>{tx("Dismiss")}</button></div>
+                  )}
                   {picked.size > 0 && (
                     <div className="ge-selbar" role="toolbar" aria-label={tx("Selected photos")}>
                       <b>{txn(picked.size, "{n} selected", "{n} selected")}</b>
@@ -645,6 +689,7 @@ export default function GalleryEditor({ id, onClose }) {
                             <figure className={`ge-photo ge-up ${x.state}`}>
                               {x.url ? <img src={x.url} alt="" /> : <span className="ge-up-file"><Icon name="image" /></span>}
                               <span className="ge-up-state">{x.state === "done" ? <Icon name="check" /> : x.state === "fail" ? <Icon name="x" /> : <i className="ge-spin" />}</span>
+                              {(x.state === "retry" || x.state === "wait-net") && <span className="ge-up-pct">{x.state === "retry" ? tx("Trying again ({n})", { n: x.tries }) : tx("Waiting for connection")}</span>}
                               {x.state === "up" && <span className="ge-up-bar" aria-hidden="true"><i style={{ width: `${x.pct || 2}%` }} /></span>}
                               {x.state === "up" && <span className="ge-up-pct">{x.pct || 0}%</span>}
                             </figure>
@@ -704,6 +749,40 @@ export default function GalleryEditor({ id, onClose }) {
                 <><h2 className="h-m">{tx("Colour")}</h2>
                   <div className="ge-tiles">{Object.entries(PALETTES).map(([k, p]) => <Tile key={k} on={d.design.palette === k} onClick={() => setDesign("palette", k)} label={tx(p[0])}><span className="pa">{p.slice(1).map((col) => <i key={col} style={{ background: col }} />)}</span></Tile>)}</div></>
               )}
+              {tab === "design" && sub.design === "watermark" && (() => {
+                const wm = { ...WM_DEFAULT, ...(d.design.watermark || {}) };
+                const setWm = (patch) => setDesign("watermark", { ...wm, ...patch });
+                const paid = (studio.plan || "free") !== "free";
+                const saved = Array.isArray(studio.watermarks) ? studio.watermarks : [];
+                const sample = coverUrl;
+                return (
+                  <><h2 className="h-m">{tx("Watermark")}</h2>
+                    <p className="sub" style={{ fontSize: 13 }}>{tx("Shown over every photo on your client's page. Downloads stay clean, so switch off downloads while your client is still choosing.")}</p>
+                    {saved.length > 0 && <div className="field"><label htmlFor="wm-saved">{tx("Your saved designs")}</label>
+                      <select id="wm-saved" value="" onChange={(e) => { const x = saved.find((y) => y.id === e.target.value); if (x) { const { id: _i, name: _n, ...rest } = x; setWm(rest); toast(tx("Design applied")); } }}><option value="">{tx("Use a saved design…")}</option>{saved.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>}
+                    <div className="seg" role="group" aria-label={tx("Watermark")}>
+                      {[["none", "None"], ["text", "Text"], ["logo", "Logo"]].map(([k, l]) => <button key={k} type="button" aria-pressed={wm.kind === k} onClick={() => {
+                        if (k === "logo" && !paid) { toast(tx("Your logo as a watermark is part of Pro and Studio.")); ui?.openUpgrade?.("pro"); return; }
+                        if (k === "logo" && !studio.logo_path) { toast(tx("Add your logo in Settings › Your studio first.")); return; }
+                        setWm({ kind: k, ...(k === "logo" ? { logo_path: studio.logo_path } : {}), ...(k === "text" && !wm.text ? { text: `© ${studio.name || ""}`.trim() } : {}) });
+                      }}>{tx(l)}</button>)}
+                    </div>
+                    {wm.kind !== "none" && <>
+                      {wm.kind === "text" && <div className="field"><label htmlFor="wm-text">{tx("Text")}</label><input id="wm-text" value={wm.text} maxLength={60} onChange={(e) => setWm({ text: e.target.value })} /></div>}
+                      <div className="field"><label>{tx("Position")}</label>
+                        <div className="wm-pos">{WM_POS.map(([k, l]) => <button key={k} type="button" aria-pressed={wm.pos === k} onClick={() => setWm({ pos: k })}>{tx(l)}</button>)}</div></div>
+                      <div className="field"><label htmlFor="wm-size">{tx("Size")}</label><div className="wm-range"><input id="wm-size" type="range" min="5" max="60" value={wm.size} onChange={(e) => setWm({ size: Number(e.target.value) })} /><b>{wm.size}%</b></div></div>
+                      <div className="field"><label htmlFor="wm-op">{tx("Strength")}</label><div className="wm-range"><input id="wm-op" type="range" min="10" max="90" value={wm.opacity} onChange={(e) => setWm({ opacity: Number(e.target.value) })} /><b>{wm.opacity}%</b></div></div>
+                      {sample && <div className="field"><label>{tx("Preview")}</label><div className="wm-preview"><span {...(wmProps(wm, studio.name) || {})}><img src={sample} alt="" /></span></div></div>}
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={async () => {
+                        const name = window.prompt(tx("Name this design, e.g. \"Logo, bottom right\""), wm.kind === "logo" ? tx("Logo") : wm.text);
+                        if (!name) return;
+                        try { await updateStudio({ watermarks: [...saved, { id: Math.random().toString(36).slice(2, 9), name: name.slice(0, 40), ...wm }].slice(-12) }); toast(tx("Design saved. Use it on any gallery."), true); }
+                        catch (e) { toast(e.message); }
+                      }}><Icon name="star" />{tx("Save this design")}</button>
+                    </>}</>
+                );
+              })()}
               {tab === "design" && sub.design === "grid" && (
                 <><h2 className="h-m">{tx("Grid")}</h2>
                   {[["style", "Grid style", [["vertical", "Vertical"], ["horizontal", "Horizontal"]]], ["size", "Thumbnail size", [["regular", "Regular"], ["large", "Large"]]], ["spacing", "Grid spacing", [["regular", "Regular"], ["large", "Large"]]]].map(([k, label, opts]) => (
@@ -726,8 +805,8 @@ export default function GalleryEditor({ id, onClose }) {
                   <div className="field"><label htmlFor="ge-tags">{tx("Category tags")}</label>
                     <input id="ge-tags" value={d.settings.tags.join(", ")} onChange={(e) => setS("tags", e.target.value.split(",").map((s) => s.trimStart()).filter((s, i, a) => s || i === a.length - 1))} placeholder={tx("e.g. wedding, outdoor, summer")} />
                     <span className="help">{tx("Separate with commas. Helps you find galleries later.")}</span></div>
-                  <div className="field"><label htmlFor="ge-wm">{tx("Watermark")}</label>
-                    <select id="ge-wm" value={d.settings.watermark} onChange={(e) => setS("watermark", e.target.value)}><option value="none">{tx("No watermark")}</option><option value="studio">{tx("Studio name")} · {studio.name}</option></select></div>
+                  <div className="field"><label>{tx("Watermark")}</label>
+                    <button type="button" className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => { setTab("design"); setSub((x) => ({ ...x, design: "watermark" })); }}><Icon name="lock" />{(d.design.watermark?.kind || "none") === "none" ? tx("Add a watermark") : tx("Edit watermark")}</button></div>
                   <div className="ge-danger"><div><b>{tx("Delete this gallery")}</b><p className="sub">{tx("Removes the gallery, all its sets and photos, favourites, notes and links. This can't be undone.")}</p></div>
                     <button type="button" className="btn btn-danger" onClick={() => setDelGal(true)}><Icon name="trash" />{tx("Delete gallery")}</button></div></>
               )}
@@ -737,7 +816,24 @@ export default function GalleryEditor({ id, onClose }) {
                     <div className="ge-slug"><input id="ge-pw" value={d.settings.password} onChange={(e) => setS("password", e.target.value)} placeholder={tx("Add a password")} /><button type="button" className="btn btn-ghost btn-sm" onClick={() => setS("password", Math.random().toString(36).slice(2, 8))}>{tx("Generate")}</button></div>
                     <span className="help">{tx("Visitors need this password to see the gallery.")}</span></div>
                   <div className="switch"><div><b>{tx("Show on your homepage")}</b><span>{tx("List this gallery on your public portfolio page.")}</span></div><Toggle on={d.settings.show_home} label={tx("Show on homepage")} onChange={(v) => setS("show_home", v)} /></div>
-                  <div className="switch"><div><b>{tx("Client-only sets")}</b><span>{tx("Your client can see private sets and hide photos from guests.")}</span></div><Toggle on={d.settings.exclusive} label={tx("Client-only sets")} onChange={(v) => setS("exclusive", v)} /></div></>
+                  <div className="switch"><div><b>{tx("Client-only sets")}</b><span>{tx("Your client can see private sets and hide photos from guests.")}</span></div><Toggle on={d.settings.exclusive} label={tx("Client-only sets")} onChange={(v) => setS("exclusive", v)} /></div>
+                  {(() => {
+                    // Gate: the gallery stays locked until the contract is signed and / or the invoices are paid
+                    const gate = d.settings.gate || {};
+                    const pr = projects.find((x) => x.id === g.project_id);
+                    const owed = pr ? invoices.filter((i) => i.project_id === pr.id && i.kind !== "quote" && i.status === "sent").reduce((a, i) => a + Math.max(0, Number(i.amount) - Number(i.amount_paid || 0)), 0) : 0;
+                    const locked = pr && ((gate.contract && !pr.contract_signed) || (gate.paid && owed > 0.009));
+                    return (
+                      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <b>{tx("Open the gallery only when…")}</b>
+                        {!pr ? <p className="sub" style={{ fontSize: 13 }}>{tx("Link this gallery to a project to use this. It checks that project's contract and invoices.")}</p> : <>
+                          <div className="switch"><div><b>{tx("The contract is signed")}</b><span>{pr.contract_signed ? tx("Signed") : tx("Not signed yet")}</span></div><Toggle on={!!gate.contract} label={tx("The contract is signed")} onChange={(v) => setS("gate", { ...gate, contract: v })} /></div>
+                          <div className="switch"><div><b>{tx("Everything is paid")}</b><span>{owed > 0.009 ? tx("{amount} still owed", { amount: new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(owed) }) : tx("Nothing owed")}</span></div><Toggle on={!!gate.paid} label={tx("Everything is paid")} onChange={(v) => setS("gate", { ...gate, paid: v })} /></div>
+                          {(gate.contract || gate.paid) && <p className="sub" style={{ fontSize: 13 }}>{locked ? tx("Right now your client sees a lock screen asking them to sign or pay. It opens by itself once that's done.") : tx("Everything's done, so the gallery is open.")}</p>}
+                        </>}
+                      </div>
+                    );
+                  })()}</>
               )}
               {tab === "settings" && sub.settings === "download" && (
                 <><h2 className="h-m">{tx("Download")}</h2>

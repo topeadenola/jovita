@@ -7,9 +7,11 @@ import Icon from "../components/Icon";
 import { CloseBtn, Modal, Pill, useToast } from "../components/ui";
 import { addDays, daysFrom, dom, dow, fday, ftime, money } from "../lib/format";
 import { tx } from "../lib/i18n";
+import { useActions } from "../lib/actions";
 
 export function BookingForm({ onClose, initial }) {
-  const { clients, projects, session_types, insert } = useData();
+  const { clients, projects, session_types, insert, update, templates = [], studio } = useData();
+  const { projectAction } = useActions();
   const toast = useToast();
   const [f, setF] = useState({ client_id: clients[0]?.id || "", project_id: "", title: session_types[0]?.name || "Session", date: addDays(7), time: "10:00", location: "", ...(initial || {}) });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -25,8 +27,16 @@ export function BookingForm({ onClose, initial }) {
         if (!f.client_id) return setErr(tx("Add a client first."));
         try {
           const starts_at = new Date(`${f.date}T${f.time || "10:00"}:00`).toISOString();
-          await insert("bookings", { client_id: f.client_id, project_id: f.project_id || null, title: f.title || "Session", starts_at, location: f.location });
-          toast(tx("Session booked")); onClose();
+          // Settings › Reminders › "Send the contract automatically": the booking gets a project and the contract goes out
+          const tpl = studio?.auto_contract && templates.filter((t) => t.kind === "contract").sort((a, b) => (b.is_default - a.is_default) || a.name.localeCompare(b.name))[0];
+          let p = projects.find((x) => x.id === f.project_id);
+          if (tpl && !p) p = await insert("projects", { client_id: f.client_id, title: f.title || "Session", type: "Portrait", stage: "booked", amount: 0, currency: studio.home_currency, session_date: f.date, contract_template_id: tpl.id });
+          await insert("bookings", { client_id: f.client_id, project_id: p?.id || null, title: f.title || "Session", starts_at, location: f.location });
+          onClose();
+          if (tpl && p && !p.contract_signed) {
+            if (!p.contract_template_id) { await update("projects", p.id, { contract_template_id: tpl.id }); p = { ...p, contract_template_id: tpl.id }; }
+            await projectAction(p, "contract");
+          } else toast(tx("Session booked"));
         } catch (x) { setErr(x.message); }
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 className="h-l">{tx("New booking")}</h2><CloseBtn onClick={onClose} /></div>

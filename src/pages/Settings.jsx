@@ -145,7 +145,7 @@ function RemindersTab() {
   return (
     <section className="card set-card">
       <h2 className="h-m">{tx("Reminders and messages")}</h2>
-      {[["reminders_on", tx("Automatic invoice reminders"), tx("On by default, so you never have to chase")], ["remind_before", tx("Before it's due"), tx("A friendly heads-up")], ["remind_after", tx("When it's overdue"), tx("Then on the days set on each invoice until paid")], ["copy_me", tx("Send me a copy"), tx("Get a copy of every invoice, quote, reminder and contract email Jovita sends your clients")]].map(([k, n, d]) => (
+      {[["reminders_on", tx("Automatic invoice reminders"), tx("On by default, so you never have to chase")], ["remind_before", tx("Before it's due"), tx("A friendly heads-up")], ["remind_after", tx("When it's overdue"), tx("Then on the days set on each invoice until paid")], ["copy_me", tx("Send me a copy"), tx("Get a copy of every invoice, quote, reminder and contract email Jovita sends your clients")], ["auto_contract", tx("Send the contract automatically"), tx("When you add a booking, your default contract goes to the client straight away")]].map(([k, n, d]) => (
         <div className="switch" key={k}><div><b>{n}</b><span>{d}</span></div><Toggle on={studio[k]} label={n} onChange={(v) => tog(k, v, n)} /></div>
       ))}
       <p className="sub" style={{ fontSize: 13 }}>{tx("Each invoice can also switch its own reminders on or off, and pick which days they go out.")}</p>

@@ -8,7 +8,7 @@ import { isRaw, publicUrl, thumbUrl } from "./GalleryEditor";
 const SPEEDS = [3, 5, 8];
 const src = (p) => (isRaw(p.path) ? thumbUrl(p.path) : publicUrl(p.path));
 
-export default function Slideshow({ photos, start = 0, title, onClose }) {
+export default function Slideshow({ photos, start = 0, title, onClose, wm }) {
   const box = useRef(null);
   const [i, setI] = useState(Math.min(start, photos.length - 1));
   const [playing, setPlaying] = useState(true);
@@ -62,7 +62,7 @@ export default function Slideshow({ photos, start = 0, title, onClose }) {
 
   const p = photos[i];
   return (
-    <div ref={box} className={`ss ${ui ? "ui" : ""}`} role="dialog" aria-modal="true" aria-label={tx("Slideshow")}
+    <div ref={box} className={`ss ${ui ? "ui" : ""}${wm ? " wm-on" : ""}`} style={wm?.style} onContextMenu={wm ? (e) => e.preventDefault() : undefined} role="dialog" aria-modal="true" aria-label={tx("Slideshow")}
       onMouseMove={wake} onClick={wake}
       onTouchStart={(e) => { touch.current = e.touches[0].clientX; wake(); }}
       onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? 0); if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); touch.current = null; }}>
