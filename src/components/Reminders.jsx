@@ -14,12 +14,16 @@ function closedToday() {
   try { const v = JSON.parse(localStorage.getItem(KEY) || "{}"); return v.day === today() ? v.ids : []; } catch { return []; }
 }
 function rememberClosed(ids) { try { localStorage.setItem(KEY, JSON.stringify({ day: today(), ids })); } catch { /* private window */ } }
+// Good news (a client signed) shows once: closing it hides it for good
+const SEEN = "jovita-news-seen";
+const seenIds = () => { try { return JSON.parse(localStorage.getItem(SEEN) || "[]"); } catch { return []; } };
+const rememberSeen = (id) => { try { localStorage.setItem(SEEN, JSON.stringify([...seenIds(), id].slice(-200))); } catch { /* private window */ } };
 
 export default function Reminders() {
   const { subscriptions = [], invoices = [], bookings = [], projects = [], messages = [], client } = useData();
   const ui = useUi();
   const nav = useNavigate();
-  const [closed, setClosed] = useState(closedToday);
+  const [closed, setClosed] = useState(() => [...closedToday(), ...seenIds()]);
   const [all, setAll] = useState(false);
 
   const items = useMemo(() => {
@@ -48,6 +52,15 @@ export default function Reminders() {
       const d = daysFrom(b.starts_at);
       out.push({ id: `bk-${b.id}`, tone: "info", icon: "calendar", title: d === 0 ? tx("Shoot today: {title}", { title: b.title }) : tx("Shoot tomorrow: {title}", { title: b.title }), body: `${fday(b.starts_at)} · ${ftime(b.starts_at)} · ${client(b.client_id).name}`, action: [tx("Open bookings"), () => nav("/bookings")], weight: 3 });
     });
+    // Just signed: a contract or model release in the last 3 days
+    projects.forEach((p) => {
+      const nm = first(client(p.client_id).name);
+      const open = [tx("Open project"), () => { nav("/projects"); ui?.setOpenProject(p.id); }];
+      if (p.contract_signed && p.contract_signed_at && Date.now() - new Date(p.contract_signed_at) < 3 * 864e5)
+        out.push({ id: `signed-${p.id}-${p.contract_signed_at}`, once: true, tone: "good", icon: "check", title: tx("{name} signed the contract", { name: nm }), body: `${p.title} · ${fday(p.contract_signed_at)} · ${ftime(p.contract_signed_at)}`, action: open, weight: 1 });
+      if (p.release_signed && p.release_signed_at && Date.now() - new Date(p.release_signed_at) < 3 * 864e5)
+        out.push({ id: `rel-${p.id}-${p.release_signed_at}`, once: true, tone: "good", icon: "check", title: tx("{name} signed the model release", { name: nm }), body: `${p.title} · ${fday(p.release_signed_at)} · ${ftime(p.release_signed_at)}`, action: open, weight: 1 });
+    });
     // Contracts not signed with the shoot coming up
     projects.filter((p) => !p.contract_signed && p.session_date && daysFrom(p.session_date) >= 0 && daysFrom(p.session_date) <= 3 && p.stage !== "inquiry").forEach((p) => {
       out.push({ id: `ct-${p.id}`, tone: "warn", icon: "file", title: tx("{name} hasn't signed the contract", { name: first(client(p.client_id).name) }), body: txn(daysFrom(p.session_date), "The shoot is in {n} day.", "The shoot is in {n} days.", {}), action: [tx("Open project"), () => { nav("/projects"); ui?.setOpenProject(p.id); }], weight: 2 });
@@ -59,7 +72,10 @@ export default function Reminders() {
   }, [subscriptions, invoices, bookings, projects, messages, client, closed, nav, ui]);
 
   if (!items.length) return null;
-  const close = (id) => { const next = [...closed, id]; setClosed(next); rememberClosed(next); };
+  const close = (id) => {
+    const next = [...closed, id]; setClosed(next);
+    if (items.find((x) => x.id === id)?.once) rememberSeen(id); else rememberClosed(next.filter((x) => !seenIds().includes(x)));
+  };
   const shown = all ? items : items.slice(0, 3);
   return (
     <div className="reminders" role="region" aria-label={tx("Reminders")}>
@@ -74,7 +90,7 @@ export default function Reminders() {
           <button type="button" className="rem-x" onClick={() => close(r.id)} aria-label={tx("Close reminder")}><Icon name="x" /></button>
         </div>
       ))}
-      {items.length > 3 && <button type="button" className="rem-more" onClick={() => setAll(!all)}>{all ? tx("Show fewer") : tx("{n} more reminders", { n: items.length - 3 })}</button>}
+      {items.length > 3 && <button type="button" className="rem-more" onClick={() => setAll(!all)}>{all ? tx("Show fewer") : txn(items.length - 3, "{n} more reminder", "{n} more reminders")}</button>}
     </div>
   );
 }

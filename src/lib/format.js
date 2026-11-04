@@ -95,7 +95,7 @@ export function nextStep(p) {
 }
 
 export function projPill(p) {
-  if (p.stage === "inquiry") return { k: "New inquiry", c: "p-info" };
+  if (p.stage === "inquiry") return p.contract_signed ? { k: "Contract signed", c: "p-success" } : { k: "New inquiry", c: "p-info" };
   if (!p.contract_signed) return { k: "Unsigned", c: "p-warning" };
   if (!p.deposit_paid) return { k: "Awaiting deposit", c: "p-warning" };
   if (p.stage === "delivered") return { k: "Delivered", c: "p-success" };

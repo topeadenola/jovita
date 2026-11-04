@@ -1503,3 +1503,5 @@ body{transition:background-color .2s}
 
 .cpick-list .cpick-add{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--plum,#261433);font-weight:700;text-align:left;cursor:pointer;border-radius:0 0 12px 12px}
 .cpick-list .cpick-add:hover{background:var(--lilac)}
+
+.rem-good{border-left-color:var(--success,#1F7A4D)}.rem-good .rem-ic{background:var(--success-tint,#E3F5EB);color:var(--success,#1F7A4D)}

@@ -1656,5 +1656,8 @@
   "Send contract": "Enviar contrato",
   "Send it": "Enviarlo",
   "Delete this project? This can't be undone.": "¿Eliminar este proyecto? No se puede deshacer.",
-  "Also delete its {n} quotes and invoices": "Eliminar también sus {n} presupuestos y facturas"
+  "Also delete its {n} quotes and invoices": "Eliminar también sus {n} presupuestos y facturas",
+  "{n} more reminder": "{n} recordatorio más",
+  "{name} signed the contract": "{name} firmó el contrato",
+  "{name} signed the model release": "{name} firmó la cesión de imagen"
 }

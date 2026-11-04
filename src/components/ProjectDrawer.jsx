@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
-import { PROJECT_TYPES, STAGES, STAGE_LABEL, first, fday, invState, money, nextStep, portalUrl, projPill } from "../lib/format";
+import { PROJECT_TYPES, STAGES, STAGE_LABEL, first, fday, ftime, invState, money, nextStep, portalUrl, projPill } from "../lib/format";
 import { CurrencySelect } from "./Forms";
 import Icon from "./Icon";
 import { Avatar, CloseBtn, CopyBox, Drawer, MoneyInput, Pill, useToast } from "./ui";
@@ -32,8 +32,8 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
   const releases = templates.filter((t) => t.kind === "model_release");
   const steps = [
     [tx("Inquiry and quote"), p.stage !== "inquiry", p.stage !== "inquiry" ? tx("Quote accepted") : tx("Send a quote")],
-    [tx("Contract signed"), p.contract_signed, p.contract_signed ? tx("Signed by {name}", { name: p.contract_signed_name || c.name }) : p.contract_template_id ? tx("Waiting for {name}", { name: first(c.name) }) : tx("No contract on this project")],
-    ...(p.release_template_id ? [[tx("Model release"), p.release_signed, p.release_signed ? tx("Signed by {name}", { name: p.release_signed_name }) : tx("Optional, signed in the portal")]] : []),
+    [tx("Contract signed"), p.contract_signed, p.contract_signed ? tx("Signed by {name}", { name: p.contract_signed_name || c.name }) + (p.contract_signed_at ? ` · ${fday(p.contract_signed_at)}, ${ftime(p.contract_signed_at)}` : "") : p.contract_template_id ? tx("Waiting for {name}", { name: first(c.name) }) : tx("No contract on this project")],
+    ...(p.release_template_id ? [[tx("Model release"), p.release_signed, p.release_signed ? tx("Signed by {name}", { name: p.release_signed_name }) + (p.release_signed_at ? ` · ${fday(p.release_signed_at)}, ${ftime(p.release_signed_at)}` : "") : tx("Optional, signed in the portal")]] : []),
     [tx("Deposit paid"), p.deposit_paid, p.deposit_paid ? tx("Received") : tx("Waiting")],
     [tx("Session"), ["editing", "delivered"].includes(p.stage), fday(p.session_date)],
     [tx("Gallery delivered"), p.gallery_delivered, p.gallery_delivered ? tx("Delivered") : tx("After editing")],

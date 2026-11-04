@@ -1658,5 +1658,8 @@
   "Send contract": "Tuma mkataba",
   "Send it": "Utume",
   "Delete this project? This can't be undone.": "Futa mradi huu? Haiwezi kurejeshwa.",
-  "Also delete its {n} quotes and invoices": "Futa pia nukuu na ankara zake {n}"
+  "Also delete its {n} quotes and invoices": "Futa pia nukuu na ankara zake {n}",
+  "{n} more reminder": "Kikumbusho {n} zaidi",
+  "{name} signed the contract": "{name} amesaini mkataba",
+  "{name} signed the model release": "{name} amesaini ruhusa ya picha"
 }
