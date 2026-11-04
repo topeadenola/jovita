@@ -291,7 +291,18 @@ export default function InvoiceEditor({ id, onClose }) {
                 {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await flush(); invoiceAction(inv, "nudge", { copy_me: copyMe }); }}><Icon name="send" />{tx("Send a nudge")}</button>}
                 {inv.status === "sent" && !quote && <button type="button" onClick={async () => { setMenu(false); await openSend(); }}><Icon name="send" />{tx("Send updated invoice")}</button>}
                 {inv.status !== "paid" && inv.status !== "cancelled" && <button type="button" onClick={async () => { setMenu(false); await flush(); await invoiceAction(inv, "cancel"); onClose(); }}><Icon name="x" />{quote ? tx("Withdraw quote") : tx("Cancel invoice")}</button>}
-                {inv.status === "draft" && <button type="button" onClick={async () => { setMenu(false); if (!window.confirm(quote ? tx("Delete this draft quote?") : tx("Delete this draft invoice?"))) return; await remove("invoices", id); toast(tx("Draft deleted")); onClose(); }}><Icon name="x" />{tx("Delete draft")}</button>}
+                {inv.status === "draft" ? <button type="button" onClick={async () => { setMenu(false); if (!window.confirm(quote ? tx("Delete this draft quote?") : tx("Delete this draft invoice?"))) return; onClose(); await remove("invoices", id); toast(tx("Draft deleted")); }}><Icon name="x" />{tx("Delete draft")}</button>
+                  : <button type="button" style={{ color: "var(--danger)" }} onClick={async () => {
+                    // Made by mistake (or marked paid / unpaid by mistake): remove it completely
+                    setMenu(false);
+                    const msg = quote ? tx("Delete quote #{number}? It disappears from Money and from {name}'s page. This can't be undone.", { number: inv.number, name: first(c.name) })
+                      : inv.status === "paid" || Number(inv.amount_paid) > 0 ? tx("Delete invoice #{number}? It's marked as paid, so the {amount} also comes off your earnings. It disappears from {name}'s page. This can't be undone.", { number: inv.number, amount: money(inv.status === "paid" ? t.total : inv.amount_paid, d.currency), name: first(c.name) })
+                      : tx("Delete invoice #{number}? It disappears from Money and from {name}'s page. This can't be undone.", { number: inv.number, name: first(c.name) });
+                    if (!window.confirm(msg)) return;
+                    // Close first: the editor can't stay open on something that no longer exists
+                    const n = inv.number; onClose();
+                    await remove("invoices", id); toast(quote ? tx("Quote #{number} deleted", { number: n }) : tx("Invoice #{number} deleted", { number: n }));
+                  }}><Icon name="trash" />{quote ? tx("Delete quote") : tx("Delete invoice")}</button>}
               </div>
             )}
           </div>

@@ -14,7 +14,7 @@ function ClientDrawer({ c, onClose }) {
   const [booking, setBooking] = useState(false);
   const docs = invoices.filter((i) => i.client_id === c.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const toast = useToast();
-  const [f, setF] = useState({ name: c.name, email: c.email || "", phone: c.phone || "", city: c.city || "", status: c.status });
+  const [f, setF] = useState({ name: c.name, email: c.email || "", phone: c.phone || "", city: c.city || "", address: c.address || "", status: c.status });
   const [del, setDel] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const ps = projects.filter((p) => p.client_id === c.id);
@@ -34,7 +34,9 @@ function ClientDrawer({ c, onClose }) {
       {owes.length > 0 && <div className="card" style={{ background: "var(--warning-tint)", borderColor: "var(--warning-tint)" }}><b>{tx("Owes you")}{" "}{owes.map((i) => money(i.amount, i.currency)).join(" + ")}</b></div>}
       <form className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={async (e) => {
         e.preventDefault();
-        try { await update("clients", c.id, f); toast(tx("Client saved")); } catch (x) { toast(x.message); }
+        // Address is saved only once it's filled in (it needs update 30 in Supabase)
+        const { address, ...rest } = f;
+        try { await update("clients", c.id, address.trim() || c.address ? { ...rest, address: address.trim() } : rest); toast(tx("Client saved")); } catch (x) { toast(x.message); }
       }}>
         <h3 className="h-m">{tx("Details")}</h3>
         <div className="form-grid">
@@ -42,6 +44,7 @@ function ClientDrawer({ c, onClose }) {
           <div className="field"><label htmlFor="cd-city">{tx("City")}</label><input id="cd-city" value={f.city} onChange={set("city")} /></div>
           <div className="field"><label htmlFor="cd-email">{tx("Email")}</label><input id="cd-email" type="email" value={f.email} onChange={set("email")} /></div>
           <div className="field"><label htmlFor="cd-phone">{tx("Phone")}</label><input id="cd-phone" value={f.phone} onChange={set("phone")} /></div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}><label htmlFor="cd-address">{tx("Address")}</label><input id="cd-address" value={f.address} onChange={set("address")} placeholder={tx("Street, area, city")} /></div>
           <div className="field"><label htmlFor="cd-status">{tx("Status")}</label><select id="cd-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
         </div>
         <button className="btn btn-primary" style={{ alignSelf: "flex-start" }}>{tx("Save")}</button>

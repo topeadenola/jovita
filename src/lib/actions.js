@@ -38,8 +38,10 @@ export function useActions() {
     try {
       if (a === "quote") {
         // Open a draft quote you can check and send. The job is booked when the client accepts it.
-        const draft = invoices.find((i) => i.project_id === p.id && i.kind === "quote" && i.status === "draft");
-        if (draft) return opts.open?.(draft.id);
+        // The project already has a quote (a draft, or one you sent): open that one, never a new blank copy
+        const mine = invoices.filter((i) => i.project_id === p.id && i.kind === "quote" && i.status !== "cancelled").sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+        const draft = mine.find((i) => i.status === "draft") || mine[0];
+        if (draft) return opts.open ? opts.open(draft.id) : toast(tx("Quote #{number} is in Money.", { number: draft.number }));
         const uid = () => Math.random().toString(36).slice(2, 9);
         const q = await insert("invoices", {
           kind: "quote", client_id: p.client_id, project_id: p.id, label: p.title, amount: Number(p.amount) || 0, currency: p.currency || studio.home_currency,

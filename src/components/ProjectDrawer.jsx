@@ -7,13 +7,15 @@ import Icon from "./Icon";
 import { Avatar, CloseBtn, CopyBox, Drawer, MoneyInput, Pill, useToast } from "./ui";
 import { tx } from "../lib/i18n";
 import { useUi } from "./Shell";
+import { fill, values } from "../lib/merge";
 
 export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
-  const { project, client, invoices, templates, update, remove } = useData();
+  const { project, client, invoices, templates, update, remove, studio, bookings = [] } = useData();
   const { projectAction, invoiceAction } = useActions();
   const toast = useToast();
   const ui = useUi();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showContract, setShowContract] = useState(false);
   const p = project(id);
   const [f, setF] = useState(() => p ? { title: p.title, type: p.type, session_date: p.session_date || "", amount: String(Number(p.amount) || ""), currency: p.currency } : null);
   const [saving, setSaving] = useState(false);
@@ -94,11 +96,17 @@ export default function ProjectDrawer({ id, onClose, onNewInvoice }) {
           <div className="field"><label htmlFor="pd-contract">{tx("Contract")}</label>
             <select id="pd-contract" value={p.contract_template_id || ""} disabled={p.contract_signed} onChange={(e) => set({ contract_template_id: e.target.value || null }, tx("Contract updated"))}>
               {contracts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}<option value="">{tx("No contract")}</option></select>
-            {p.contract_signed && <span className="help">{tx("Signed, so it can't be changed.")}</span>}</div>
+            {p.contract_signed && <span className="help">{tx("Signed, so it can't be changed.")}</span>}
+            {!p.contract_signed && contracts.length > 0 && <span className="help">{tx("{name}'s name, address, fee and date fill in by themselves.", { name: first(c.name) })}{" "}<button type="button" className="linklike" onClick={() => setShowContract((v) => !v)}>{showContract ? tx("Hide") : tx("Preview")}</button></span>}</div>
           <div className="field"><label htmlFor="pd-release">{tx("Model release")}</label>
             <select id="pd-release" value={p.release_template_id || ""} disabled={p.release_signed} onChange={(e) => set({ release_template_id: e.target.value || null }, tx("Model release updated"))}>
               {releases.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}<option value="">{tx("Not needed")}</option></select></div>
         </div>
+        {showContract && (() => {
+          const t = contracts.find((x) => x.id === p.contract_template_id) || contracts.find((x) => x.is_default) || contracts[0];
+          const b = bookings.filter((x) => x.project_id === p.id).sort((x, y) => (x.starts_at > y.starts_at ? 1 : -1))[0];
+          return t ? <div className="contract-text" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>{fill(t.body, values({ studio, client: c, project: p, booking: b }))}</div> : null;
+        })()}
       </section>
       <section className="card">
         <div className="head" style={{ marginBottom: 6 }}><h3 className="h-m">{tx("Invoices")}</h3><button className="btn btn-ghost btn-sm" onClick={() => onNewInvoice(p.id)}><Icon name="plus" />{tx("New invoice")}</button></div>

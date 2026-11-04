@@ -1500,3 +1500,6 @@ body{transition:background-color .2s}
 .portal-items li.pick:has(+ li:not(.pick)),.portal-items li.pick:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
 .field .inv-item-main input.inv-name{padding:12px 14px 4px}.field .inv-item-main textarea.inv-desc{padding:4px 14px 12px;height:auto;resize:vertical}
 .field .inv-name-row input[type=radio],.field .inv-name-row input[type=checkbox]{width:18px;height:18px;padding:0;border:0}
+
+.cpick-list .cpick-add{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--plum,#261433);font-weight:700;text-align:left;cursor:pointer;border-radius:0 0 12px 12px}
+.cpick-list .cpick-add:hover{background:var(--lilac)}

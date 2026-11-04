@@ -98,7 +98,7 @@ export default function Portal() {
   if (!d) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("This link isn't working")}</b><p>{tx("Ask your photographer or creative to send you a fresh link.")}</p></div></div>;
 
   const { project: p, client: c, studio: s } = d;
-  const vals = values({ studio: s, client: c, project: { ...p, portal_token: token } });
+  const vals = values({ studio: s, client: c, project: { ...p, portal_token: token }, booking: d.booking });
   const quotes = d.invoices.filter((i) => i.kind === "quote" && i.status === "sent");
   const open0 = d.invoices.find((i) => i.status === "sent" && i.kind !== "quote");
   // Part paid: what's left is what they pay now

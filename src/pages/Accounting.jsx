@@ -176,7 +176,7 @@ export default function Accounting({ part = "overview", onInvoices }) {
   const data = useData();
   const { invoices, expenses, subscriptions, studio, client, remove, update, insert } = data;
   const toast = useToast();
-  const [period, setPeriod] = useState("month");
+  const [period, setPeriod] = useState("all");
   const curs = usedCurrencies(data, studio.home_currency);
   const [cur, setCur] = useState(studio.home_currency);
   const [form, setForm] = useState(() => (typeof location !== "undefined" && /[?&]add=1/.test(location.search) ? { kind: "expense" } : null)); // {kind, sub}

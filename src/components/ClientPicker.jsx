@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tx } from "../lib/i18n";
 import { Avatar } from "./ui";
 import { clientMatches } from "../lib/format";
+import { useData } from "../lib/data";
 
 const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
 
@@ -12,6 +13,8 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const { insert } = useData();
   const box = useRef(null);
   const list = useMemo(() => {
     const k = norm(q.trim());
@@ -27,6 +30,18 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
   const pick = (c) => { onChange(c.id); setOpen(false); setQ(""); };
+  // Not in your clients yet: add them right here (name, or an email address)
+  const typed = q.trim();
+  const canAdd = typed.length > 1 && !clients.some((c) => norm(c.name) === norm(typed) || norm(c.email) === norm(typed));
+  const addNew = async () => {
+    if (adding) return;
+    setAdding(true);
+    try {
+      const email = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed) ? typed.toLowerCase() : "";
+      const c = await insert("clients", { name: email ? email.split("@")[0] : typed, email, phone: "", city: "", status: "client" });
+      pick(c);
+    } catch { /* the form shows the error when saving */ } finally { setAdding(false); }
+  };
   return (
     <div className="cpick" ref={box}>
       <input id={id} type="text" role="combobox" aria-expanded={open} aria-autocomplete="list" autoComplete="off" autoFocus={autoFocus}
@@ -36,7 +51,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setHi((h) => Math.min(h + 1, list.length - 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
-          else if (e.key === "Enter" && open) { e.preventDefault(); if (list[hi]) pick(list[hi]); }
+          else if (e.key === "Enter" && open) { e.preventDefault(); if (list[hi]) pick(list[hi]); else if (canAdd) addNew(); }
           else if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); setQ(""); }
         }} />
       {open && (
@@ -48,6 +63,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
             </button>
           ))}
           {!list.length && <p className="sub">{tx("No client called \"{q}\"", { q: q.trim() })}</p>}
+          {canAdd && <button type="button" className="cpick-add" onMouseDown={(e) => e.preventDefault()} onClick={addNew} disabled={adding}>+ {adding ? tx("Adding…") : tx("Add \"{name}\" as a new client", { name: typed })}</button>}
           {!q.trim() && clients.length > 8 && <p className="sub cpick-more">{tx("Type to search all {n} clients", { n: clients.length })}</p>}
         </div>
       )}

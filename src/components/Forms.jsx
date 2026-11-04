@@ -40,12 +40,13 @@ export const CurrencySelect = ({ id, value, onChange }) => (
 export function ClientForm({ onClose }) {
   const { insert } = useData();
   const toast = useToast();
-  const [f, setF] = useState({ name: "", email: "", phone: "", city: "", status: "lead" });
+  const [f, setF] = useState({ name: "", email: "", phone: "", city: "", address: "", status: "lead" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <FormModal title={tx("Add a client")} onClose={onClose} onSubmit={async () => {
       if (!f.name.trim()) throw new Error(tx("Add the client's name."));
-      await insert("clients", { ...f, name: f.name.trim() });
+      const { address, ...rest } = f;
+      await insert("clients", { ...rest, name: f.name.trim(), ...(address.trim() ? { address: address.trim() } : {}) });
       toast(tx("{name} added", {
         name: f.name
       })); onClose();
@@ -58,6 +59,7 @@ export function ClientForm({ onClose }) {
         <div className="field"><label htmlFor="c-email">{tx("Email")}</label><input id="c-email" type="email" value={f.email} onChange={set("email")} placeholder={tx("bisi@example.com")} /></div>
         <div className="field"><label htmlFor="c-phone">{tx("Phone")}</label><input id="c-phone" value={f.phone} onChange={set("phone")} placeholder="+234 …" /></div>
       </div>
+      <div className="field"><label htmlFor="c-address">{tx("Address")}</label><input id="c-address" value={f.address} onChange={set("address")} placeholder={tx("Street, area, city")} /><span className="help">{tx("Shows on contracts where you use {client_address}.")}</span></div>
       <div className="field"><label htmlFor="c-status">{tx("Status")}</label>
         <select id="c-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
     </FormModal>
@@ -120,10 +122,8 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
   const invTemplates = templates.filter((t) => t.kind === "invoice");
   const preProject = projects.find((p) => p.id === pre);
   const preClient = !preProject && clients.find((c) => c.id === pre); // opened from a client
-  // A client's most recent job that isn't finished, so invoices land on the right project by default
-  const latestFor = (cid) => projects.filter((p) => p.client_id === cid && p.stage !== "delivered").sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0]?.id || "";
   const startClient = preProject?.client_id || preClient?.id || clients[0]?.id || "";
-  const [f, setF] = useState({ client_id: startClient, project_id: preProject?.id || latestFor(startClient), template: "", kind: startKind });
+  const [f, setF] = useState({ client_id: startClient, project_id: preProject?.id || "", template: "", kind: startKind });
   const clientProjects = useMemo(() => projects.filter((p) => p.client_id === f.client_id), [projects, f.client_id]);
   if (!clients.length) return <FormModal title={tx("New invoice")} onClose={onClose} onSubmit={async () => onClose()} submitLabel="OK"><p className="sub">{tx("Add a client first.")}</p></FormModal>;
   const create = async () => {
@@ -147,7 +147,7 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
       </div>
       {f.kind === "quote" && <p className="sub" style={{ fontSize: 13 }}>{tx("Your client accepts the quote on their page. It then turns into an invoice they can pay, and the job is booked.")}</p>}
       <div className="field"><label htmlFor="i-client">{tx("Client")}</label>
-        <ClientPicker id="i-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v, project_id: latestFor(v) })} /></div>
+        <ClientPicker id="i-client" value={f.client_id} clients={clients} onChange={(v) => setF({ ...f, client_id: v, project_id: "" })} /></div>
       <div className="field"><label htmlFor="i-project">{tx("Project")}</label>
         <select id="i-project" value={f.project_id} onChange={(e) => setF({ ...f, project_id: e.target.value })}><option value="">{tx("No project")}</option>{clientProjects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
       {invTemplates.length > 0 && (
