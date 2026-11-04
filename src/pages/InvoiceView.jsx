@@ -65,7 +65,7 @@ export default function InvoiceView() {
             <div style={{ flex: 1 }}><b>{s.name}</b><br /><span className="sub" style={{ fontSize: 13 }}>{quote ? tx("Quote #{number}", { number: i.number }) : tx("Invoice #{number}", { number: i.number })}</span></div>
             <div style={{ textAlign: "right" }}><span className="sub" style={{ fontSize: 12 }}>{paid ? tx("Paid") : quote ? tx("Valid until") : tx("Due")}</span><br /><b>{fdate(paid ? i.paid_at : i.due_date)}</b></div>
           </div>
-          <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{p?.title ? <><br /><span className="sub" style={{ fontSize: 13 }}>{p.title}</span></> : null}</div>
+          <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{c.company ? <><br /><span style={{ fontSize: 14 }}>{c.company}</span></> : null}{p?.title ? <><br /><span className="sub" style={{ fontSize: 13 }}>{p.title}</span></> : null}</div>
           {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
           <table className="doc-table"><tbody>
             {lay.lines.filter(({ it }) => quote || counts(it)).map(({ it, head }, k) => (<Fragment key={it.id || k}>

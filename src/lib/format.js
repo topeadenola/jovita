@@ -128,7 +128,7 @@ export function langPatch(studio, l) {
 export function clientMatches(c, q) {
   const k = String(q || "").trim().toLowerCase();
   if (!k || !c) return !k;
-  if ([c.name, c.email, c.city].join(" ").toLowerCase().includes(k)) return true;
+  if ([c.name, c.email, c.city, c.company].join(" ").toLowerCase().includes(k)) return true;
   const d = k.replace(/\D/g, "");
   if (d.length < 3) return false;
   const pd = String(c.phone || "").replace(/\D/g, "");

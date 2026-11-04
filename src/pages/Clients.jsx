@@ -15,7 +15,7 @@ function ClientDrawer({ c, onClose }) {
   const [booking, setBooking] = useState(false);
   const docs = invoices.filter((i) => i.client_id === c.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const toast = useToast();
-  const [f, setF] = useState({ name: c.name, email: c.email || "", phone: c.phone || "", city: c.city || "", address: c.address || "", status: c.status });
+  const [f, setF] = useState({ name: c.name, email: c.email || "", phone: c.phone || "", city: c.city || "", address: c.address || "", company: c.company || "", status: c.status });
   const [del, setDel] = useState(false);
   const [contract, setContract] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -24,7 +24,7 @@ function ClientDrawer({ c, onClose }) {
   return (
     <Drawer label={c.name} onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div className="who"><Avatar name={c.name} size={52} /><div><h2 className="h-l">{c.name}</h2><p className="sub">{c.city || tx("No city")}· {c.status === "lead" ? tx("Lead") : tx("Client")}{" "}{tx("since")}{" "}{fdate(c.created_at)}</p></div></div>
+        <div className="who"><Avatar name={c.name} size={52} /><div><h2 className="h-l">{c.name}</h2><p className="sub">{c.company ? <>{c.company}{" · "}</> : null}{c.city || tx("No city")}· {c.status === "lead" ? tx("Lead") : tx("Client")}{" "}{tx("since")}{" "}{fdate(c.created_at)}</p></div></div>
         <CloseBtn onClick={onClose} />
       </div>
       <div className="client-create">
@@ -37,12 +37,13 @@ function ClientDrawer({ c, onClose }) {
       <form className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={async (e) => {
         e.preventDefault();
         // Address is saved only once it's filled in (it needs update 30 in Supabase)
-        const { address, ...rest } = f;
-        try { await update("clients", c.id, address.trim() || c.address ? { ...rest, address: address.trim() } : rest); toast(tx("Client saved")); } catch (x) { toast(x.message); }
+        const { address, company, ...rest } = f;
+        try { await update("clients", c.id, { ...rest, ...(address.trim() || c.address ? { address: address.trim() } : {}), ...(company.trim() || c.company ? { company: company.trim() } : {}) }); toast(tx("Client saved")); } catch (x) { toast(x.message); }
       }}>
         <h3 className="h-m">{tx("Details")}</h3>
         <div className="form-grid">
           <div className="field"><label htmlFor="cd-name">{tx("Name")}</label><input id="cd-name" value={f.name} onChange={set("name")} /></div>
+          <div className="field"><label htmlFor="cd-company">{tx("Company (optional)")}</label><input id="cd-company" value={f.company} onChange={set("company")} placeholder={tx("e.g. Global Cars")} /></div>
           <div className="field"><label htmlFor="cd-city">{tx("City")}</label><input id="cd-city" value={f.city} onChange={set("city")} /></div>
           <div className="field"><label htmlFor="cd-email">{tx("Email")}</label><input id="cd-email" type="email" value={f.email} onChange={set("email")} /></div>
           <div className="field"><label htmlFor="cd-phone">{tx("Phone")}</label><input id="cd-phone" value={f.phone} onChange={set("phone")} /></div>
@@ -81,7 +82,7 @@ function ClientDrawer({ c, onClose }) {
 // Download the clients on screen (the tab and search you're on) as a CSV that opens in Excel, Google Sheets or Pixieset
 function exportClients(list) {
   const q = (v) => { const t = String(v ?? ""); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-  const rows = [["Name", "Email", "Phone", "City", "Address", "Type", "Added"], ...list.map((c) => [c.name, c.email, c.phone, c.city, c.address, c.status === "lead" ? "Lead" : "Client", (c.created_at || "").slice(0, 10)])];
+  const rows = [["Name", "Company", "Email", "Phone", "City", "Address", "Type", "Added"], ...list.map((c) => [c.name, c.company, c.email, c.phone, c.city, c.address, c.status === "lead" ? "Lead" : "Client", (c.created_at || "").slice(0, 10)])];
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((r) => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }));
   a.download = `jovita-clients-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -115,7 +116,7 @@ export default function Clients() {
               const owe = invoices.filter((i) => i.client_id === c.id && i.status === "sent");
               return (
                 <tr className="click" key={c.id} tabIndex={0} onClick={() => setSel(c.id)} onKeyDown={(e) => e.key === "Enter" && setSel(c.id)}>
-                  <td><div className="who"><Avatar name={c.name} /><div><b>{c.name}</b><small>{[c.email, c.city].filter(Boolean).join(" · ")}</small></div></div></td>
+                  <td><div className="who"><Avatar name={c.name} /><div><b>{c.name}</b><small>{[c.company, c.email, c.city].filter(Boolean).join(" · ")}</small></div></div></td>
                   <td><Pill c={c.status === "lead" ? "p-info" : "p-neutral"}>{c.status === "lead" ? tx("Lead") : tx("Client")}</Pill></td>
                   <td className="num">{projects.filter((p) => p.client_id === c.id).length}</td>
                   <td className="num">{owe.length ? owe.map((i) => money(i.amount, i.currency)).join(", ") : "—"}</td>

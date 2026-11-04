@@ -55,7 +55,7 @@ function Preview({ d, t, inv }) {
       <div className="doc-head"><StudioLogo studio={studio} />
         <div style={{ flex: 1 }}><b>{studio.name}</b><br /><span className="sub" style={{ fontSize: 13 }}>{inv.kind === "quote" ? tx("Quote #{number}", { number: inv.number }) : tx("Invoice #{number}", { number: inv.number })}</span></div>
         <div style={{ textAlign: "right" }}><span className="sub" style={{ fontSize: 12 }}>{inv.kind === "quote" ? tx("Valid until") : tx("Due")}</span><br /><b>{fdate(d.due_date)}</b></div></div>
-      <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{c.email ? <><br /><span className="sub" style={{ fontSize: 13 }}>{c.email}</span></> : null}</div>
+      <div><span className="sub" style={{ fontSize: 12 }}>{tx("Bill to")}</span><br /><b>{c.name}</b>{c.company ? <><br /><span style={{ fontSize: 14 }}>{c.company}</span></> : null}{c.email ? <><br /><span className="sub" style={{ fontSize: 13 }}>{c.email}</span></> : null}</div>
       {lay.top.map((p) => <img key={p.id} className="doc-pic" src={picUrl(p.path)} alt="" />)}
       <table className="doc-table"><tbody>
         {lay.lines.map(({ it, head }) => (<Fragment key={it.id}>
@@ -331,7 +331,7 @@ export default function InvoiceEditor({ id, onClose, startSend = false }) {
                 <h2 className="h-m">{tx("Bill to")}</h2>
                 <div className="inv-bill">
                   <Avatar name={c.name} />
-                  <div style={{ flex: 1, minWidth: 0 }}><b>{c.name}</b><div className="sub" style={{ fontSize: 13 }}>{[c.email, c.phone].filter(Boolean).join(" · ") || tx("No contact details yet")}</div></div>
+                  <div style={{ flex: 1, minWidth: 0 }}><b>{c.name}</b>{c.company ? <span className="sub">{" · "}{c.company}</span> : null}<div className="sub" style={{ fontSize: 13 }}>{[c.email, c.phone].filter(Boolean).join(" · ") || tx("No contact details yet")}</div></div>
                 </div>
                 <div className="form-grid">
                   <Field label={tx("Client")} id="ie-client"><ClientPicker id="ie-client" value={d.client_id} clients={clients} onChange={(v) => setD((x) => ({ ...x, client_id: v, project_id: "" }))} /></Field>

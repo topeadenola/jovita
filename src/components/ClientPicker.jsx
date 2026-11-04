@@ -18,7 +18,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
   const box = useRef(null);
   const list = useMemo(() => {
     const k = norm(q.trim());
-    const hits = k ? clients.filter((c) => norm(`${c.name} ${c.email || ""}`).includes(k) || clientMatches(c, q)) : clients;
+    const hits = k ? clients.filter((c) => norm(`${c.name} ${c.email || ""} ${c.company || ""}`).includes(k) || clientMatches(c, q)) : clients;
     // Names that start with what you typed come first
     return (k ? [...hits].sort((a, b) => (norm(b.name).startsWith(k) ? 1 : 0) - (norm(a.name).startsWith(k) ? 1 : 0)) : hits).slice(0, 8);
   }, [q, clients]);
@@ -59,7 +59,7 @@ export default function ClientPicker({ id, value, onChange, clients, autoFocus }
           {list.map((c, i) => (
             <button type="button" role="option" aria-selected={c.id === value} key={c.id} className={i === hi ? "hi" : ""}
               onMouseEnter={() => setHi(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(c)}>
-              <Avatar name={c.name} size={28} /><span><b>{c.name}</b>{c.email && <small>{c.email}</small>}</span>
+              <Avatar name={c.name} size={28} /><span><b>{c.name}{c.company ? <span className="sub" style={{ fontWeight: 400 }}>{" · "}{c.company}</span> : null}</b>{c.email && <small>{c.email}</small>}</span>
             </button>
           ))}
           {!list.length && <p className="sub">{tx("No client called \"{q}\"", { q: q.trim() })}</p>}

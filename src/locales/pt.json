@@ -1708,5 +1708,9 @@
   "Preview with": "Prévia com",
   "An example client": "Um cliente de exemplo",
   "When you send it, each client sees their own name, address, fee and date.": "Ao enviar, cada cliente vê o próprio nome, endereço, valor e data.",
-  "New job": "Novo trabalho"
+  "New job": "Novo trabalho",
+  "Company (optional)": "Empresa (opcional)",
+  "e.g. Global Cars": "ex.: Global Cars",
+  "Client company": "Empresa do cliente",
+  "Company": "Empresa"
 }

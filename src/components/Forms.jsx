@@ -40,28 +40,32 @@ export const CurrencySelect = ({ id, value, onChange }) => (
 export function ClientForm({ onClose }) {
   const { insert } = useData();
   const toast = useToast();
-  const [f, setF] = useState({ name: "", email: "", phone: "", city: "", address: "", status: "lead" });
+  const [f, setF] = useState({ name: "", company: "", email: "", phone: "", city: "", address: "", status: "lead" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <FormModal title={tx("Add a client")} onClose={onClose} onSubmit={async () => {
       if (!f.name.trim()) throw new Error(tx("Add the client's name."));
-      const { address, ...rest } = f;
-      await insert("clients", { ...rest, name: f.name.trim(), ...(address.trim() ? { address: address.trim() } : {}) });
+      // Address and company are sent only when filled in (they need updates 30 and 33 in Supabase)
+      const { address, company, ...rest } = f;
+      await insert("clients", { ...rest, name: f.name.trim(), ...(address.trim() ? { address: address.trim() } : {}), ...(company.trim() ? { company: company.trim() } : {}) });
       toast(tx("{name} added", {
         name: f.name
       })); onClose();
     }}>
       <div className="form-grid">
         <div className="field"><label htmlFor="c-name">{tx("Full name")}</label><input id="c-name" autoFocus value={f.name} onChange={set("name")} placeholder={tx("e.g. Bisi Ojo")} /></div>
-        <div className="field"><label htmlFor="c-city">{tx("City")}</label><input id="c-city" value={f.city} onChange={set("city")} placeholder={tx("Lagos")} /></div>
+        <div className="field"><label htmlFor="c-company">{tx("Company (optional)")}</label><input id="c-company" value={f.company} onChange={set("company")} placeholder={tx("e.g. Global Cars")} /></div>
       </div>
       <div className="form-grid">
         <div className="field"><label htmlFor="c-email">{tx("Email")}</label><input id="c-email" type="email" value={f.email} onChange={set("email")} placeholder={tx("bisi@example.com")} /></div>
         <div className="field"><label htmlFor="c-phone">{tx("Phone")}</label><input id="c-phone" value={f.phone} onChange={set("phone")} placeholder="+234 …" /></div>
       </div>
       <div className="field"><label htmlFor="c-address">{tx("Address")}</label><input id="c-address" value={f.address} onChange={set("address")} placeholder={tx("Street, area, city")} /><span className="help">{tx("Shows on contracts where you use {client_address}.")}</span></div>
-      <div className="field"><label htmlFor="c-status">{tx("Status")}</label>
-        <select id="c-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
+      <div className="form-grid">
+        <div className="field"><label htmlFor="c-city">{tx("City")}</label><input id="c-city" value={f.city} onChange={set("city")} placeholder={tx("Lagos")} /></div>
+        <div className="field"><label htmlFor="c-status">{tx("Status")}</label>
+          <select id="c-status" value={f.status} onChange={set("status")}><option value="lead">{tx("Lead")}</option><option value="client">{tx("Client")}</option></select></div>
+      </div>
     </FormModal>
   );
 }

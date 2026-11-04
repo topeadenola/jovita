@@ -1713,5 +1713,9 @@
   "Preview with": "Onyesho na",
   "An example client": "Mteja wa mfano",
   "When you send it, each client sees their own name, address, fee and date.": "Ukiutuma, kila mteja anaona jina lake, anwani, ada na tarehe yake.",
-  "New job": "Kazi mpya"
+  "New job": "Kazi mpya",
+  "Company (optional)": "Kampuni (si lazima)",
+  "e.g. Global Cars": "mfano Global Cars",
+  "Client company": "Kampuni ya mteja",
+  "Company": "Kampuni"
 }

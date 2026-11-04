@@ -13,6 +13,7 @@ const FIELDS = [
   ["email", "Email", ["email", "e-mail", "email address", "mail", "courriel", "adresse e-mail", "adresse mail", "correo", "correo electrónico", "barua pepe"]],
   ["phone", "Phone / WhatsApp", ["phone", "phone number", "mobile", "mobile number", "whatsapp", "tel", "telephone", "cell", "contact number", "téléphone", "telephone", "portable", "numéro", "teléfono", "móvil", "celular", "telefone", "telemóvel", "telemovel", "simu", "namba ya simu"]],
   ["city", "City", ["city", "town", "location", "state", "region", "ville", "commune", "ciudad", "cidade", "localidade", "mji"]],
+  ["company", "Company", ["company", "company name", "business", "organisation", "organization", "brand", "société", "entreprise", "empresa", "kampuni"]],
   ["address", "Address", ["address", "street", "street address", "address 1", "address line 1", "address1", "home address", "adresse", "dirección", "direccion", "endereço", "endereco", "anwani"]],
   ["status", "Lead or client", ["status", "type", "stage", "category", "statut", "estado", "hali"]],
 ];
@@ -27,7 +28,7 @@ function guessMap(headers) {
   // 1. exact names first, for every field
   FIELDS.forEach(([k, , words]) => { const i = exact(words); if (i >= 0) { m[k] = i; used.add(i); } });
   // 2. then looser matches ("Client E-mail", "Phone no."), most specific fields first
-  ["first", "last", "email", "phone", "address", "city", "status", "name"].forEach((k) => {
+  ["first", "last", "email", "phone", "company", "address", "city", "status", "name"].forEach((k) => {
     if (m[k] !== undefined) return;
     const words = FIELDS.find((f) => f[0] === k)[2];
     const i = headers.findIndex((h, j) => !used.has(j) && words.some((w) => w.length > 3 && norm(h).includes(w)));
@@ -83,7 +84,7 @@ export default function ImportClients({ onClose }) {
       const row = {
         name: name || email.split("@")[0] || "",
         email: /\S+@\S+\.\S+/.test(email) ? email : null,
-        phone: phone || null, city: get(r, "city") || null, address: get(r, "address"),
+        phone: phone || null, city: get(r, "city") || null, address: get(r, "address"), company: get(r, "company"),
         status: st ? (/(lead|prospect|enquir|inquir|potential|potentiel|posible|potencial|mtarajiwa)/.test(st) ? "lead" : "client") : defStatus,
       };
       if (!row.name) { bad.push(r); return; }
@@ -92,7 +93,7 @@ export default function ImportClients({ onClose }) {
         // Already in Jovita: fill in anything they're missing (phone, city, address), never overwrite
         const c = clients.find((x) => (row.email && (x.email || "").toLowerCase() === row.email) || (d.length >= 7 && digits(x.phone) === d));
         const patch = {};
-        if (c) ["phone", "city", "address"].forEach((k) => { if (row[k] && !String(c[k] || "").trim()) patch[k] = row[k]; });
+        if (c) ["phone", "city", "address", "company"].forEach((k) => { if (row[k] && !String(c[k] || "").trim()) patch[k] = row[k]; });
         dupes.push({ ...row, id: c?.id, patch });
         return;
       }
@@ -109,7 +110,9 @@ export default function ImportClients({ onClose }) {
   async function doImport() {
     setBusy(true); setErr("");
     try {
-      const rows = result.ok.map((r) => ({ ...r, studio_id: studio.id }));
+      // Company goes in only when the file has one (so files without it import even before update 33)
+      const anyCo = result.ok.some((r) => r.company);
+      const rows = result.ok.map(({ company, ...r }) => ({ ...r, ...(anyCo ? { company: company || "" } : {}), studio_id: studio.id }));
       for (let i = 0; i < rows.length; i += 500) {
         const { error } = await supabase.from("clients").insert(rows.slice(i, i + 500));
         if (error) throw error;
