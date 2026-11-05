@@ -1724,5 +1724,17 @@
   "(no email)": "(hakuna barua pepe)",
   "Remove {name}": "Ondoa {name}",
   "Add someone: type a name or email": "Ongeza mtu: andika jina au barua pepe",
-  "{name} each get an email with a link to {what}: {total}.": "{name} kila mmoja anapata barua pepe yenye kiungo cha {what}: {total}."
+  "{name} each get an email with a link to {what}: {total}.": "{name} kila mmoja anapata barua pepe yenye kiungo cha {what}: {total}.",
+  "Make it a new gallery": "Ifanye kuwa gallery mpya",
+  "Make \"{name}\" a new gallery": "Fanya \"{name}\" kuwa gallery mpya",
+  "Make \"{name}\" a new gallery?": "Fanya \"{name}\" kuwa gallery mpya?",
+  "Its {n} photo moves into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "Picha yake inahamia gallery mpya (hakuna kinachopakiwa tena). Inaanza kama rasimu yenye mteja, muundo na mipangilio ile ile, ili uikague kabla ya kutuma.",
+  "Its {n} photos move into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "Picha zake {n} zinahamia gallery mpya (hakuna kinachopakiwa tena). Inaanza kama rasimu yenye mteja, muundo na mipangilio ile ile, ili uikague kabla ya kutuma.",
+  "New gallery name": "Jina la gallery mpya",
+  "This gallery keeps its other sets. Links you've already sent for this gallery won't show these photos any more.": "Gallery hii inabaki na seti zake nyingine. Viungo ulivyokwisha tuma vya gallery hii havitaonyesha picha hizi tena.",
+  "Moving photos…": "Inahamisha picha…",
+  "Make new gallery": "Tengeneza gallery mpya",
+  "Couldn't make the new gallery. Try again.": "Imeshindwa kutengeneza gallery mpya. Jaribu tena.",
+  "\"{name}\" is now its own gallery, with {n} photo": "\"{name}\" sasa ni gallery yake, yenye picha {n}",
+  "\"{name}\" is now its own gallery, with {n} photos": "\"{name}\" sasa ni gallery yake, yenye picha {n}"
 }

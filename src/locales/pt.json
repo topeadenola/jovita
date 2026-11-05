@@ -1719,5 +1719,17 @@
   "(no email)": "(sem e-mail)",
   "Remove {name}": "Remover {name}",
   "Add someone: type a name or email": "Adicionar alguém: digite um nome ou e-mail",
-  "{name} each get an email with a link to {what}: {total}.": "{name} recebem cada um um e-mail com um link para {what}: {total}."
+  "{name} each get an email with a link to {what}: {total}.": "{name} recebem cada um um e-mail com um link para {what}: {total}.",
+  "Make it a new gallery": "Transformar em nova galeria",
+  "Make \"{name}\" a new gallery": "Transformar \"{name}\" em nova galeria",
+  "Make \"{name}\" a new gallery?": "Transformar \"{name}\" em nova galeria?",
+  "Its {n} photo moves into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "A foto vai para uma nova galeria (nada é enviado de novo). Começa como rascunho com o mesmo cliente, design e configurações, para você revisar antes de enviar.",
+  "Its {n} photos move into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "As {n} fotos vão para uma nova galeria (nada é enviado de novo). Começa como rascunho com o mesmo cliente, design e configurações, para você revisar antes de enviar.",
+  "New gallery name": "Nome da nova galeria",
+  "This gallery keeps its other sets. Links you've already sent for this gallery won't show these photos any more.": "Esta galeria mantém as outras pastas. Links já enviados desta galeria não vão mais mostrar estas fotos.",
+  "Moving photos…": "Movendo fotos…",
+  "Make new gallery": "Criar nova galeria",
+  "Couldn't make the new gallery. Try again.": "Não foi possível criar a galeria. Tente de novo.",
+  "\"{name}\" is now its own gallery, with {n} photo": "\"{name}\" agora é uma galeria própria, com {n} foto",
+  "\"{name}\" is now its own gallery, with {n} photos": "\"{name}\" agora é uma galeria própria, com {n} fotos"
 }

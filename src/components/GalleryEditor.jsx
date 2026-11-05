@@ -218,7 +218,7 @@ export default function GalleryEditor({ id, onClose }) {
   const toast = useToast();
   const g = galleries.find((x) => x.id === id);
   const [tab, setTab] = useState("photos");
-  const [sub, setSub] = useState({ photos: "highlights", design: "cover", settings: "general", share: "invite", activity: "views" });
+  const [sub, setSub] = useState({ photos: (Array.isArray(g?.sets) && g.sets[0]?.id) || "highlights", design: "cover", settings: "general", share: "invite", activity: "views" });
   const [photos, setPhotos] = useState([]);
   const [favs, setFavs] = useState([]);          // clients' picks
   const [downloads, setDownloads] = useState([]); // who downloaded what
@@ -249,6 +249,9 @@ export default function GalleryEditor({ id, onClose }) {
   const [over, setOver] = useState(false);
   const [setModal, setSetModal] = useState(null); // {id?, name, description}
   const [delSet, setDelSet] = useState(null); // the set being deleted
+  const [splitSet, setSplitSet] = useState(null); // the set being turned into its own gallery
+  const [splitName, setSplitName] = useState("");
+  const [splitBusy, setSplitBusy] = useState(false);
   const [delGal, setDelGal] = useState(false); // "Delete gallery" confirm open
   const [delBusy, setDelBusy] = useState(false);
   const [device, setDevice] = useState("desktop");
@@ -318,11 +321,11 @@ export default function GalleryEditor({ id, onClose }) {
   const favCount = useMemo(() => favs.reduce((m, f) => ({ ...m, [f.photo_id]: (m[f.photo_id] || 0) + 1 }), {}), [favs]);
   const noteCount = useMemo(() => comments.reduce((m, c) => ({ ...m, [c.photo_id]: (m[c.photo_id] || 0) + 1 }), {}), [comments]);
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape" && !setModal && !delSet && !delGal && !preview && viewer < 0) { flush(); onClose(); } };
+    const h = (e) => { if (e.key === "Escape" && !setModal && !delSet && !splitSet && !delGal && !preview && viewer < 0) { flush(); onClose(); } };
     document.addEventListener("keydown", h);
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
-  }, [flush, onClose, setModal, delSet, delGal, preview, viewer]);
+  }, [flush, onClose, setModal, delSet, splitSet, delGal, preview, viewer]);
 
   const setPhotosInSet = useMemo(() => photos.filter((p) => p.set_id === sub.photos && (!onlyFavs || favCount[p.id])), [photos, sub.photos, onlyFavs, favCount]);
   const vlist = viewList || setPhotosInSet;
@@ -576,6 +579,40 @@ export default function GalleryEditor({ id, onClose }) {
     if (others.length) { set("sets", others); setSub((x) => ({ ...x, photos: others[0].id })); }
     else if (mode === "photos") toast(tx("Set emptied. A gallery keeps at least one set."), true);
   }
+  // Turn a set (folder) into its own gallery: its photos MOVE there (same files, nothing uploaded twice),
+  // and the new gallery starts as a draft with the same client, project, design and settings.
+  async function doSplitSet() {
+    const s = splitSet; if (!s) return;
+    setSplitBusy(true);
+    try {
+      await flush();
+      const inSet = photos.filter((p) => p.set_id === s.id);
+      const ng = await insert("galleries", {
+        project_id: g.project_id || null, client_id: g.client_id || null, title: splitName.trim() || s.name, status: "draft",
+        event_date: d.event_date || null, design: d.design, settings: d.settings,
+        sets: [{ id: s.id, name: s.name, description: s.description || "" }],
+        cover_path: inSet[0]?.path || null, photo_count: inSet.length,
+      });
+      const ids = inSet.map((p) => p.id);
+      for (let i = 0; i < ids.length; i += 100) {
+        const { error } = await supabase.from("gallery_photos").update({ gallery_id: ng.id }).eq("gallery_id", id).in("id", ids.slice(i, i + 100));
+        if (error) throw error;
+        // Their hearts and notes go with them
+        await supabase.from("gallery_favorites").update({ gallery_id: ng.id }).eq("gallery_id", id).in("photo_id", ids.slice(i, i + 100)).then(() => {}, () => {});
+      }
+      const others = d.sets.filter((x) => x.id !== s.id);
+      const left = photos.length - inSet.length;
+      const patch = { sets: others, photo_count: left };
+      if (inSet.some((p) => p.path === d.cover_path)) { patch.cover_path = photos.find((p) => p.set_id !== s.id)?.path || null; set("cover_path", patch.cover_path || ""); }
+      set("sets", others); setSub((x) => ({ ...x, photos: others[0].id }));
+      await update("galleries", id, patch);
+      await loadPhotos(); await reload();
+      setSplitSet(null);
+      toast(txn(inSet.length, "\"{name}\" is now its own gallery, with {n} photo", "\"{name}\" is now its own gallery, with {n} photos", { name: splitName.trim() || s.name }), true);
+      if (ui?.setOpenGallery) { onClose(); setTimeout(() => ui.setOpenGallery(ng.id), 50); }
+    } catch (e) { toast(e.message || tx("Couldn't make the new gallery. Try again.")); }
+    setSplitBusy(false);
+  }
   async function doDeleteGallery() {
     setDelBusy(true);
     try {
@@ -623,6 +660,7 @@ export default function GalleryEditor({ id, onClose }) {
                   <div key={s.id} className="ge-set" aria-current={sub.photos === s.id}>
                     <button type="button" onClick={() => setSub((x) => ({ ...x, photos: s.id }))}>{s.name} <span className="count">({photos.filter((p) => p.set_id === s.id).length})</span></button>
                     <button type="button" className="ge-mini" onClick={() => setSetModal({ ...s })} aria-label={tx("Edit set {name}", { name: s.name })}><Icon name="edit" /></button>
+                    {d.sets.length > 1 && <button type="button" className="ge-mini" onClick={() => { setSplitSet(s); setSplitName(s.name); }} aria-label={tx("Make \"{name}\" a new gallery", { name: s.name })} title={tx("Make it a new gallery")}><Icon name="image" /></button>}
                     <button type="button" className="ge-mini" onClick={() => deleteSet(s)} aria-label={tx("Delete set {name}", { name: s.name })} title={tx("Delete set")}><Icon name="trash" /></button>
                   </div>
                 ))}
@@ -990,6 +1028,19 @@ export default function GalleryEditor({ id, onClose }) {
               <button type="button" className="btn btn-ghost" onClick={() => setDelSet(null)}>{tx("Cancel")}</button>
             </div>
           </div>
+        </div>); })()}
+      {splitSet && (() => { const n = photos.filter((p) => p.set_id === splitSet.id).length; return (
+        <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && !splitBusy && setSplitSet(null)} onKeyDown={(e) => e.key === "Escape" && !splitBusy && setSplitSet(null)}>
+          <form className="modal stack" role="dialog" aria-modal="true" aria-label={tx("Make it a new gallery")} onSubmit={(e) => { e.preventDefault(); doSplitSet(); }}>
+            <div className="set-head"><h2 className="h-l">{tx("Make \"{name}\" a new gallery?", { name: splitSet.name })}</h2><button type="button" className="x" onClick={() => !splitBusy && setSplitSet(null)} aria-label={tx("Close")}><Icon name="x" /></button></div>
+            <p className="sub">{txn(n, "Its {n} photo moves into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.", "Its {n} photos move into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.")}</p>
+            <div className="field"><label htmlFor="split-name">{tx("New gallery name")}</label><input id="split-name" value={splitName} onChange={(e) => setSplitName(e.target.value)} autoFocus /></div>
+            <p className="sub" style={{ fontSize: 13 }}>{tx("This gallery keeps its other sets. Links you've already sent for this gallery won't show these photos any more.")}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button type="button" className="btn btn-ghost" disabled={splitBusy} onClick={() => setSplitSet(null)}>{tx("Cancel")}</button>
+              <button type="submit" className="btn btn-primary" disabled={splitBusy}>{splitBusy ? tx("Moving photos…") : tx("Make new gallery")}</button>
+            </div>
+          </form>
         </div>); })()}
       {delGal && (
         <div className="scrim modal-wrap" style={{ zIndex: 60 }} onMouseDown={(e) => e.target === e.currentTarget && !delBusy && setDelGal(false)} onKeyDown={(e) => e.key === "Escape" && !delBusy && setDelGal(false)}>

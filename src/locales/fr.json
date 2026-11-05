@@ -1724,5 +1724,17 @@
   "(no email)": "(pas d'e-mail)",
   "Remove {name}": "Retirer {name}",
   "Add someone: type a name or email": "Ajouter quelqu'un : tapez un nom ou un e-mail",
-  "{name} each get an email with a link to {what}: {total}.": "{name} reçoivent chacun un e-mail avec un lien vers {what} : {total}."
+  "{name} each get an email with a link to {what}: {total}.": "{name} reçoivent chacun un e-mail avec un lien vers {what} : {total}.",
+  "Make it a new gallery": "En faire une nouvelle galerie",
+  "Make \"{name}\" a new gallery": "Faire de « {name} » une nouvelle galerie",
+  "Make \"{name}\" a new gallery?": "Faire de « {name} » une nouvelle galerie ?",
+  "Its {n} photo moves into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "Sa photo va dans une nouvelle galerie (rien n'est renvoyé). Elle démarre en brouillon avec le même client, design et réglages, pour vérifier avant l'envoi.",
+  "Its {n} photos move into a new gallery (nothing is uploaded again). It starts as a draft with the same client, design and settings, so you can check it before sending.": "Ses {n} photos vont dans une nouvelle galerie (rien n'est renvoyé). Elle démarre en brouillon avec le même client, design et réglages, pour vérifier avant l'envoi.",
+  "New gallery name": "Nom de la nouvelle galerie",
+  "This gallery keeps its other sets. Links you've already sent for this gallery won't show these photos any more.": "Cette galerie garde ses autres dossiers. Les liens déjà envoyés pour cette galerie n'afficheront plus ces photos.",
+  "Moving photos…": "Déplacement des photos…",
+  "Make new gallery": "Créer la nouvelle galerie",
+  "Couldn't make the new gallery. Try again.": "Impossible de créer la nouvelle galerie. Réessayez.",
+  "\"{name}\" is now its own gallery, with {n} photo": "« {name} » est maintenant une galerie à part, avec {n} photo",
+  "\"{name}\" is now its own gallery, with {n} photos": "« {name} » est maintenant une galerie à part, avec {n} photos"
 }
