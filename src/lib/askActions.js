@@ -5,6 +5,7 @@ import { addDays, first, invState, money, PROJECT_TYPES } from "./format";
 import { tx } from "./i18n";
 import { copyItems, counts, keepItem } from "./items";
 import { totals } from "../components/InvoiceEditor";
+import { EXPENSE_CATEGORIES } from "./accounting";
 
 const has = (q, words) => words.some((w) => q.includes(w));
 const STOP = new Set(["a", "an", "the", "my", "me", "her", "him", "them", "new", "client", "customer", "she", "he", "they", "who", "is", "was", "for", "with", "of", "worth", "at", "and", "please", "pls", "invoice", "project", "gallery", "today", "tomorrow", "now", "it", "this", "that", "as", "to", "on", "in", "about", "amount", "called", "named", "shoot", "session", "wedding", "newborn", "portrait", "birthday", "maternity", "family", "event", "lead", "contact"]);
@@ -318,6 +319,17 @@ export function fromBrain(actions = [], ctx) {
       if (!i) continue;
       if (tool === "send_invoice" && i.status === "draft") buttons.push({ label: tx("Send invoice #{number}", { number: i.number }), primary: true, run: async () => { await ctx.ui.sendInvoice(i); return { text: tx("Sent. Invoice #{number} is on the client's page.", { number: i.number }) }; } });
       if (tool === "mark_paid" && i.status === "sent") buttons.push({ label: tx("Mark #{number} as paid", { number: i.number }), primary: true, run: async () => { await ctx.ui.markPaid(i); return { text: tx("Done. Invoice #{number} is marked paid.", { number: i.number }), mood: "paid" }; } });
+    } else if (tool === "add_expense" && Number(a.amount) > 0 && a.vendor) {
+      // Money the studio spent: one tap saves it to Accounting › Expenses
+      const { studio = {}, projects = [] } = ctx.data;
+      const cur = /^[A-Z]{3}$/.test(a.currency || "") ? a.currency : studio.home_currency || "NGN";
+      const cat = EXPENSE_CATEGORIES.includes(a.category) ? a.category : "Other";
+      const pr = projects.find((x) => x.id === a.project_id);
+      const row = { vendor: String(a.vendor).trim().slice(0, 120), amount: Number(a.amount), currency: cur, category: cat, spent_on: /^\d{4}-\d{2}-\d{2}$/.test(a.spent_on || "") ? a.spent_on : new Date().toISOString().slice(0, 10), note: a.note ? String(a.note).slice(0, 500) : "", project_id: pr?.id || null };
+      buttons.push({ label: tx("Add {amount} expense ({what})", { amount: money(row.amount, cur), what: row.vendor }), primary: true, run: async () => {
+        await ctx.ui.insert("expenses", row);
+        return { text: tx("Saved: {amount} for {what}, under {category}.", { amount: money(row.amount, cur), what: row.vendor, category: tx(cat) }), buttons: [{ label: tx("See expenses"), run: () => { ctx.ui.nav(PAGES.expenses); return null; } }] };
+      } });
     } else if (tool === "open_page" && PAGES[a.page]) {
       buttons.push({ label: tx("Open {page}", { page: tx(PAGE_NAMES[a.page]) }), run: () => { ctx.ui.nav(PAGES[a.page]); return null; } });
     }

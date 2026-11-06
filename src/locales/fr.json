@@ -1736,5 +1736,8 @@
   "Make new gallery": "Créer la nouvelle galerie",
   "Couldn't make the new gallery. Try again.": "Impossible de créer la nouvelle galerie. Réessayez.",
   "\"{name}\" is now its own gallery, with {n} photo": "« {name} » est maintenant une galerie à part, avec {n} photo",
-  "\"{name}\" is now its own gallery, with {n} photos": "« {name} » est maintenant une galerie à part, avec {n} photos"
+  "\"{name}\" is now its own gallery, with {n} photos": "« {name} » est maintenant une galerie à part, avec {n} photos",
+  "Add {amount} expense ({what})": "Ajouter une dépense de {amount} ({what})",
+  "Saved: {amount} for {what}, under {category}.": "Enregistré : {amount} pour {what}, dans {category}.",
+  "See expenses": "Voir les dépenses"
 }

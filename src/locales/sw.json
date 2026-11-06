@@ -1736,5 +1736,8 @@
   "Make new gallery": "Tengeneza gallery mpya",
   "Couldn't make the new gallery. Try again.": "Imeshindwa kutengeneza gallery mpya. Jaribu tena.",
   "\"{name}\" is now its own gallery, with {n} photo": "\"{name}\" sasa ni gallery yake, yenye picha {n}",
-  "\"{name}\" is now its own gallery, with {n} photos": "\"{name}\" sasa ni gallery yake, yenye picha {n}"
+  "\"{name}\" is now its own gallery, with {n} photos": "\"{name}\" sasa ni gallery yake, yenye picha {n}",
+  "Add {amount} expense ({what})": "Ongeza gharama ya {amount} ({what})",
+  "Saved: {amount} for {what}, under {category}.": "Imehifadhiwa: {amount} kwa {what}, chini ya {category}.",
+  "See expenses": "Ona gharama"
 }
