@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Allow: /pages/pages.css
 Disallow: /pages/
 Disallow: /email/
 

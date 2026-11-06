@@ -4,5 +4,8 @@
   <url><loc>https://getjovita.com/about/</loc><changefreq>monthly</changefreq></url>
   <url><loc>https://getjovita.com/help/</loc><changefreq>monthly</changefreq></url>
   <url><loc>https://getjovita.com/privacy/</loc><changefreq>yearly</changefreq></url>
+  <url><loc>https://getjovita.com/pixieset-alternative/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://getjovita.com/photography-contract-template/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://getjovita.com/jovita-vs-spreadsheets/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://app.getjovita.com/spotlight</loc><changefreq>weekly</changefreq></url>
 </urlset>

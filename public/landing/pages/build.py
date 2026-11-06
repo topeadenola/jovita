@@ -79,7 +79,7 @@ def page(slug, title, desc, body, current):
 </main>
 <footer><div class="wrap">
 <span style="display:flex;align-items:flex-end;gap:8px">{MARK.format(c="#FBF8FF")}<b style="color:#fff">jovita</b> · Run your creative business with joy.</span>
-<nav aria-label="Footer"><a href="/">Home</a>{foot}<a href="mailto:hello@getjovita.com">hello@getjovita.com</a></nav>
+<nav aria-label="Footer"><a href="/">Home</a>{foot}<a href="/photography-contract-template/">Free contract template</a><a href="/pixieset-alternative/">Pixieset alternative</a><a href="mailto:hello@getjovita.com">hello@getjovita.com</a></nav>
 <span>© 2026 Jovita</span>
 </div></footer>
 <script>if (/(^|; )jv_in=1/.test(document.cookie)) {{ var n = document.querySelector(".top nav"), l = n.querySelector('a[href$="/login"]'), u = n.querySelector('a[href$="/signup"]'); if (l) l.remove(); if (u) {{ u.href = "{APP}/"; u.textContent = "Open Jovita"; }} }}</script>
