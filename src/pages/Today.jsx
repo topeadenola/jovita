@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Card as SpotCard, usePosts } from "./Spotlight";
 import { Link } from "react-router-dom";
 import { useData } from "../lib/data";
 import { useActions } from "../lib/actions";
@@ -191,6 +192,21 @@ export default function Today() {
           </section>
         </div>
       </div>
+      <SpotlightStrip />
     </>
+  );
+}
+
+// The latest from Spotlight (Creative of the week, featured projects, stories), right on the dashboard
+function SpotlightStrip() {
+  const posts = usePosts();
+  if (!posts?.length) return null;
+  const week = posts.find((p) => p.kind === "creative_of_week");
+  const top = (week ? [week, ...posts.filter((p) => p !== week)] : posts).slice(0, 4);
+  return (
+    <section className="card sp-today" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="head"><h2 className="h-m">{tx("Spotlight")}</h2><Link className="btn btn-ghost btn-sm" to="/spotlight">{tx("See all")}</Link></div>
+      <div className="sp-grid">{top.map((p) => <SpotCard key={p.id} p={p} />)}</div>
+    </section>
   );
 }

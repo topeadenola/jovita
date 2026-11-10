@@ -1739,5 +1739,11 @@
   "\"{name}\" is now its own gallery, with {n} photos": "« {name} » est maintenant une galerie à part, avec {n} photos",
   "Add {amount} expense ({what})": "Ajouter une dépense de {amount} ({what})",
   "Saved: {amount} for {what}, under {category}.": "Enregistré : {amount} pour {what}, dans {category}.",
-  "See expenses": "Voir les dépenses"
+  "See expenses": "Voir les dépenses",
+  "All of Spotlight": "Tout Spotlight",
+  "Jovita HQ": "Jovita HQ",
+  "Jovita home": "Accueil Jovita",
+  "Next pictures": "Photos suivantes",
+  "Previous pictures": "Photos précédentes",
+  "Show": "Afficher"
 }

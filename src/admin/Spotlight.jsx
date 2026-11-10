@@ -5,6 +5,8 @@ import { supabase } from "../supabase";
 import Icon from "./Icon";
 import { SmileMark } from "./Celebrate";
 import { date } from "./util";
+import RichText from "./RichText";
+import { cleanHtml, isHtml, legacyToHtml } from "../lib/richtext";
 
 const KINDS = [["creative_of_week", "Creative of the week"], ["feature", "Featured project"], ["story", "Story"]];
 const KIND = Object.fromEntries(KINDS);
@@ -12,6 +14,9 @@ const ROLES = ["Photographer", "Videographer", "Makeup artist", "Content creator
 const BLANK = { slug: "", kind: "feature", title: "", dek: "", person_name: "", person_role: "Photographer", location: "", instagram: "", website: "", cover_path: null, photos: [], body: "", published: false };
 const slugify = (s) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "post";
 const url = (path) => (!path ? "" : /^https?:|^\//.test(path) ? path : supabase.storage.from("spotlight").getPublicUrl(path).data.publicUrl);
+// Story pictures must be ones uploaded here (the public "spotlight" folder)
+const IMG_BASE = supabase.storage.from("spotlight").getPublicUrl("x").data.publicUrl.slice(0, -1);
+export const imgOk = (src) => src.startsWith(IMG_BASE) || /^\.\.\/landing\/img\//.test(src);
 const APP = location.port === "5175" ? "http://localhost:5173" : "";
 
 export default function Spotlight() {
@@ -100,13 +105,15 @@ function Editor({ post, onClose }) {
     setErr("");
     if (!f.title.trim()) return setErr("Give the post a title.");
     const slug = slugify(f.slug || f.title);
-    const row = { ...f, slug, published: publish ?? f.published, photos: f.photos };
+    const body = cleanHtml(isHtml(f.body) ? f.body : legacyToHtml(f.body), imgOk);
+    if (body.length > 200000) return setErr("The story is too long. Shorten it a little.");
+    const row = { ...f, body, slug, published: publish ?? f.published, photos: f.photos };
     delete row.id; delete row.created_at; delete row.updated_at; delete row.published_at;
     setBusy("Saving…");
     const q = f.id ? supabase.from("spotlights").update(row).eq("id", f.id).select().single() : supabase.from("spotlights").insert(row).select().single();
     const { data, error } = await q;
     setBusy("");
-    if (error) return setErr(/duplicate|unique/i.test(error.message) ? "Another post already uses that web address. Change the web address." : error.message);
+    if (error) return setErr(/body_check/i.test(error.message) ? "This story is longer than the old limit. Run update 35 in Supabase (supabase/RUN-UPDATE-35.sql), then save again." : /duplicate|unique/i.test(error.message) ? "Another post already uses that web address. Change the web address." : error.message);
     setF(data || { ...f, ...row });
     if (publish !== undefined) onClose();
   };
@@ -144,9 +151,9 @@ function Editor({ post, onClose }) {
             <div className="field"><label htmlFor="sp-w">Website</label><input id="sp-w" className="a-input" value={f.website} onChange={set("website")} placeholder="theirsite.com" /></div>
             <div className="field"><label htmlFor="sp-s">Web address</label><input id="sp-s" className="a-input" value={f.slug} onChange={(e) => { setSlugTouched(true); setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") }); }} /><small className="sub">/spotlight/{slugify(f.slug || f.title)}</small></div>
           </div>
-          <div className="field"><label htmlFor="sp-b">Story</label>
-            <textarea id="sp-b" className="a-textarea" rows={14} value={f.body} onChange={set("body")} placeholder={"Write it like you'd tell a friend.\n\n## A heading\nA paragraph under it.\n\n> A quote from the creative, in their own words."} />
-            <small className="sub">Leave a blank line between paragraphs. Start a line with ## for a heading, or &gt; for a quote.</small></div>
+          <div className="field"><label>Story</label>
+            <RichText value={f.body} imgOk={imgOk} onChange={(html) => setF((x) => ({ ...x, body: html }))}
+              upload={async (list) => (await upload(list)).map((path) => url(path))} /></div>
         </section>
         <section className="card sp-media">
           <div className="card-head"><h2 className="h-m">Cover</h2><button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => coverIn.current?.click()}><Icon name="image" />{f.cover_path ? "Change" : "Add cover"}</button></div>

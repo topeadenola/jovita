@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import { useData } from "../lib/data";
 import { invState, langPatch } from "../lib/format";
@@ -34,6 +34,9 @@ export default function Shell({ children }) {
   const { studio, messages, invoices, clients, updateStudio } = useData();
   const toast = useToast();
   const [q, setQ] = useState("");
+  // The Jovita team gets a link to Jovita HQ (the admin). Nobody else sees it; HQ checks again on its side.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => { supabase.rpc("is_admin").then(({ data }) => setIsAdmin(data === true), () => {}); }, []);
   const [menu, setMenu] = useState(false);
   const [modal, setModal] = useState(null); // {kind, pre}
   const [openProject, setOpenProject] = useState(null);
@@ -109,7 +112,8 @@ export default function Shell({ children }) {
               <StudioLogo studio={studio} className="av" />
               <div><b>{studio.owner_first_name || studio.name}</b><span>{studio.name}</span></div>
             </div>
-            <a className="side-link" href="/spotlight" target="_blank" rel="noreferrer"><Icon name="star" />{tx("Spotlight")}</a>
+            <Link className="side-link" to="/spotlight"><Icon name="star" />{tx("Spotlight")}</Link>
+            {isAdmin && <a className="side-link" href="/admin/"><Icon name="settings" />{tx("Jovita HQ")}</a>}
             <LangSwitch onPick={(l) => { const p = langPatch(studio, l); updateStudio(p).then(() => p.home_currency && setTimeout(() => toast(tx("Prices now show in {cur}. You can change this in Settings.", { cur: p.home_currency })), 60)).catch(() => {}); }} />
             <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })}><Icon name="logout" />{tx("Sign out")}</button>
           </div>

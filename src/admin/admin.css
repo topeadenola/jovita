@@ -308,3 +308,26 @@ table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sp-drop span { font-size: 13px; color: var(--muted); }
 .sp-bar-track { display: block; width: min(320px, 90%); height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .sp-bar-track i { display: block; height: 100%; background: var(--plum, #261433); border-radius: 99px; transition: width .2s; }
+
+/* Story editor */
+.rt { display: flex; flex-direction: column; gap: 8px; }
+.rt-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; position: sticky; top: 0; z-index: 2; background: var(--card); padding: 6px 0; }
+.rt-bar .a-btn svg { width: 14px; height: 14px; }
+.rt-box { min-height: 320px; max-height: 70vh; overflow: auto; border: 1px solid var(--line-2); border-radius: 12px; background: var(--card); padding: 14px 16px; font-size: 16px; line-height: 1.65; outline: none; }
+.rt-box:focus { border-color: var(--plum, #261433); }
+.rt-box:empty::before { content: attr(data-ph); color: var(--muted); }
+.rt-box p { margin: 0 0 1em; }
+.rt-box h2 { font-size: 22px; margin: 1.2em 0 .4em; } .rt-box h3 { font-size: 18px; margin: 1.1em 0 .4em; } .rt-box h4 { font-size: 16px; margin: 1em 0 .3em; }
+.rt-box blockquote { margin: 1em 0; padding: 2px 0 2px 16px; border-left: 4px solid #FFB320; font-weight: 700; font-size: 18px; }
+.rt-box ul, .rt-box ol { margin: 0 0 1em; padding-left: 24px; }
+.rt-box a { color: inherit; text-decoration: underline; }
+.rt-box table { border-collapse: collapse; width: 100%; margin: 0 0 1em; font-size: 14px; }
+.rt-box th, .rt-box td { border: 1px solid var(--line-2); padding: 6px 10px; text-align: left; vertical-align: top; }
+.rt-box th { background: var(--lilac, #E9DDFB); }
+.rt-box figure { margin: 1em 0; cursor: pointer; border-radius: 12px; }
+.rt-box figure img { display: block; max-width: 100%; border-radius: 12px; }
+.rt-box figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 18px; cursor: text; outline: none; }
+.rt-box figcaption:empty::before { content: attr(data-ph); opacity: .7; }
+.rt-box .sp-strip { display: flex; gap: 8px; overflow-x: auto; margin: 1em 0; padding-bottom: 6px; cursor: pointer; border-radius: 12px; }
+.rt-box .sp-strip img { height: 180px; width: auto; flex: none; border-radius: 10px; }
+.rt-box .rt-sel { outline: 3px solid #FFB320; outline-offset: 3px; }

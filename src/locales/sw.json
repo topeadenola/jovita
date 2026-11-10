@@ -1739,5 +1739,11 @@
   "\"{name}\" is now its own gallery, with {n} photos": "\"{name}\" sasa ni gallery yake, yenye picha {n}",
   "Add {amount} expense ({what})": "Ongeza gharama ya {amount} ({what})",
   "Saved: {amount} for {what}, under {category}.": "Imehifadhiwa: {amount} kwa {what}, chini ya {category}.",
-  "See expenses": "Ona gharama"
+  "See expenses": "Ona gharama",
+  "All of Spotlight": "Spotlight yote",
+  "Jovita HQ": "Jovita HQ",
+  "Jovita home": "Nyumbani Jovita",
+  "Next pictures": "Picha zinazofuata",
+  "Previous pictures": "Picha zilizopita",
+  "Show": "Onyesha"
 }

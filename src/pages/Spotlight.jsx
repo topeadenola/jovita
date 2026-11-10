@@ -7,8 +7,13 @@ import { Mark } from "../components/Icon";
 import Icon from "../components/Icon";
 import { LangSwitch } from "../components/Lang";
 import { locale, tx } from "../lib/i18n";
+import { cleanHtml, isHtml } from "../lib/richtext";
 
 export const spotUrl = (path) => (!path ? "" : /^https?:|^\//.test(path) ? path : supabase.storage.from("spotlight").getPublicUrl(path).data.publicUrl);
+// Pictures inside a story must be ones uploaded to Spotlight
+const IMG_BASE = supabase.storage.from("spotlight").getPublicUrl("x").data.publicUrl.slice(0, -1);
+const imgOk = (src) => src.startsWith(IMG_BASE);
+const HOME = "https://getjovita.com";
 const KIND = { creative_of_week: "Creative of the week", feature: "Featured project", story: "Story" };
 const day = (iso) => (iso ? new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" }) : "");
 const insta = (h) => (h ? `https://instagram.com/${h.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "")}` : "");
@@ -26,17 +31,19 @@ function Bar() {
       <Link to="/spotlight" className="sp-brand"><Mark dot="#261433" /><b>{tx("jovita")}</b><span>{tx("Spotlight")}</span></Link>
       <span className="spacer" />
       <LangSwitch compact />
-      {session ? <Link className="btn btn-secondary btn-sm" to="/">{tx("Back to my studio")}</Link> : <Link className="btn btn-joy btn-sm" to="/signup">{tx("Try Jovita free")}</Link>}
+      {session ? <Link className="btn btn-secondary btn-sm" to="/"><Icon name="arrow" className="ic flip" />{tx("Back to my studio")}</Link>
+        : <><a className="btn btn-ghost btn-sm sp-home" href={HOME}><Icon name="arrow" className="ic flip" />{tx("Jovita home")}</a><Link className="btn btn-joy btn-sm" to="/signup">{tx("Try Jovita free")}</Link></>}
     </header>
   );
 }
 
-function Card({ p, big }) {
+export function Card({ p }) {
   return (
-    <Link to={`/spotlight/${p.slug}`} className={`sp-card ${big ? "big" : ""}`}>
-      <span className="sp-img" style={{ backgroundImage: p.cover_path ? `url("${spotUrl(p.cover_path)}")` : undefined }} />
+    <Link to={`/spotlight/${p.slug}`} className="sp-card">
+      <span className="sp-img" style={{ backgroundImage: p.cover_path ? `url("${spotUrl(p.cover_path)}")` : undefined }}>
+        <span className={`sp-tag k-${p.kind}`}>{p.kind === "creative_of_week" && <Icon name="star" />}{tx(KIND[p.kind] || "Story")}</span>
+      </span>
       <span className="sp-meta">
-        <small>{tx(KIND[p.kind] || "Story")}</small>
         <b>{p.title}</b>
         <span>{[p.person_name, tx(p.person_role || ""), p.location].filter(Boolean).join(" · ")}</span>
       </span>
@@ -44,7 +51,7 @@ function Card({ p, big }) {
   );
 }
 
-function usePosts() {
+export function usePosts() {
   const [posts, setPosts] = useState(null);
   useEffect(() => {
     supabase.from("spotlights").select("id,slug,kind,title,dek,person_name,person_role,location,cover_path,published_at").eq("published", true).order("published_at", { ascending: false }).limit(60)
@@ -56,10 +63,12 @@ function usePosts() {
 export function SpotlightList() {
   const posts = usePosts();
   useEffect(() => { document.title = tx("Spotlight · Jovita"); }, []);
+  const [kind, setKind] = useState("all");
+  // One grid: this week's creative first, then newest first. The tag on each card says what it is.
   const week = posts?.find((p) => p.kind === "creative_of_week");
-  const rest = (posts || []).filter((p) => p !== week);
-  const features = rest.filter((p) => p.kind === "feature");
-  const stories = rest.filter((p) => p.kind !== "feature");
+  const all = week ? [week, ...posts.filter((p) => p !== week)] : posts || [];
+  const kinds = Object.keys(KIND).filter((k) => all.some((p) => p.kind === k));
+  const shown = kind === "all" ? all : all.filter((p) => p.kind === kind);
   return (
     <div className="sp">
       <Bar />
@@ -72,33 +81,16 @@ export function SpotlightList() {
         {posts === null ? <div className="loading" style={{ minHeight: 300 }}>{tx("Loading…")}</div> : !posts.length ? (
           <div className="empty" style={{ padding: 60 }}><b>{tx("The first stories are on their way")}</b><span>{tx("Check back soon.")}</span></div>
         ) : (
-          <>
-            {week && (
-              <Link to={`/spotlight/${week.slug}`} className="sp-week">
-                <span className="sp-week-img" style={{ backgroundImage: week.cover_path ? `url("${spotUrl(week.cover_path)}")` : undefined }} />
-                <span className="sp-week-text">
-                  <span className="pill p-joy"><Icon name="star" />{tx("Creative of the week")}</span>
-                  <b className="sp-week-name">{week.person_name || week.title}</b>
-                  <span className="sp-week-role">{[tx(week.person_role || ""), week.location].filter(Boolean).join(" · ")}</span>
-                  <span className="sp-week-title">{week.title}</span>
-                  {week.dek && <span className="sub">{week.dek}</span>}
-                  <span className="sp-read">{tx("Read the story")} <Icon name="arrow" /></span>
-                </span>
-              </Link>
+          <section className="sp-sec">
+            {kinds.length > 1 && (
+              <div className="seg sp-filter" role="group" aria-label={tx("Show")}>
+                {[["all", "All"], ...kinds.map((k) => [k, KIND[k]])].map(([k, label]) => (
+                  <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>{tx(label)}</button>
+                ))}
+              </div>
             )}
-            {features.length > 0 && (
-              <section className="sp-sec">
-                <h2>{tx("Featured projects")}</h2>
-                <div className="sp-grid">{features.map((p) => <Card key={p.id} p={p} />)}</div>
-              </section>
-            )}
-            {stories.length > 0 && (
-              <section className="sp-sec">
-                <h2>{tx("More stories")}</h2>
-                <div className="sp-grid">{stories.map((p) => <Card key={p.id} p={p} />)}</div>
-              </section>
-            )}
-          </>
+            <div className="sp-grid">{shown.map((p) => <Card key={p.id} p={p} />)}</div>
+          </section>
         )}
       </main>
       <Foot />
@@ -115,7 +107,7 @@ function Foot() {
   );
 }
 
-// Plain text with a little formatting: a blank line starts a new paragraph,
+// Plain text with a little formatting (older stories): a blank line starts a new paragraph,
 // "## " starts a heading line, "> " a pull quote.
 function bodyBlocks(text = "") {
   const out = [];
@@ -131,6 +123,30 @@ function bodyBlocks(text = "") {
     flush("e");
   });
   return out;
+}
+
+// The story. Newer ones are formatted text (headings, lists, tables, pictures, picture strips): it is cleaned against
+// a fixed list of allowed tags right here before it is shown, whatever is stored. Wide tables scroll sideways.
+function Body({ body }) {
+  const html = useMemo(() => {
+    if (!isHtml(body)) return null;
+    const d = document.createElement("div");
+    d.innerHTML = cleanHtml(body, imgOk);
+    d.querySelectorAll("table").forEach((t) => { const w = document.createElement("div"); w.className = "sp-table"; t.replaceWith(w); w.appendChild(t); });
+    // Picture strips get left / right arrows (on a phone you just swipe)
+    d.querySelectorAll(".sp-strip").forEach((st) => {
+      const w = document.createElement("div"); w.className = "sp-strip-wrap"; st.replaceWith(w); w.appendChild(st);
+      ["prev", "next"].forEach((dir) => { const b = document.createElement("button"); b.type = "button"; b.className = `sp-strip-btn ${dir}`; b.setAttribute("data-dir", dir); b.setAttribute("aria-label", dir === "prev" ? tx("Previous pictures") : tx("Next pictures")); b.textContent = dir === "prev" ? "‹" : "›"; w.appendChild(b); });
+    });
+    return d.innerHTML;
+  }, [body]);
+  if (html === null) return <div className="sp-body">{bodyBlocks(body)}</div>;
+  const arrows = (e) => {
+    const b = e.target.closest(".sp-strip-btn"); if (!b) return;
+    const st = b.parentElement.querySelector(".sp-strip");
+    st.scrollBy({ left: (b.dataset.dir === "prev" ? -1 : 1) * st.clientWidth * 0.8, behavior: "smooth" });
+  };
+  return <div className="sp-body" onClick={arrows} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 export function SpotlightPost() {
@@ -154,11 +170,12 @@ export function SpotlightPost() {
 
   if (p === undefined) return <div className="sp"><Bar /><div className="loading" style={{ minHeight: 400 }}>{tx("Loading…")}</div></div>;
   if (!p) return <div className="sp"><Bar /><div className="empty" style={{ padding: 80 }}><b>{tx("We couldn't find that story")}</b><Link to="/spotlight" className="btn btn-secondary">{tx("See all of Spotlight")}</Link></div></div>;
-  const more = (posts || []).filter((x) => x.slug !== p.slug).slice(0, 3);
+  const more = (posts || []).filter((x) => x.slug !== p.slug).slice(0, 4);
   return (
     <div className="sp">
       <Bar />
       <article className="sp-post">
+        <Link to="/spotlight" className="btn btn-ghost btn-sm sp-back"><Icon name="arrow" className="ic flip" />{tx("All of Spotlight")}</Link>
         <div className="sp-cover" style={{ backgroundImage: p.cover_path ? `url("${spotUrl(p.cover_path)}")` : undefined }} />
         <div className="sp-post-head">
           <span className="pill p-joy">{p.kind === "creative_of_week" && <Icon name="star" />}{tx(KIND[p.kind] || "Story")}</span>
@@ -174,7 +191,7 @@ export function SpotlightPost() {
           </div>
           <small className="sub">{day(p.published_at)}</small>
         </div>
-        <div className="sp-body">{bodyBlocks(p.body)}</div>
+        <Body body={p.body} />
         {photos.length > 0 && <h2 className="sp-work-h" id="their-work">{p.person_name ? tx("{name}'s work", { name: p.person_name.split(" ")[0] }) : tx("Their work")}</h2>}
         {photos.length > 0 && (
           <div className="sp-photos">{photos.map((ph, i) => (
@@ -182,7 +199,8 @@ export function SpotlightPost() {
           ))}</div>
         )}
       </article>
-      {more.length > 0 && <section className="sp-sec sp-more"><h2>{tx("More from Spotlight")}</h2><div className="sp-grid">{more.map((x) => <Card key={x.id} p={x} />)}</div></section>}
+      {more.length > 0 && <section className="sp-sec sp-more"><div className="sp-more-head"><h2>{tx("More from Spotlight")}</h2><Link to="/spotlight" className="btn btn-secondary btn-sm">{tx("See all of Spotlight")}</Link></div><div className="sp-grid">{more.map((x) => <Card key={x.id} p={x} />)}</div></section>}
+      {!more.length && <p style={{ textAlign: "center", marginTop: 40 }}><Link to="/spotlight" className="btn btn-secondary">{tx("See all of Spotlight")}</Link></p>}
       <Foot />
       {open >= 0 && photos[open] && (
         <div className="cg-light" role="dialog" aria-modal="true" aria-label={tx("Photo {n} of {total}", { n: open + 1, total: photos.length })} onClick={(e) => e.target === e.currentTarget && setOpen(-1)}>
