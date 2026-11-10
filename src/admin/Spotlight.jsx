@@ -19,6 +19,15 @@ const IMG_BASE = supabase.storage.from("spotlight").getPublicUrl("x").data.publi
 export const imgOk = (src) => src.startsWith(IMG_BASE) || /^\.\.\/landing\/img\//.test(src);
 const APP = location.port === "5175" ? "http://localhost:5173" : "";
 
+// The post's web address, e.g. /spotlight/light-gold-and-evore (filled in from the title until you change it)
+function SlugField({ f, setF, setSlugTouched }) {
+  return (
+    <div className="field"><label htmlFor="sp-s">Web address</label>
+      <input id="sp-s" className="a-input" value={f.slug} onChange={(e) => { setSlugTouched(true); setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") }); }} />
+      <small className="sub">/spotlight/{slugify(f.slug || f.title)}</small></div>
+  );
+}
+
 export default function Spotlight() {
   const [list, setList] = useState(null);
   const [edit, setEdit] = useState(null);
@@ -104,6 +113,7 @@ function Editor({ post, onClose }) {
   const save = async (publish) => {
     setErr("");
     if (!f.title.trim()) return setErr("Give the post a title.");
+    if (f.kind === "creative_of_week" && !f.person_name.trim()) return setErr("Creative of the week needs the creative's name.");
     const slug = slugify(f.slug || f.title);
     const body = cleanHtml(isHtml(f.body) ? f.body : legacyToHtml(f.body), imgOk);
     if (body.length > 200000) return setErr("The story is too long. Shorten it a little.");
@@ -143,14 +153,31 @@ function Editor({ post, onClose }) {
           <div className="field"><label>Type</label><div className="seg" role="group">{KINDS.map(([k, l]) => <button key={k} type="button" aria-pressed={f.kind === k} onClick={() => setF({ ...f, kind: k })}>{l}</button>)}</div></div>
           <div className="field"><label htmlFor="sp-t">Title</label><input id="sp-t" className="a-input" value={f.title} onChange={set("title")} maxLength={140} placeholder="Light, gold and a perfume called Evore" /></div>
           <div className="field"><label htmlFor="sp-d">The line under the title</label><input id="sp-d" className="a-input" value={f.dek} onChange={set("dek")} maxLength={300} placeholder="One sentence that makes people want to read" /></div>
-          <div className="sp-two">
-            <div className="field"><label htmlFor="sp-n">Creative's name</label><input id="sp-n" className="a-input" value={f.person_name} onChange={set("person_name")} /></div>
-            <div className="field"><label htmlFor="sp-r">What they do</label><input id="sp-r" className="a-input" list="sp-roles" value={f.person_role} onChange={set("person_role")} /><datalist id="sp-roles">{ROLES.map((r) => <option key={r} value={r} />)}</datalist></div>
-            <div className="field"><label htmlFor="sp-l">Where they're based</label><input id="sp-l" className="a-input" value={f.location} onChange={set("location")} placeholder="Lagos, Nigeria" /></div>
-            <div className="field"><label htmlFor="sp-i">Instagram</label><input id="sp-i" className="a-input" value={f.instagram} onChange={set("instagram")} placeholder="@handle" /></div>
-            <div className="field"><label htmlFor="sp-w">Website</label><input id="sp-w" className="a-input" value={f.website} onChange={set("website")} placeholder="theirsite.com" /></div>
-            <div className="field"><label htmlFor="sp-s">Web address</label><input id="sp-s" className="a-input" value={f.slug} onChange={(e) => { setSlugTouched(true); setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") }); }} /><small className="sub">/spotlight/{slugify(f.slug || f.title)}</small></div>
-          </div>
+          {/* Each type has its own form. Creative of the week is about a person; a featured project is about work and who made it;
+              a story is an article, so it only needs a title, the line under it and the story itself. */}
+          {f.kind === "creative_of_week" && <>
+            <p className="eyebrow" style={{ margin: "6px 0 0" }}>About the creative</p>
+            <div className="sp-two">
+              <div className="field"><label htmlFor="sp-n">Creative's name *</label><input id="sp-n" className="a-input" value={f.person_name} onChange={set("person_name")} placeholder="Amara Okafor" /></div>
+              <div className="field"><label htmlFor="sp-r">What they do</label><input id="sp-r" className="a-input" list="sp-roles" value={f.person_role} onChange={set("person_role")} /><datalist id="sp-roles">{ROLES.map((r) => <option key={r} value={r} />)}</datalist></div>
+              <div className="field"><label htmlFor="sp-l">Where they're based</label><input id="sp-l" className="a-input" value={f.location} onChange={set("location")} placeholder="Lagos, Nigeria" /></div>
+              <div className="field"><label htmlFor="sp-i">Instagram</label><input id="sp-i" className="a-input" value={f.instagram} onChange={set("instagram")} placeholder="@handle" /></div>
+              <div className="field"><label htmlFor="sp-w">Website</label><input id="sp-w" className="a-input" value={f.website} onChange={set("website")} placeholder="theirsite.com" /></div>
+              <SlugField f={f} setF={setF} setSlugTouched={setSlugTouched} />
+            </div>
+          </>}
+          {f.kind === "feature" && <>
+            <p className="eyebrow" style={{ margin: "6px 0 0" }}>Who made it</p>
+            <div className="sp-two">
+              <div className="field"><label htmlFor="sp-n">Creative or studio</label><input id="sp-n" className="a-input" value={f.person_name} onChange={set("person_name")} placeholder="Kwame Mensah" /></div>
+              <div className="field"><label htmlFor="sp-r">What they do</label><input id="sp-r" className="a-input" list="sp-roles" value={f.person_role} onChange={set("person_role")} /><datalist id="sp-roles">{ROLES.map((r) => <option key={r} value={r} />)}</datalist></div>
+              <div className="field"><label htmlFor="sp-l">Where it was shot</label><input id="sp-l" className="a-input" value={f.location} onChange={set("location")} placeholder="Accra, Ghana" /></div>
+              <div className="field"><label htmlFor="sp-i">Instagram</label><input id="sp-i" className="a-input" value={f.instagram} onChange={set("instagram")} placeholder="@handle" /></div>
+              <div className="field"><label htmlFor="sp-w">Website</label><input id="sp-w" className="a-input" value={f.website} onChange={set("website")} placeholder="theirsite.com" /></div>
+              <SlugField f={f} setF={setF} setSlugTouched={setSlugTouched} />
+            </div>
+          </>}
+          {f.kind === "story" && <div className="sp-two"><SlugField f={f} setF={setF} setSlugTouched={setSlugTouched} /></div>}
           <div className="field"><label>Story</label>
             <RichText value={f.body} imgOk={imgOk} onChange={(html) => setF((x) => ({ ...x, body: html }))}
               upload={async (list) => (await upload(list)).map((path) => url(path))} /></div>
@@ -159,7 +186,8 @@ function Editor({ post, onClose }) {
           <div className="card-head"><h2 className="h-m">Cover</h2><button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => coverIn.current?.click()}><Icon name="image" />{f.cover_path ? "Change" : "Add cover"}</button></div>
           <input ref={coverIn} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={setCover} />
           <div className="sp-cover-prev" style={{ backgroundImage: f.cover_path ? `url("${url(f.cover_path)}")` : undefined }}>{!f.cover_path && <span>No cover yet. The first photo you add becomes the cover.</span>}</div>
-          <div className="card-head" style={{ marginTop: 22, flexWrap: "nowrap", alignItems: "flex-start" }}><div style={{ flex: 1, minWidth: 0 }}><h2 className="h-m">Their work <span className="sub">({f.photos.length})</span></h2><small className="sub">Shown as a gallery on the post. Ask the creative first, and credit them.</small></div>
+          {f.kind !== "story" && <>
+          <div className="card-head" style={{ marginTop: 22, flexWrap: "nowrap", alignItems: "flex-start" }}><div style={{ flex: 1, minWidth: 0 }}><h2 className="h-m">{f.kind === "feature" ? "Project photos" : "Their work"} <span className="sub">({f.photos.length})</span></h2><small className="sub">Shown as a gallery on the post. Ask the creative first, and credit them.</small></div>
             <button type="button" className="a-btn a-btn-sm a-btn-gold" onClick={() => files.current?.click()} disabled={!!prog}><Icon name="plus" />Add work</button></div>
           <input ref={files} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={addPhotos} />
           <button type="button" className={`sp-drop ${over ? "over" : ""}`} disabled={!!prog} onClick={() => files.current?.click()}
@@ -182,6 +210,7 @@ function Editor({ post, onClose }) {
               </div>
             </div>
           ))}</div>
+          </>}
           {f.id && <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
             <button type="button" className="a-btn a-btn-sm a-btn-danger" onClick={remove} disabled={!!busy}>{sure ? "Yes, delete this post for good" : "Delete post"}</button>
             {sure && <button type="button" className="a-btn a-btn-sm a-btn-ghost" onClick={() => setSure(false)} style={{ marginLeft: 8 }}>Keep it</button>}

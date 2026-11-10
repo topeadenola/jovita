@@ -45,7 +45,7 @@ export function Card({ p }) {
       </span>
       <span className="sp-meta">
         <b>{p.title}</b>
-        <span>{[p.person_name, tx(p.person_role || ""), p.location].filter(Boolean).join(" · ")}</span>
+        <span>{[p.person_name, tx(p.person_role || ""), p.location].filter(Boolean).join(" · ") || day(p.published_at)}</span>
       </span>
     </Link>
   );
@@ -182,7 +182,7 @@ export function SpotlightPost() {
           <h1>{p.title}</h1>
           {p.dek && <p className="sp-dek">{p.dek}</p>}
           <div className="sp-by">
-            <div><b>{p.person_name}</b><span>{[tx(p.person_role || ""), p.location].filter(Boolean).join(" · ")}</span></div>
+            <div>{p.person_name ? <><b>{p.person_name}</b><span>{[tx(p.person_role || ""), p.location].filter(Boolean).join(" · ")}</span></> : <b>{tx("Jovita team")}</b>}</div>
             <span className="spacer" />
             {p.instagram && <a className="btn btn-secondary btn-sm" href={insta(p.instagram)} target="_blank" rel="noreferrer">Instagram</a>}
             {p.website && <a className="btn btn-secondary btn-sm" href={/^https?:/.test(p.website) ? p.website : `https://${p.website}`} target="_blank" rel="noreferrer">{tx("Website")}</a>}

@@ -22,3 +22,12 @@ revoke execute on function public.block_sender(uuid) from anon, public;
 revoke execute on function public.studio_inbox_name() from anon, public;
 grant execute on function public.block_sender(uuid) to authenticated;
 grant execute on function public.studio_inbox_name() to authenticated;
+
+-- 3. A Spotlight post shows the date it was (last) published: publishing again after unpublishing takes the new date
+create or replace function public.spotlight_stamp() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  if new.published and (new.published_at is null or (tg_op = 'UPDATE' and not old.published)) then new.published_at := now(); end if;
+  return new;
+end $$;
