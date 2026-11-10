@@ -52,12 +52,19 @@ export default function ImportClients({ onClose }) {
   async function read(f) {
     setErr("");
     try {
-      const XLSX = await import("xlsx");
-      // Text files (CSV) are read as UTF-8 so names like Aïcha and Prénom come through intact
+      // Text files (CSV, TSV) are read as UTF-8 so names like Aïcha and Prénom come through intact; Excel files (.xlsx) by sheet
       const isText = /\.(csv|tsv|txt)$/i.test(f.name) || /^text\//.test(f.type);
-      const wb = isText ? XLSX.read((await f.text()).replace(/^\uFEFF/, ""), { type: "string", raw: false }) : XLSX.read(await f.arrayBuffer(), { type: "array", raw: false });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const all = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false, raw: false });
+      if (/\.(xls|ods|numbers)$/i.test(f.name)) throw new Error(tx("Open that file in Excel, Google Sheets or Numbers and save it as .xlsx or CSV, then try again."));
+      let all;
+      if (isText) {
+        const Papa = (await import("papaparse")).default;
+        all = Papa.parse((await f.text()).replace(/^\uFEFF/, ""), { skipEmptyLines: "greedy" }).data;
+      } else {
+        const { readSheet } = await import("read-excel-file/browser");
+        all = await readSheet(f);
+      }
+      const cell = (v) => (v == null ? "" : v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
+      all = all.map((r) => r.map(cell)).filter((r) => r.some((c) => c.trim()));
       const h = all.findIndex((r) => r.filter((c) => String(c).trim()).length >= 2);
       if (h < 0) throw new Error(tx(
         "We couldn't find a header row. The first row should name the columns, like Name, Email, Phone."
@@ -146,11 +153,11 @@ export default function ImportClients({ onClose }) {
             <label className={`drop${drag ? " on" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
               onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) read(f); }}>
-              <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.ods,.numbers" onChange={(e) => e.target.files?.[0] && read(e.target.files[0])} />
+              <input type="file" accept=".csv,.tsv,.txt,.xlsx" onChange={(e) => e.target.files?.[0] && read(e.target.files[0])} />
               <span className="dot d-joy"><Icon name="file" /></span>
               <b>{tx("Drop your file here, or click to choose")}</b>
               <span className="sub" style={{ fontSize: 13 }}>{tx(
-                "CSV, Excel (.xlsx, .xls) or OpenDocument. The first row should be the column names."
+                "CSV or Excel (.xlsx). The first row should be the column names."
               )}</span>
             </label>
             <div className="card" style={{ background: "var(--sunken)", borderColor: "var(--sunken)", fontSize: 14, display: "flex", flexDirection: "column", gap: 6 }}>

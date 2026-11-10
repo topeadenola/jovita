@@ -45,18 +45,20 @@ export function moneyWorkbookRows(data, periodKey, clientName, projectName) {
 }
 
 export async function downloadMoneyWorkbook(data, periodKey, clientName, projectName) {
-  const XLSX = await import("xlsx");
+  const { default: writeExcelFile } = await import("write-excel-file/browser");
   const { range, sheets } = moneyWorkbookRows(data, periodKey, clientName, projectName);
-  const wb = XLSX.utils.book_new();
   const label = tx(PERIODS.find((p) => p[0] === periodKey)?.[1] || "");
-  sheets.forEach(([name, rows], k) => {
+  const val = (v) => (v == null || v === "" ? null : v);
+  const books = sheets.map(([name, rows], k) => {
     const top = k === 0 ? [[data.studio?.name || "Jovita"], [`${label}${periodKey === "all" ? "" : ` (${range[0]} – ${range[1]})`}`], []] : [];
-    const ws = XLSX.utils.aoa_to_sheet([...top, ...rows]);
+    const all = [...top, ...rows];
+    const cols = Math.max(...all.map((r) => r.length));
     const w = rows[0].map((_, c) => Math.min(40, Math.max(10, ...rows.map((r) => String(r[c] ?? "").length + 2))));
-    ws["!cols"] = w.map((wch) => ({ wch }));
-    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+    // Every row padded to the same width; the header row of each table is bold
+    const out = all.map((r, i) => Array.from({ length: cols }, (_, c) => { const v = val(r[c]); return i === top.length && v != null ? { value: v, fontWeight: "bold" } : v; }));
+    return { data: out, sheet: name.slice(0, 31), columns: w.map((width) => ({ width })) };
   });
   const file = `jovita-money-${periodKey === "all" ? "all-time" : range[0] + "-to-" + range[1]}.xlsx`;
-  XLSX.writeFile(wb, file);
+  await writeExcelFile(books).toFile(file);
   return file;
 }
