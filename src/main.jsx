@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ToastProvider } from "./components/ui";
+import { FileReady } from "./lib/saveFile";
 import { LangProvider, initLang } from "./components/Lang";
 import "./styles.css";
 import { applyTheme, getSaved, watchSystem } from "./lib/theme";
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <ToastProvider>
         <LangProvider>
           <App />
+          <FileReady />
         </LangProvider>
       </ToastProvider>
     </BrowserRouter>

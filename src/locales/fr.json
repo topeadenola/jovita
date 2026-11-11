@@ -1748,5 +1748,7 @@
   "Show": "Afficher",
   "CSV or Excel (.xlsx). The first row should be the column names.": "CSV ou Excel (.xlsx). La première ligne doit contenir les noms des colonnes.",
   "Open that file in Excel, Google Sheets or Numbers and save it as .xlsx or CSV, then try again.": "Ouvrez ce fichier dans Excel, Google Sheets ou Numbers, enregistrez-le en .xlsx ou CSV, puis réessayez.",
-  "Jovita team": "L'équipe Jovita"
+  "Jovita team": "L'équipe Jovita",
+  "Your PDF is ready": "Votre PDF est prêt",
+  "Save PDF": "Enregistrer le PDF"
 }

@@ -1,3 +1,4 @@
+import { saveFile } from "./saveFile";
 // Download an invoice or quote as a real PDF (sharp text, not a screenshot), laid out like the preview.
 import { counts } from "./items";
 // Fonts: Figtree for text, Bricolage Grotesque for headings and amounts (it has ₦ and ₵; Figtree doesn't).
@@ -168,6 +169,5 @@ export async function invoicePdf(doc) {
 
   const who = String(doc.client?.name || "").replace(/[^\p{L}\p{N} ]/gu, "").trim().replace(/\s+/g, "-");
   const file = `${quote ? tx("Quote") : tx("Invoice")}-${doc.number}${who ? "-" + who : ""}.pdf`;
-  pdf.save(file);
-  return file;
+  return { file, how: await saveFile(pdf.output("blob"), file, "application/pdf") };
 }
