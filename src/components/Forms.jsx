@@ -5,7 +5,7 @@ import { useData } from "../lib/data";
 import { CURRENCIES, PROJECT_TYPES, SYM, addDays, first, money } from "../lib/format";
 import { CloseBtn, Modal, MoneyInput, useToast } from "./ui";
 import { tx } from "../lib/i18n";
-import { copyItems, counts } from "../lib/items";
+import { copyItems, counts, unpick } from "../lib/items";
 
 function FormModal({ title, onClose, onSubmit, submitLabel, children, wide }) {
   const [err, setErr] = useState("");
@@ -138,7 +138,7 @@ export function InvoiceForm({ pre, kind: startKind = "invoice", onClose, onCreat
     const t = invTemplates.find((x) => x.id === f.template);
     const p = projects.find((x) => x.id === f.project_id);
     const uid = () => Math.random().toString(36).slice(2, 9);
-    const items = t ? copyItems(t.items)
+    const items = t ? (f.kind === "quote" ? unpick(copyItems(t.items)) : copyItems(t.items))
       : p ? [{ id: uid(), name: p.title, description: "", qty: 1, price: Number(p.amount) || 0 }] : [{ id: uid(), name: "", description: "", qty: 1, price: 0 }];
     const total = items.filter(counts).reduce((s2, it) => s2 + Number(it.qty || 0) * Number(it.price || 0), 0);
     const inv = await insert("invoices", {

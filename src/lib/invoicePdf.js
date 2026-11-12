@@ -1,6 +1,6 @@
 import { saveFile } from "./saveFile";
 // Download an invoice or quote as a real PDF (sharp text, not a screenshot), laid out like the preview.
-import { counts } from "./items";
+import { counts, isChoice, isOptional, layout } from "./items";
 // Fonts: Figtree for text, Bricolage Grotesque for headings and amounts (it has ₦ and ₵; Figtree doesn't).
 import { tx } from "./i18n";
 import { fdate, money } from "./format";
@@ -82,18 +82,31 @@ export async function invoicePdf(doc) {
     y += 13;
   };
   head();
-  // Only what counts towards the total (no unpicked options, no pictures)
-  (doc.items || []).filter(counts).forEach((it) => {
+  // Invoices: only what counts towards the total. Quotes: every option, so the client can see what to choose.
+  const rows = quote ? layout(doc.items).lines.filter(({ it }) => it.name || it.description || Number(it.price)) : (doc.items || []).filter(counts).map((it) => ({ it }));
+  rows.forEach(({ it, head: kind }) => {
+    if (kind) {
+      if (y + 16 > H - 22) { pdf.addPage(); y = M; head(); }
+      font("Figtree", "bold", PLUM, 10); pdf.text(kind === "choice" ? tx("Choose one of these options") : tx("Optional extras: add any you like"), M + 4, y + 1);
+      y += 7;
+    }
+    const pick = quote && (isChoice(it) || isOptional(it));
+    const X = pick ? M + 10 : M + 4;
     font("Figtree", "normal", MUTED, 9);
     const desc = it.description ? pdf.splitTextToSize(String(it.description).split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim(), cQty - M - 50) : [];
     font("Figtree", "bold", PLUM, 10.5);
     const name = pdf.splitTextToSize(it.name || tx("Item"), cQty - M - 50);
     const h = name.length * 5 + desc.length * 4.2 + 5;
     if (y + h > H - 22) { pdf.addPage(); y = M; head(); }
-    pdf.text(name, M + 4, y);
+    if (pick) {
+      pdf.setDrawColor(...MUTED); pdf.setLineWidth(0.35);
+      if (isChoice(it)) { pdf.circle(M + 5.6, y - 1.3, 1.9, "S"); if (it.selected) { pdf.setFillColor(...PLUM); pdf.circle(M + 5.6, y - 1.3, 1, "F"); } }
+      else { pdf.rect(M + 3.7, y - 3.2, 3.8, 3.8, "S"); if (it.selected) { pdf.setFillColor(...PLUM); pdf.rect(M + 4.6, y - 2.3, 2, 2, "F"); } }
+    }
+    pdf.text(name, X, y);
     font("Bricolage", "normal", MUTED, 10); pdf.text(`${Number(it.qty) || 0} × ${$(it.price)}`, cQty, y, { align: "right" });
     font("Bricolage", "bold", PLUM, 10.5); pdf.text($((Number(it.qty) || 0) * (Number(it.price) || 0)), cAmt - 4, y, { align: "right" });
-    if (desc.length) { font("Figtree", "normal", MUTED, 9); pdf.text(desc, M + 4, y + name.length * 5); }
+    if (desc.length) { font("Figtree", "normal", MUTED, 9); pdf.text(desc, X, y + name.length * 5); }
     y += h; pdf.setDrawColor(...LINE); pdf.line(M, y - 3, R, y - 3); y += 2;
   });
 

@@ -6,7 +6,7 @@ import { useActions } from "../lib/actions";
 import { useUi } from "../components/Shell";
 import Icon from "../components/Icon";
 import { Avatar, CloseBtn, Empty, Modal, Pill, Toggle, useToast } from "../components/ui";
-import { balanceOf, clientMatches, fdate, invState, money, totalLine, totalsBy } from "../lib/format";
+import { balanceOf, clientMatches, fdate, first, invState, money, totalLine, totalsBy } from "../lib/format";
 import { tx } from "../lib/i18n";
 import { PERIODS, receipts } from "../lib/accounting";
 import { downloadMoneyWorkbook } from "../lib/moneyExport";
@@ -58,7 +58,9 @@ function Invoices() {
               const st = invState(i); const c = client(i.client_id); const p = i.project_id && project(i.project_id);
               return (
                 <tr key={i.id} className="click" onClick={(e) => { if (!e.target.closest("button,a,input,label")) setOpenInvoice(i.id); }}>
-                  <td><button type="button" className="linklike" onClick={() => setOpenInvoice(i.id)}><b className="num">{i.kind === "quote" ? tx("Quote") + " " : ""}#{i.number}</b></button><small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{i.label}</small>{i.payment_reported_at && i.status === "sent" && <small style={{ display: "block", color: "var(--info, #2B54C4)", fontSize: 12, fontWeight: 600 }}>{i.payment_method ? tx("Client paid by {how} · ref {ref}. Check your {how} account, then mark paid.", { how: i.payment_method === "paystack" ? "Paystack" : i.payment_method === "flutterwave" ? "Flutterwave" : i.payment_method === "paypal" ? "PayPal" : i.payment_method, ref: i.payment_reference || "—" }) : tx("Client says they've paid by transfer. Check your bank, then mark paid.")}</small>}</td>
+                  <td><button type="button" className="linklike" onClick={() => setOpenInvoice(i.id)}><b className="num">{i.kind === "quote" ? tx("Quote") + " " : ""}#{i.number}</b></button><small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{i.label}</small>{i.kind === "quote" && i.status === "sent" && i.review_at && <small style={{ display: "block", color: "var(--warning, #9A6200)", fontSize: 12, fontWeight: 600 }}>{tx("{name} asked you to review the pricing: “{note}”", { name: first(client(i.client_id)?.name || ""), note: i.review_note || "" })}</small>}
+                    {i.kind === "quote" && i.status === "cancelled" && i.declined_at && <small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{i.decline_note ? tx("Declined by the client: “{note}”", { note: i.decline_note }) : tx("Declined by the client")}</small>}
+                    {i.payment_reported_at && i.status === "sent" && <small style={{ display: "block", color: "var(--info, #2B54C4)", fontSize: 12, fontWeight: 600 }}>{i.payment_method ? tx("Client paid by {how} · ref {ref}. Check your {how} account, then mark paid.", { how: i.payment_method === "paystack" ? "Paystack" : i.payment_method === "flutterwave" ? "Flutterwave" : i.payment_method === "paypal" ? "PayPal" : i.payment_method, ref: i.payment_reference || "—" }) : tx("Client says they've paid by transfer. Check your bank, then mark paid.")}</small>}</td>
                   <td><div className="who"><Avatar name={c.name} /><div><b>{c.name}</b><small>{p ? p.title : ""}</small></div></div></td>
                   <td><Pill c={st.c}>{st.viewed && <Icon name="eye" />}{tx(st.k)}{st.late ? ` · ${tx("{n}d", { n: st.late })}` : ""}</Pill>{i.viewed_at && i.status === "sent" && <small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{tx("Opened {date}", { date: fdate(i.viewed_at) })}</small>}</td>
                   <td>{i.status === "paid" ? tx("Paid {fdate}", {
@@ -70,7 +72,7 @@ function Invoices() {
                   <td className="right num"><b>{money(i.amount, i.currency)}</b>{Number(i.amount_paid) > 0 && i.status === "sent" && <small style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{tx("{amount} left", { amount: money(balanceOf(i), i.currency) })}</small>}</td>
                   <td className="right" style={{ whiteSpace: "nowrap" }}>
                     {i.status === "draft" && <button className="btn btn-primary btn-sm" onClick={() => sendInvoice(i.id)}><Icon name="send" />{tx("Send")}</button>}
-                    {i.status === "sent" && i.kind === "quote" && <span className="sub" style={{ fontSize: 13 }}>{tx("Waiting for a yes")}</span>}
+                    {i.status === "sent" && i.kind === "quote" && <span className="sub" style={{ fontSize: 13 }}>{i.review_at ? tx("Update the quote and send it again") : tx("Waiting for a yes")}</span>}
                     {i.status === "sent" && i.kind !== "quote" && <>{st.k !== "Sent" && <button className="btn btn-secondary btn-sm" onClick={() => invoiceAction(i, "nudge")}>{tx("Nudge")}</button>}{" "}
                       <button className="btn btn-ghost btn-sm" onClick={() => invoiceAction(i, "markpaid")}><Icon name="check" />{tx("Mark paid")}</button></>}
                     {i.status === "paid" && <span className="sub" style={{ fontSize: 13 }}>{tx("Paid")}</span>}

@@ -11,7 +11,7 @@ import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
 import { PROVIDERS, bankText } from "../lib/payments";
 import { payFlutterwave, payPaystack, renderPayPal } from "../lib/checkout";
-import { applyPicks, counts, hasOptions, isChoice, isOptional, layout, picUrl } from "../lib/items";
+import { applyPicks, counts, hasOptions, isChoice, isOptional, layout, openGroups, picUrl, unpick } from "../lib/items";
 
 // A quote's items. With options, the client picks one from each "Choose one" group and ticks any extras they want.
 function QuoteItems({ q, items, onPick }) {
@@ -94,6 +94,12 @@ export default function Portal() {
   // The client's picks on quotes with options: { [quote id]: [item ids] }, and the total for those picks (worked out by the server)
   const [picks, setPicks] = useState({});
   const [live, setLive] = useState({});
+  const [reply, setReply] = useState(null); // { id, action: "review" | "decline", note, busy }
+  // Nothing is picked for the client: the total starts from what's always included
+  useEffect(() => {
+    (d?.invoices || []).filter((i) => i.kind === "quote" && i.status === "sent" && hasOptions(i.items)).forEach((q) =>
+      supabase.rpc("portal_quote_amount", { p_token: token, p_invoice: q.id, p_picks: [] }).then(({ data }) => { if (data != null) setLive((l) => (q.id in l ? l : { ...l, [q.id]: Number(data) })); }, () => {}));
+  }, [d, token]);
 
   if (d === undefined) return <div className="loading">{tx("Loading…")}</div>;
   if (!d) return <div className="loading"><div className="empty"><b style={{ color: "var(--ink)" }}>{tx("This link isn't working")}</b><p>{tx("Ask your photographer or creative to send you a fresh link.")}</p></div></div>;
@@ -104,7 +110,20 @@ export default function Portal() {
   const open0 = d.invoices.find((i) => i.status === "sent" && i.kind !== "quote");
   // Part paid: what's left is what they pay now
   const open = open0 && Number(open0.amount_paid) > 0 ? { ...open0, total: open0.amount, amount: balanceOf(open0) } : open0;
-  const picksOf = (q) => picks[q.id] || (q.items || []).filter((it) => (isChoice(it) || isOptional(it)) && it.selected).map((it) => it.id);
+  const picksOf = (q) => picks[q.id] || [];
+  const itemsOf = (q) => applyPicks(unpick(q.items), picksOf(q));
+  const sendReply = async (q) => {
+    const note = String(reply.note || "").trim();
+    if (reply.action === "review" && !note) return toast(tx("Tell {name} what you'd like changed.", { name: s.name }));
+    if (reply.action === "decline" && !window.confirm(tx("Decline quote #{number}? {name} will be told.", { number: q.number, name: s.name }))) return;
+    setReply((r) => ({ ...r, busy: true }));
+    const { data: ok, error } = await supabase.rpc("portal_quote_reply", { p_token: token, p_invoice: q.id, p_action: reply.action, p_note: note });
+    if (error || !ok) { setReply((r) => ({ ...r, busy: false })); return toast(error?.message || tx("That didn't work. Please try again.")); }
+    supabase.functions.invoke("send-email", { body: { kind: "quote_reply", token, invoice_id: q.id } }).catch(() => {});
+    toast(reply.action === "decline" ? tx("Quote declined. We've let {name} know.", { name: s.name }) : tx("Sent. {name} will look at the pricing and get back to you.", { name: s.name }), true);
+    setReply(null);
+    await load();
+  };
   const pick = async (q, it, on) => {
     const cur = picksOf(q).filter((id) => !(isChoice(it) && q.items.some((x) => x.id === id && isChoice(x) && x.group === it.group)) && id !== it.id);
     const next = on ? [...cur, it.id] : cur;
@@ -165,12 +184,28 @@ export default function Portal() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           {quotes.map((q) => (
             <section className="card quote-box" key={q.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{tx("Your quote")}</h2><Pill c="p-info">{tx("Waiting for you")}</Pill></div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{tx("Your quote")}</h2>{q.review_at ? <Pill c="p-warning">{tx("Changes asked")}</Pill> : <Pill c="p-info">{tx("Waiting for you")}</Pill>}</div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(live[q.id] ?? q.amount, q.currency)}</span></div>
-              {Array.isArray(q.items) && <QuoteItems q={q} items={picks[q.id] ? applyPicks(q.items, picks[q.id]) : q.items} onPick={(it, on) => pick(q, it, on)} />}
+              {Array.isArray(q.items) && <QuoteItems q={q} items={itemsOf(q)} onPick={(it, on) => pick(q, it, on)} />}
               {q.notes && <p className="sub" style={{ whiteSpace: "pre-line", fontSize: 14 }}>{q.notes}</p>}
-              <p className="sub" style={{ fontSize: 13 }}>{tx("Pick what you'd like, then accept to book your date.")}</p>
-              <button className="btn btn-joy" style={{ alignSelf: "flex-start" }} disabled={accepting} onClick={() => acceptQuote(q)}><Icon name="check" />{accepting ? tx("Booking…") : tx("Accept quote")}</button>
+              {q.review_at && <p className="sub" style={{ fontSize: 13 }}>{tx("You asked {name} to review the pricing. You can still accept this quote, or wait for an updated one.", { name: s.name })}</p>}
+              <p className="sub" style={{ fontSize: 13 }}>{openGroups(itemsOf(q)).length ? tx("Choose a package above to accept.") : tx("Pick what you'd like, then accept to book your date.")}</p>
+              {reply?.id === q.id ? (
+                <div className="stack" style={{ gap: 10 }}>
+                  <div className="field"><label htmlFor={`qr-${q.id}`}>{reply.action === "review" ? tx("What would you like {name} to look at?", { name: s.name }) : tx("Anything you'd like to tell {name}? (optional)", { name: s.name })}</label>
+                    <textarea id={`qr-${q.id}`} rows={3} value={reply.note || ""} onChange={(e) => setReply((r) => ({ ...r, note: e.target.value }))} placeholder={reply.action === "review" ? tx("e.g. Could we do the Navy package with 10 photos instead of 15?") : ""} /></div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button type="button" className={reply.action === "decline" ? "btn btn-secondary" : "btn btn-primary"} style={reply.action === "decline" ? { color: "var(--danger)" } : undefined} disabled={reply.busy} onClick={() => sendReply(q)}>{reply.busy ? tx("Sending…") : reply.action === "review" ? tx("Send to {name}", { name: s.name }) : tx("Decline quote")}</button>
+                    <button type="button" className="btn btn-ghost" onClick={() => setReply(null)}>{tx("Cancel")}</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <button className="btn btn-joy" disabled={accepting || openGroups(itemsOf(q)).length > 0} onClick={() => acceptQuote(q)}><Icon name="check" />{accepting ? tx("Booking…") : tx("Accept quote")}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setReply({ id: q.id, action: "review", note: "" })}>{tx("Review pricing")}</button>
+                  <button type="button" className="btn btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setReply({ id: q.id, action: "decline", note: "" })}>{tx("Decline")}</button>
+                </div>
+              )}
             </section>
           ))}
 

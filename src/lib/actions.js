@@ -84,7 +84,8 @@ export function useActions() {
       }
       if (a === "send") {
         const quote = i.kind === "quote";
-        await update("invoices", i.id, { status: "sent" });
+        // An updated quote clears "changes asked" / "declined"
+        await update("invoices", i.id, { status: "sent", ...(i.review_at || i.declined_at ? { review_at: null, declined_at: null } : {}) });
         if (quote && i.project_id) await update("projects", i.project_id, { amount: Number(i.amount) || 0 }).catch(() => {});
         const r = await sendEmail(quote ? "quote" : "invoice", { invoice_id: i.id, copy_me: opts.copy_me ?? undefined });
         if (r.ok) return toast(quote ? tx("Quote #{number} emailed to {first}", { number: i.number, first: first(client(i.client_id).name) }) : tx("Invoice #{number} emailed to {first}", { number: i.number, first: first(client(i.client_id).name) }), true);

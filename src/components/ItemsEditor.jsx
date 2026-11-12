@@ -5,7 +5,7 @@ import { supabase } from "../supabase";
 import { money, SYM } from "../lib/format";
 import { tx } from "../lib/i18n";
 import { enterBullet, pasteBullets, tidyBullets, toBullets } from "../lib/bullets";
-import { fixChoices, isChoice, isOptional, isPic, picUrl, uid } from "../lib/items";
+import { fixChoices, unpick, isChoice, isOptional, isPic, picUrl, uid } from "../lib/items";
 import { MoneyInput, Pill, useToast } from "./ui";
 import Icon from "./Icon";
 
@@ -49,9 +49,10 @@ function Picture({ it, onChange, onRemove }) {
   );
 }
 
-export default function ItemsEditor({ items, onChange, currency, minItems = 1 }) {
+export default function ItemsEditor({ items, onChange, currency, minItems = 1, quote = false }) {
   const [menu, setMenu] = useState(false);
-  const set = (list) => onChange(fixChoices(list));
+  // On a quote nothing is ticked: the client chooses
+  const set = (list) => onChange(quote ? unpick(list) : fixChoices(list));
   const setItem = (iid, patch) => set(items.map((it) => (it.id === iid ? { ...it, ...patch } : it)));
   const remove = (iid) => set(items.filter((y) => y.id !== iid));
   const move = (iid, dir) => {
@@ -87,13 +88,13 @@ export default function ItemsEditor({ items, onChange, currency, minItems = 1 })
         const lastOfGroup = isChoice(it) && !(isChoice(next) && next.group === it.group);
         return (
           <div key={it.id} className={`inv-item-wrap${isChoice(it) ? " is-choice" : isOptional(it) ? " is-optional" : ""}${firstOfGroup ? " first" : ""}${lastOfGroup ? " last" : ""}`}>
-            {firstOfGroup && <div className="inv-kind"><Pill c="p-info">{tx("Client's choice")}</Pill><span className="sub">{tx("Your client picks one. The one you tick is picked to start with.")}</span></div>}
+            {firstOfGroup && <div className="inv-kind"><Pill c="p-info">{tx("Client's choice")}</Pill><span className="sub">{quote ? tx("Your client picks one on their page.") : tx("Your client picks one. The one you tick is picked to start with.")}</span></div>}
             {isOptional(it) && <div className="inv-kind"><Pill c="p-warning">{tx("Optional extra")}</Pill><span className="sub">{tx("Your client can tick it to add it.")}</span></div>}
             <div className="inv-item">
               <div className="inv-item-main">
                 <div className="inv-name-row">
-                  {isChoice(it) && <input type="radio" name={`pick-${it.group}`} checked={!!it.selected} onChange={() => set(items.map((x) => (isChoice(x) && x.group === it.group ? { ...x, selected: x.id === it.id } : x)))} aria-label={tx("Picked to start with")} title={tx("Picked to start with")} />}
-                  {isOptional(it) && <input type="checkbox" checked={!!it.selected} onChange={(e) => setItem(it.id, { selected: e.target.checked })} aria-label={tx("Included to start with")} title={tx("Included to start with")} />}
+                  {!quote && isChoice(it) && <input type="radio" name={`pick-${it.group}`} checked={!!it.selected} onChange={() => set(items.map((x) => (isChoice(x) && x.group === it.group ? { ...x, selected: x.id === it.id } : x)))} aria-label={tx("Picked to start with")} title={tx("Picked to start with")} />}
+                  {!quote && isOptional(it) && <input type="checkbox" checked={!!it.selected} onChange={(e) => setItem(it.id, { selected: e.target.checked })} aria-label={tx("Included to start with")} title={tx("Included to start with")} />}
                   <input className="inv-name" value={it.name} onChange={(e) => setItem(it.id, { name: e.target.value })} placeholder={isChoice(it) ? tx("Option, e.g. Gold package") : isOptional(it) ? tx("Extra, e.g. Second photobook") : tx("Heading, e.g. Amber Portrait Package")} aria-label={tx("Item name")}
                     onPaste={(e) => {
                       // A pasted list goes into the description, one "- " line per item

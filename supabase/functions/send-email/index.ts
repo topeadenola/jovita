@@ -12,6 +12,8 @@
 //   POST { kind: "quote", invoice_id }                               → the quote to the client
 //   POST { kind: "quote_accepted", token, invoice_id }               → from the client page (no login): emails the new invoice
 //                                                                      to the client and tells the studio. Only once per quote.
+//   POST { kind: "quote_reply", token, invoice_id }                  → from the client page: tells the studio the client asked for a
+//                                                                      pricing review or declined. Once per reply.
 //   POST { kind: "message", client_id, body, subject? }               → a reply written in the Jovita Inbox, emailed to the client
 //   Any client email: add copy_me: true (or turn on "Send me a copy" in Settings) to get a copy (BCC).
 //
@@ -205,6 +207,58 @@ async function quoteAccepted(token: string, invoiceId: string) {
   return { ok: true, sent };
 }
 
+// A quote with packages to choose from: "from <cheapest>" (what's always included plus the cheapest option in each group)
+function quoteFrom(inv: any): string | null {
+  const items = Array.isArray(inv.items) ? inv.items : [];
+  if (!items.some((it: any) => it?.type === "choice" || it?.type === "optional")) return null;
+  const line = (it: any) => (Number(it.qty) || 0) * (Number(it.price) || 0);
+  let total = items.filter((it: any) => !it?.type || it.type === "standard").reduce((s: number, it: any) => s + line(it), 0);
+  const groups: Record<string, number> = {};
+  items.filter((it: any) => it?.type === "choice").forEach((it: any) => { const g = String(it.group); groups[g] = Math.min(groups[g] ?? Infinity, line(it)); });
+  Object.values(groups).forEach((v) => { total += v; });
+  return `from ${money(total, inv.currency)}`;
+}
+
+const esc = (s: string) => String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+
+// The client asked you to review the pricing on a quote, or declined it, on their page. Tells the studio (once per reply).
+// Trusts only the page token, and only a reply made in the last 10 minutes.
+async function quoteReply(token: string, invoiceId: string) {
+  const ok = /^[0-9a-f-]{36}$/i;
+  if (!ok.test(token) || !ok.test(invoiceId)) return { error: "Bad request." };
+  const key = env("SUPABASE_SERVICE_ROLE_KEY"), base = env("SUPABASE_URL");
+  const h = { Authorization: `Bearer ${key}`, apikey: key, Accept: "application/json", "Content-Type": "application/json" };
+  const get = async (path: string) => { const r = await fetch(`${base}/rest/v1/${path}`, { headers: h }); return r.ok ? await r.json() : []; };
+  const [p] = await get(`projects?portal_token=eq.${token}&select=id,studio_id,client_id,title`);
+  if (!p) return { error: "Not found." };
+  const since = new Date(Date.now() - 10 * 60e3).toISOString();
+  const claim = await fetch(`${base}/rest/v1/invoices?id=eq.${invoiceId}&project_id=eq.${p.id}&kind=eq.quote&reply_emailed_at=is.null&or=(review_at.gt.${since},declined_at.gt.${since})`, {
+    method: "PATCH", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify({ reply_emailed_at: new Date().toISOString() }),
+  });
+  const [inv] = claim.ok ? await claim.json() : [];
+  if (!inv) return { ok: true, skipped: true };
+  const [c] = await get(`clients?id=eq.${p.client_id}&select=name`);
+  const [studio] = await get(`studios?id=eq.${p.studio_id}&select=owner_id,owner_first_name,suspended`);
+  if (!studio || studio.suspended) return { ok: true, skipped: true };
+  const ur = await fetch(`${base}/auth/v1/admin/users/${studio.owner_id}`, { headers: h });
+  const owner = ur.ok ? await ur.json() : null;
+  if (!owner?.email) return { ok: true, skipped: "no email" };
+  const declined = inv.status === "cancelled";
+  const who = c?.name || "Your client";
+  const note = declined ? inv.decline_note : inv.review_note;
+  const subject = declined ? `${who} declined quote #${inv.number}` : `${who} asked you to review the pricing on quote #${inv.number}`;
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#261433;max-width:520px;margin:0 auto;padding:24px;line-height:1.5">
+<p style="font-size:16px">Hi ${esc(firstName(studio.owner_first_name))},</p>
+<p style="font-size:16px"><b>${esc(who)}</b> ${declined ? "declined" : "asked you to review the pricing on"} quote #${esc(String(inv.number))}${p.title ? ` for ${esc(p.title)}` : ""}.</p>
+${note ? `<p style="font-size:15px;background:#F3EDFB;border-radius:12px;padding:14px 16px;white-space:pre-line">“${esc(note)}”</p>` : ""}
+<p style="font-size:15px">${declined ? "If you'd like to try again, open the quote, change it and send it again." : "Open the quote, update it and press Send. They'll get the new version right away."}</p>
+<p><a href="${APP_URL}/money" style="display:inline-block;background:#261433;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:999px">Open the quote</a></p>
+<p style="font-size:13px;color:#5E5069">Jovita</p></div>`;
+  await brevo({ subject, html }, { email: owner.email, name: studio.owner_first_name || undefined }, {});
+  await fetch(`${base}/rest/v1/events`, { method: "POST", headers: h, body: JSON.stringify({ studio_id: p.studio_id, kind: declined ? "quote_declined" : "quote_review", meta: { invoice_id: inv.id } }) }).catch(() => {});
+  return { ok: true };
+}
+
 // Someone sent back their picks from a shared selection: email the client who shared it (once per send).
 // Trusts only the share link token and a send made in the last 10 minutes.
 async function picksReturned(token: string, guest: string) {
@@ -267,6 +321,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     if (body.kind === "quote_accepted") return json(await quoteAccepted(String(body.token || ""), String(body.invoice_id || "")));
+    if (body.kind === "quote_reply") return json(await quoteReply(String(body.token || ""), String(body.invoice_id || "")));
     if (body.kind === "picks_returned") return json(await picksReturned(String(body.token || ""), String(body.guest || "")));
 
     const auth = req.headers.get("Authorization") || "";
@@ -302,7 +357,7 @@ Deno.serve(async (req) => {
       const daysLeft = due ? Math.round((due.getTime() - Date.now()) / 864e5) : null;
       const due_text = daysLeft == null ? "due soon" : daysLeft > 1 ? `due in ${daysLeft} days` : daysLeft === 1 ? "due tomorrow" : daysLeft === 0 ? "due today" : `${-daysLeft} day${daysLeft === -1 ? "" : "s"} overdue`;
       const params = {
-        ...studioParams, client_first_name: firstName(c.name), invoice_number: inv.number, amount: money(inv.amount, inv.currency),
+        ...studioParams, client_first_name: firstName(c.name), invoice_number: inv.number, amount: (kind === "quote" && quoteFrom(inv)) || money(inv.amount, inv.currency),
         due_date: day(inv.due_date) || "on receipt", due_text, project_name: p?.title || inv.label || "Your session", link,
         paid_at: day(inv.paid_at || new Date().toISOString()), method: inv.payment_method || "—",
         balance: money(inv.status === "paid" ? 0 : Math.max(0, Number(inv.amount) - Number(inv.amount_paid || 0)), inv.currency),

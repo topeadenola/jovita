@@ -39,6 +39,11 @@ export function fixChoices(items) {
   });
 }
 
+// Quotes: nothing is picked for the client. They choose the option and any extras on their page.
+export const unpick = (items) => (items || []).map((it) => (isChoice(it) || isOptional(it)) && it.selected ? { ...it, selected: false } : it);
+// Choice groups with no pick yet (a quote can't be accepted until each has one)
+export const openGroups = (items) => { const g = {}; (items || []).forEach((it) => { if (isChoice(it)) g[it.group] = g[it.group] || !!it.selected; }); return Object.keys(g).filter((k) => !g[k]); };
+
 // The client's picks applied to a quote's items (ids of the chosen choice and ticked extras)
 export function applyPicks(items, picks) {
   const set = new Set(picks);

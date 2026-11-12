@@ -63,6 +63,7 @@ export function invState(i) {
   if (i.status === "paid") return { k: "Paid", c: "p-success" };
   if (i.status === "draft") return { k: quote ? "Draft quote" : "Draft", c: "p-neutral" };
   if (i.status === "cancelled") return { k: quote ? "Declined" : "Cancelled", c: "p-neutral" };
+  if (quote && i.review_at) return { k: "Changes asked", c: "p-warning" };
   if (quote) return i.viewed_at ? { k: "Quote viewed", c: "p-info", viewed: true } : { k: "Quote sent", c: "p-info" };
   if (i.payment_reported_at) return { k: "Check payment", c: "p-info" };
   const n = daysFrom(i.due_date);

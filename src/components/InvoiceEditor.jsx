@@ -16,7 +16,7 @@ import ClientPicker from "./ClientPicker";
 import { studioBase } from "../lib/links";
 import { invoicePdf } from "../lib/invoicePdf";
 import ItemsEditor from "./ItemsEditor";
-import { copyItems, counts, isChoice, isOptional, keepItem, layout, picUrl } from "../lib/items";
+import { copyItems, counts, isChoice, isOptional, hasOptions, keepItem, layout, picUrl, unpick } from "../lib/items";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -39,7 +39,7 @@ function toDraft(i) {
   const items = Array.isArray(i.items) && i.items.length ? i.items : [{ id: uid(), name: i.label || "", description: "", qty: 1, price: Number(i.amount) || 0 }];
   return {
     client_id: i.client_id, project_id: i.project_id || "", label: i.label || "", currency: i.currency, due_date: i.due_date,
-    items: items.map((it) => keepItem(it)),
+    items: i.kind === "quote" && i.status !== "cancelled" ? unpick(items.map((it) => keepItem(it))) : items.map((it) => keepItem(it)),
     notes: i.notes || "", discount: i.discount || 0, discount_type: i.discount_type || "amount", tax_rate: i.tax_rate || 0,
     schedule: Array.isArray(i.schedule) ? i.schedule : [], methods: Array.isArray(i.methods) ? i.methods : ["transfer"],
     people: Array.isArray(i.people) ? i.people : [],
@@ -72,6 +72,7 @@ function Preview({ d, t, inv }) {
         {t.discount > 0 && <tr><td colSpan={2} className="right">{tx("Discount")}</td><td className="right">− {money(t.discount, d.currency)}</td></tr>}
         {t.tax > 0 && <tr><td colSpan={2} className="right">{tx("Tax ({rate}%)", { rate: d.tax_rate })}</td><td className="right">{money(t.tax, d.currency)}</td></tr>}
         <tr><td colSpan={2} className="right"><b>{tx("Total")}</b></td><td className="right"><b style={{ fontSize: 18 }}>{money(t.total, d.currency)}</b></td></tr>
+        {inv.kind === "quote" && hasOptions(d.items) && <tr><td colSpan={3} className="right sub" style={{ fontSize: 12 }}>{tx("The total updates as {name} picks.", { name: first(c.name) })}</td></tr>}
         {Number(inv.amount_paid) > 0 && <>
           <tr><td colSpan={2} className="right">{tx("Paid so far")}</td><td className="right">− {money(inv.amount_paid, d.currency)}</td></tr>
           <tr><td colSpan={2} className="right"><b>{tx("Balance due")}</b></td><td className="right"><b>{money(Math.max(0, t.total - Number(inv.amount_paid)), d.currency)}</b></td></tr></>}
@@ -182,7 +183,8 @@ function SendDialog({ inv, d, total, quote, copyMe, setCopyMe, onSend, onClose }
     <Modal label={quote ? tx("Send quote") : tx("Send invoice")} onClose={onClose}>
       <form className="stack" onSubmit={go}>
         <h2 className="h-m">{inv.status === "sent" ? (quote ? tx("Send updated quote") : tx("Send updated invoice")) : quote ? tx("Send quote") : tx("Send invoice")}</h2>
-        <p className="sub" style={{ fontSize: 13 }}>{tx(all.length > 1 ? "{name} each get an email with a link to {what}: {total}." : "{name} gets an email with a link to {what}: {total}.", { name: all.join(" & "), what: quote ? tx("the quote") : tx("the invoice"), total: money(total, d.currency) })}</p>
+        <p className="sub" style={{ fontSize: 13 }}>{quote && hasOptions(d.items) ? tx(all.length > 1 ? "{name} each get an email with a link to the quote. {main} picks a package, then accepts, asks you to review the pricing, or declines." : "{name} gets an email with a link to the quote. They pick a package, then accept, ask you to review the pricing, or decline.", { name: all.join(" & "), main: first(c.name) })
+          : tx(all.length > 1 ? "{name} each get an email with a link to {what}: {total}." : "{name} gets an email with a link to {what}: {total}.", { name: all.join(" & "), what: quote ? tx("the quote") : tx("the invoice"), total: money(total, d.currency) })}</p>
         {signed ? <p className="sub" style={{ fontSize: 13 }}><Icon name="check" /> {tx("{name} has already signed the contract for this job.", { name: first(c.name) })}</p> : contracts.length ? (
           <>
             <label className="check"><input type="checkbox" checked={add} onChange={(e) => setAdd(e.target.checked)} />{tx("Add a contract for {name} to sign", { name: first(c.name) })}</label>
@@ -234,7 +236,7 @@ export default function InvoiceEditor({ id, onClose, startSend = false }) {
   const set = (k, v) => setD((x) => ({ ...x, [k]: v }));
   const addPackage = (tid) => {
     const p = packages.find((x) => x.id === tid); if (!p) return;
-    setD((x) => ({ ...x, items: [...x.items.filter((it) => it.name || n(it.price)), ...copyItems(p.items)] }));
+    setD((x) => ({ ...x, items: [...x.items.filter((it) => it.name || n(it.price)), ...(quote ? unpick(copyItems(p.items)) : copyItems(p.items))] }));
     toast(tx("Added {name}", { name: p.name }));
   };
   const rows = d.schedule.length ? schedRows(d, t) : [];
@@ -358,7 +360,7 @@ export default function InvoiceEditor({ id, onClose, startSend = false }) {
                 <div className="set-head"><h2 className="h-m">{tx("Items")}</h2>
                   {packages.length > 0 && <select className="inv-pkg" value="" onChange={(e) => addPackage(e.target.value)} aria-label={tx("Add from a package")}><option value="">{tx("+ Add from a package")}</option>{packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}</div>
                 <div className="inv-items-head" aria-hidden="true"><span>{tx("Item")}</span><span>{tx("Qty")}</span><span>{tx("Price")}</span><span className="right">{tx("Amount")}</span></div>
-                <ItemsEditor items={d.items} onChange={(items) => setD((x) => ({ ...x, items }))} currency={d.currency} />
+                <ItemsEditor items={d.items} onChange={(items) => setD((x) => ({ ...x, items }))} currency={d.currency} quote={quote} />
                 <div className="inv-totals">
                   <div><span>{tx("Subtotal")}</span><b className="num">{money(t.subtotal, d.currency)}</b></div>
                   <div><span>{tx("Discount")}</span>
