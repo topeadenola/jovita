@@ -74,6 +74,11 @@ export default function Shell({ children }) {
   const hideNews = (id) => { setNews((l) => l.filter((a) => a.id !== id)); try { const h = JSON.parse(localStorage.getItem("jovita-news-hidden") || "[]"); localStorage.setItem("jovita-news-hidden", JSON.stringify([...h, id])); } catch { /* ignore */ } };
   const loc = useLocation();
   const nav = useNavigate();
+  // Square corners across the signed-in app (see square.css); client pages and HQ keep their own look
+  useEffect(() => {
+    document.documentElement.classList.add("jv-square");
+    return () => document.documentElement.classList.remove("jv-square");
+  }, []);
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   useEffect(() => {

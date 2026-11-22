@@ -6,6 +6,7 @@ import { ToastProvider } from "./components/ui";
 import { FileReady } from "./lib/saveFile";
 import { LangProvider, initLang } from "./components/Lang";
 import "./styles.css";
+import "./square.css";
 import { applyTheme, getSaved, watchSystem } from "./lib/theme";
 
 // Jovita HQ lives at /admin/

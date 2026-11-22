@@ -1,0 +1,231 @@
+/* Square corners across the signed-in app (Nov 2026).
+   Shell.jsx puts .jv-square on <html> while a studio is signed in, so client pages
+   and Jovita HQ keep their own look. True circles (50% radius, equal width and height,
+   and toggle switches) stay round. Generated from styles.css by squaring every other
+   border-radius; when you add a new rounded style to styles.css, add its square
+   version here too (or give it border-radius:0 inside .jv-square). */
+:root.jv-square{--r-sm:0;--r-md:0;--r-lg:0;--r-xl:0}
+.jv-square .nav a,.jv-square .nav button{border-radius:0}
+.jv-square .nav .badge{border-radius:0}
+.jv-square .side-foot button{border-radius:0}
+.jv-square .search{border-radius:0}
+.jv-square .sample{border-radius:0}
+.jv-square .menu{border-radius:0}
+.jv-square .menu button{border-radius:0}
+.jv-square .btn{border-radius:0}
+.jv-square .btn-sm{border-radius:0}
+.jv-square .pill{border-radius:0}
+.jv-square .card{border-radius:0}
+.jv-square .dot{border-radius:0}
+.jv-square .seg{border-radius:0}
+.jv-square .seg button{border-radius:0}
+.jv-square .tablewrap{border-radius:0}
+.jv-square .col{border-radius:0}
+.jv-square .pcard{border-radius:0}
+.jv-square .galcard{border-radius:0}
+.jv-square .inbox{border-radius:0}
+.jv-square .chan{border-radius:0}
+.jv-square .msg{border-radius:0}
+.jv-square .reply input,.jv-square .reply textarea{border-radius:0}
+.jv-square .field input,.jv-square .field select,.jv-square .field textarea{border-radius:0}
+.jv-square .modal{border-radius:0}
+.jv-square .linkbox{border-radius:0}
+.jv-square .toast{border-radius:0}
+.jv-square .studio-mark{border-radius:0}
+.jv-square .pay-opt{border-radius:0}
+.jv-square .contract-text{border-radius:0}
+.jv-square .tpl-list{border-radius:0}
+.jv-square .tpl-item{border-radius:0}
+.jv-square .chip{border-radius:0}
+.jv-square .doc{border-radius:0}
+.jv-square .items-row input{border-radius:0}
+.jv-square .legend i,.jv-square .tip i{border-radius:0}
+.jv-square .tip{border-radius:0}
+.jv-square .catbar{border-radius:0}
+.jv-square .catbar i{border-radius:0}
+.jv-square .gmark{border-radius:0}
+.jv-square .clash{border-radius:0}
+.jv-square .drop{border-radius:0}
+.jv-square .langswitch{border-radius:0}
+.jv-square .mode-btn{border-radius:0}
+.jv-square .need{border-radius:0}
+.jv-square .ask-pill{border-radius:0}
+.jv-square .bub.me{border-radius:0}
+.jv-square .bub.jo{border-radius:0}
+.jv-square .ask-acts .btn{border-radius:0}
+.jv-square .ask-chips button{border-radius:0}
+.jv-square .ask-input{border-radius:0}
+.jv-square .ask-input button{border-radius:0}
+.jv-square .paid{border-radius:0}
+.jv-square .confetti{border-radius:0}
+.jv-square .onb-steps i{border-radius:0}
+.jv-square .career{border-radius:0}
+.jv-square .sample-nudge{border-radius:0}
+.jv-square .set-nav{border-radius:0}
+.jv-square .set-nav button{border-radius:0}
+.jv-square .sheet{border-radius:0}
+.jv-square .inv-sec{border-radius:0}
+.jv-square .inv-pkg{border-radius:0}
+.jv-square .inv-item{border-radius:0}
+.jv-square .inv-item-main{border-radius:0}
+.jv-square .inv-num,.jv-square .inv-price input,.jv-square .inv-inline input{border-radius:0}
+.jv-square .inv-tools button{border-radius:0}
+.jv-square .inv-inline select{border-radius:0}
+.jv-square .inv-notes{border-radius:0}
+.jv-square .inv-sched-row{border-radius:0}
+.jv-square .inv-sched-row input[type=date]{border-radius:0}
+.jv-square .chips .check{border-radius:0}
+.jv-square .ge-set{border-radius:0}
+.jv-square .ge-mini{border-radius:0}
+.jv-square .ge-subbtn{border-radius:0}
+.jv-square .ge-on{border-radius:0}
+.jv-square .ge-status{border-radius:0}
+.jv-square .ge-drop{border-radius:0}
+.jv-square .ge-photo{border-radius:0}
+.jv-square .ge-badge{border-radius:0}
+.jv-square .ge-more{border-radius:0}
+.jv-square .ge-menu{border-radius:0}
+.jv-square .ge-menu>*{border-radius:0}
+.jv-square .ge-selbar{border-radius:0}
+.jv-square .ge-selbar button,.jv-square .ge-selbar select{border-radius:0}
+.jv-square .raw-tile{border-radius:0}
+.jv-square .ge-lb-bar{border-radius:0}
+.jv-square .ge-lb-bar .btn{border-radius:0}
+.jv-square .ge-progress{border-radius:0}
+.jv-square .ge-tile-art{border-radius:0}
+.jv-square .ga i{border-radius:0}
+.jv-square .ge-slug{border-radius:0}
+.jv-square .ge-activity{border-radius:0}
+.jv-square .ge-devices{border-radius:0}
+.jv-square .ge-devices button{border-radius:0}
+.jv-square .gp{border-radius:0}
+.jv-square .gp-btn{border-radius:0}
+.jv-square .logo-up{border-radius:0}
+.jv-square .logo-preview{border-radius:0}
+.jv-square .ge-note{border-radius:0}
+.jv-square .invite-list{border-radius:0}
+.jv-square .cg-sets button{border-radius:0}
+.jv-square .ask-end-dlg{border-radius:0}
+.jv-square .ch{border-radius:0}
+.jv-square .ch-filter button{border-radius:0}
+.jv-square .reply-via select{border-radius:0}
+.jv-square .conn{border-radius:0}
+.jv-square .conn-note{border-radius:0}
+.jv-square .pay-logo{border-radius:0}
+.jv-square .news{border-radius:0}
+.jv-square .rem{border-radius:0}
+.jv-square .rem-ic{border-radius:0}
+.jv-square .rem-x{border-radius:0}
+.jv-square .rem-more{border-radius:0}
+.jv-square .plan-badge{border-radius:0}
+.jv-square .tab-up{border-radius:0}
+.jv-square .plan-card{border-radius:0}
+.jv-square .plan-now{border-radius:0}
+.jv-square .plan-use .meter{border-radius:0}
+.jv-square .plan-use .meter i{border-radius:0}
+.jv-square .pc-offer{border-radius:0}
+.jv-square .sp-brand span{border-radius:0}
+.jv-square .sp-week{border-radius:0}
+.jv-square .sp-img{border-radius:0}
+.jv-square .sp-cover{border-radius:0}
+.jv-square .sp-photos button{border-radius:0}
+.jv-square .side-link{border-radius:0}
+.jv-square .cg-lock-card{border-radius:0}
+.jv-square .cg-lock-field{border-radius:0}
+.jv-square .pw-eye{border-radius:0}
+.jv-square .jm-list li{border-radius:0}
+.jv-square .quote-box{border-radius:0}
+.jv-square .cycle-switch{border-radius:0}
+.jv-square .cycle-switch button{border-radius:0}
+.jv-square .cycle-switch .save{border-radius:0}
+.jv-square .ge-marks>span{border-radius:0}
+.jv-square .ge-pick-names{border-radius:0}
+.jv-square .lb-notes{border-radius:0}
+.jv-square .lb-note{border-radius:0}
+.jv-square .lb-note.me{border-radius:0}
+.jv-square .lb-reply input{border-radius:0}
+.jv-square .gp-notecount{border-radius:0}
+.jv-square .cg-tools button{border-radius:0}
+.jv-square .cg-shared{border-radius:0}
+.jv-square .cg-share-link input{border-radius:0}
+.jv-square .cg-lb-tools{border-radius:0}
+.jv-square .lb-notes .x{border-radius:0}
+.jv-square .inbox-addr{border-radius:0}
+.jv-square .gp-rows .gp-item .gp-cap{border-radius:0}
+.jv-square .ge-up-bar{border-radius:0}
+.jv-square .ge-up-pct{border-radius:0}
+.jv-square .ge-danger{border-radius:0}
+.jv-square .gs-chip{border-radius:0}
+.jv-square .gs-pick{border-radius:0}
+.jv-square .gs-res{border-radius:0}
+.jv-square .sheet-title input.ge-title-edit{border-radius:0}
+.jv-square .ng-new{border-radius:0}
+.jv-square .inv-sec .icon-btn{border-radius:0}
+.jv-square .cal-arrow{border-radius:0}
+.jv-square .cal-arrow.sm{border-radius:0}
+.jv-square .cal-chip{border-radius:0}
+.jv-square .cal-ev{border-radius:0}
+.jv-square .cal-add{border-radius:0}
+.jv-square .cal-block{border-radius:0}
+.jv-square .cal-list-item{border-radius:0}
+.jv-square .cal-tag{border-radius:0}
+.jv-square .cal-up{border-radius:0}
+.jv-square .cal-up-date{border-radius:0}
+.jv-square .cal-ym{border-radius:0}
+.jv-square .cal-ym-grid button{border-radius:0}
+.jv-square .pro-tag{border-radius:0}
+.jv-square .inbox-edit{border-radius:0}
+.jv-square .conn-pill{border-radius:0}
+.jv-square .ge-pick-faces > *{border-radius:0}
+.jv-square .ge-pick-ph img,.jv-square .ge-pick-ph .raw-tile,.jv-square .ge-pick-ph .thumb-vid{border-radius:0}
+.jv-square .ge-pick-note{border-radius:0}
+.jv-square .twostep-qr{border-radius:0}
+.jv-square .twostep-key{border-radius:0}
+.jv-square .pcf-total{border-radius:0}
+.jv-square .plan-next{border-radius:0}
+.jv-square .addon-list li{border-radius:0}
+.jv-square .cg-name-ideas button{border-radius:0}
+.jv-square .cg-reply{border-radius:0}
+.jv-square .cg-sendbar{border-radius:0}
+@media (max-width:760px){.jv-square .cg-sendbar{border-radius:0}}
+.jv-square .page-tabs{border-radius:0}
+.jv-square .page-tabs button{border-radius:0}
+.jv-square .page-tabs .tab-count{border-radius:0}
+.jv-square .owed-link{border-radius:0}
+.jv-square .sub-logo{border-radius:0}
+.jv-square .site-card{border-radius:0}
+.jv-square .dns-steps{border-radius:0}
+.jv-square .cpick-list{border-radius:0}
+.jv-square .cpick-list button{border-radius:0}
+.jv-square .iv-bank{border-radius:0}
+.jv-square .mail-preview{border-radius:0}
+.jv-square .gm-preview{border-radius:0}
+.jv-square .gm-card{border-radius:0}
+.jv-square .gm-secret{border-radius:0}
+.jv-square .gm-btn{border-radius:0}
+.jv-square .ss-speed{border-radius:0}
+.jv-square .ss-speed button{border-radius:0}
+.jv-square .month-note-top .x{border-radius:0}
+.jv-square .month-note-bar{border-radius:0}
+.jv-square .month-note-bar span{border-radius:0}
+.jv-square .inv-item-wrap.is-choice.first{border-radius:0}
+.jv-square .inv-item-wrap.is-choice.last{border-radius:0}
+.jv-square .inv-item-wrap.is-optional{border-radius:0}
+.jv-square .inv-mi{border-radius:0}
+.jv-square .inv-pic{border-radius:0}
+.jv-square .inv-pic img{border-radius:0}
+.jv-square .inv-pic-empty{border-radius:0}
+.jv-square .doc-pic{border-radius:0}
+.jv-square .portal-pic{border-radius:0}
+.jv-square .portal-items li.pick label{border-radius:0}
+.jv-square .cpick-list .cpick-add{border-radius:0}
+.jv-square .ge-retry{border-radius:0}
+.jv-square .wm-preview{border-radius:0}
+.jv-square .wm-pos button{border-radius:0}
+.jv-square .sp-tag{border-radius:0}
+.jv-square .sp-body .sp-table{border-radius:0}
+.jv-square .sp-body figure img{border-radius:0}
+.jv-square .sp-body .sp-strip img{border-radius:0}
+.jv-square .side-store{border-radius:0}
+.jv-square .sst-meter{border-radius:0}
+.jv-square .sst-meter i{border-radius:0}
