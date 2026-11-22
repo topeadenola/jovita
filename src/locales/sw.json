@@ -1775,5 +1775,8 @@
   "Declined by the client: “{note}”": "Imekataliwa na mteja: “{note}”",
   "Declined by the client": "Imekataliwa na mteja",
   "Choose one of these options": "Chagua moja ya chaguo hizi",
-  "Optional extras: add any you like": "Ziada za hiari: ongeza unazotaka"
+  "Optional extras: add any you like": "Ziada za hiari: ongeza unazotaka",
+  "Storage": "Hifadhi",
+  "{used} of {limit}": "{used} kati ya {limit}",
+  "Gallery storage": "Hifadhi ya matunzio"
 }

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useData } from "../lib/data";
 import { PLANS, TRIAL_DAYS, YEARLY_OFF, STORAGE_ADDON, buyStorage, changePlan, daysLeft, loadPrices, offerPrice, openBilling, rank, requestUpgrade, startCheckout, startTrial, stopStorage, undoChange, waitForPaidPlan, waitForPlan, yearlyPrice } from "../lib/plan";
@@ -291,6 +292,30 @@ export function PlanTab({ plan, onPlan }) {
 }
 
 const gbText = (b) => { const g = Number(b) / 1024 ** 3; return g >= 1000 ? `${(g / 1024).toFixed(g % 1024 ? 1 : 0)} TB` : g >= 1 ? `${Math.round(g)} GB` : `${Math.round(Number(b) / 1024 ** 2)} MB`; };
+
+// Sidebar: gallery storage at a glance. Opens Settings › Plan.
+const sizeText = (b) => {
+  const n = Number(b) || 0, g = n / 1024 ** 3;
+  if (g >= 1000) return `${(g / 1024).toFixed(1).replace(/\.0$/, "")} TB`;
+  if (g >= 10) return `${Math.round(g)} GB`;
+  if (g >= 1) return `${g.toFixed(1).replace(/\.0$/, "")} GB`;
+  return `${Math.round(n / 1024 ** 2)} MB`;
+};
+export function SideStorage({ plan, refresh }) {
+  const [q, setQ] = useState(null);
+  useEffect(() => { supabase.rpc("storage_quota").then(({ data }) => data && setQ(data)).catch(() => {}); }, [plan?.plan, plan?.status, refresh]);
+  if (!q) return null;
+  const used = Number(q.used) || 0, limit = Number(q.limit) || 0;
+  const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const level = pct >= 90 ? "is-full" : pct >= 80 ? "is-high" : "";
+  return (
+    <Link to="/settings?tab=plan" className={`side-store ${level}`} title={tx("Gallery storage")}>
+      <span className="sst-top"><Icon name="drive" /><b>{tx("Storage")}</b><span className="sst-pct num">{pct}%</span></span>
+      <span className="sst-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={tx("Gallery storage")}><i style={{ width: Math.max(pct, used ? 2 : 0) + "%" }} /></span>
+      <span className="sst-sub num">{tx("{used} of {limit}", { used: sizeText(used), limit: sizeText(limit) })}</span>
+    </Link>
+  );
+}
 
 // Settings › Plan: how much gallery space is used, and extra storage (250 GB for $5 a month)
 export function StorageCard({ plan }) {

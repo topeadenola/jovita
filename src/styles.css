@@ -1561,3 +1561,44 @@ body{transition:background-color .2s}
 .sp-strip-btn{position:absolute;top:calc(50% - 26px);width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.92);color:#261433;font-size:26px;line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(38,20,51,.25);display:flex;align-items:center;justify-content:center}
 .sp-strip-btn.prev{left:8px}.sp-strip-btn.next{right:8px}
 @media (hover:none){.sp-strip-btn{display:none}}
+
+/* Sidebar: everything fits on one screen, down to Sign out, with storage at a glance (Nov 2026) */
+.side{padding:18px 14px;gap:14px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.side::-webkit-scrollbar{display:none}
+.side .studio{margin-top:-8px}
+.side .plan-badge{margin:-4px 8px 0;padding:8px 12px}
+.side .plan-tag{margin:-6px 8px 0}
+.side .nav{gap:1px}
+.side .nav a{min-height:36px;padding:7px 12px}
+.side .side-foot{gap:6px;padding-top:4px}
+.side-store{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:var(--side-ink);text-decoration:none}
+.side-store:hover{background:var(--side-hover)}
+.sst-top{display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px}
+.sst-top .ic{width:16px;height:16px;color:var(--side-muted)}
+.sst-top b{font-weight:700;letter-spacing:.02em}
+.sst-pct{margin-left:auto;font-weight:700;color:var(--side-muted)}
+.sst-meter{display:block;height:6px;border-radius:999px;background:var(--sunken);overflow:hidden}
+.sst-meter i{display:block;height:100%;border-radius:999px;background:var(--side-ink);transition:width .4s cubic-bezier(.2,.7,.2,1)}
+.sst-sub{font-size:12px;line-height:16px;color:var(--side-muted)}
+.side-store.is-high .sst-pct{color:var(--warning)}.side-store.is-high .sst-meter i{background:var(--marigold)}
+.side-store.is-full .sst-pct{color:var(--danger)}.side-store.is-full .sst-meter i{background:var(--danger)}
+.side-row{display:flex;align-items:center;gap:6px}
+.side-row .side-link{flex:1;min-width:0}
+.side-row .langswitch{height:36px;flex:none}
+.side .side-link{padding:8px 10px;min-height:36px}
+.side .me-card{padding:8px 6px 4px}
+.side-foot .side-out{justify-content:flex-start;min-height:36px;padding:8px 10px}
+.side-foot .side-out .ic{width:16px;height:16px}
+@media (max-height:780px){
+  .side{gap:10px;padding:14px 12px}
+  .side .brand svg{width:22px;height:30px}.side .brand b{font-size:24px}
+  .side .nav a{min-height:32px;padding:5px 12px}
+  .side .side-foot{gap:5px}
+}
+@media (max-height:700px){
+  .side .me-card{display:none}
+}
+@media (max-height:620px){
+  .side .studio,.side .sst-sub{display:none}
+  .side .nav a{min-height:30px;padding:4px 12px}
+}

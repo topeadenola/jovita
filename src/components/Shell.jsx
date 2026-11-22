@@ -15,7 +15,7 @@ import InvoiceEditor from "./InvoiceEditor";
 import GalleryEditor from "./GalleryEditor";
 import PaidMoment from "./PaidMoment";
 import Reminders from "./Reminders";
-import { PlanBadge, UpgradeSheet } from "./Upgrade";
+import { PlanBadge, SideStorage, UpgradeSheet } from "./Upgrade";
 import { loadPlan, planFromStudio } from "../lib/plan";
 import { AskIcon } from "./Jo";
 import { applyTheme, resolve } from "../lib/theme";
@@ -25,8 +25,8 @@ const UiCtx = createContext(null);
 export const useUi = () => useContext(UiCtx);
 
 const NAV = [
-  ["/", "Today", "today"], ["/inbox", "Inbox", "inbox"], ["/clients", "Clients", "users"], ["/projects", "Projects", "folder"],
-  ["/calendar", "Calendar", "calendar"], ["/bookings", "Bookings", "clock"], ["/money", "Money", "wallet"], ["/galleries", "Galleries", "image"],
+  ["/", "Today", "today"], ["/galleries", "Galleries", "image"], ["/inbox", "Inbox", "inbox"], ["/clients", "Clients", "users"],
+  ["/projects", "Projects", "folder"], ["/calendar", "Calendar", "calendar"], ["/bookings", "Bookings", "clock"], ["/money", "Money", "wallet"],
   ["/settings", "Settings", "settings"],
 ];
 
@@ -108,14 +108,17 @@ export default function Shell({ children }) {
             ))}
           </nav>
           <div className="side-foot">
+            <SideStorage plan={plan} refresh={loc.pathname} />
+            <div className="side-row">
+              <Link className="side-link" to="/spotlight"><Icon name="star" />{tx("Spotlight")}</Link>
+              <LangSwitch compact onPick={(l) => { const p = langPatch(studio, l); updateStudio(p).then(() => p.home_currency && setTimeout(() => toast(tx("Prices now show in {cur}. You can change this in Settings.", { cur: p.home_currency })), 60)).catch(() => {}); }} />
+            </div>
+            {isAdmin && <a className="side-link" href="/admin/"><Icon name="settings" />{tx("Jovita HQ")}</a>}
             <div className="me-card">
               <StudioLogo studio={studio} className="av" />
               <div><b>{studio.owner_first_name || studio.name}</b><span>{studio.name}</span></div>
             </div>
-            <Link className="side-link" to="/spotlight"><Icon name="star" />{tx("Spotlight")}</Link>
-            {isAdmin && <a className="side-link" href="/admin/"><Icon name="settings" />{tx("Jovita HQ")}</a>}
-            <LangSwitch onPick={(l) => { const p = langPatch(studio, l); updateStudio(p).then(() => p.home_currency && setTimeout(() => toast(tx("Prices now show in {cur}. You can change this in Settings.", { cur: p.home_currency })), 60)).catch(() => {}); }} />
-            <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })}><Icon name="logout" />{tx("Sign out")}</button>
+            <button type="button" className="side-out" onClick={() => supabase.auth.signOut({ scope: "local" })}><Icon name="logout" />{tx("Sign out")}</button>
           </div>
         </aside>
         <main className="main">

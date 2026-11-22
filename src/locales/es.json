@@ -1773,5 +1773,8 @@
   "Declined by the client: “{note}”": "Rechazado por el cliente: «{note}»",
   "Declined by the client": "Rechazado por el cliente",
   "Choose one of these options": "Elige una de estas opciones",
-  "Optional extras: add any you like": "Extras opcionales: añade los que quieras"
+  "Optional extras: add any you like": "Extras opcionales: añade los que quieras",
+  "Storage": "Almacenamiento",
+  "{used} of {limit}": "{used} de {limit}",
+  "Gallery storage": "Almacenamiento de galerías"
 }
