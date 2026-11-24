@@ -11,7 +11,7 @@ import { invoicePdf } from "../lib/invoicePdf";
 import { METHODS, schedRows, totals } from "../components/InvoiceEditor";
 import { logoUrl } from "../components/StudioLogo";
 import { useToast } from "../components/ui";
-import { counts, isChoice, isOptional, layout, picUrl } from "../lib/items";
+import { counts, discountPct, fromTotal, isChoice, isOptional, layout, optionPrices, picUrl } from "../lib/items";
 import Icon, { Mark } from "../components/Icon";
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -40,6 +40,10 @@ export default function InvoiceView() {
   const { invoice: i, studio: s, client: c, project: p } = v;
   const { d, t, rows } = calc;
   const lay = layout(d.items);
+  // Quotes: show the discount on each option, and "From …" while the client still has to choose
+  const opt = i.kind === "quote" ? optionPrices(d, d.items) : {};
+  const from = i.kind === "quote" ? fromTotal(d, d.items) : null;
+  const pct = discountPct(d);
   const quote = i.kind === "quote";
   const paid = i.status === "paid";
   const balance = Math.max(0, n(i.amount) - n(i.amount_paid));
@@ -71,12 +75,13 @@ export default function InvoiceView() {
             {lay.lines.filter(({ it }) => quote || counts(it)).map(({ it, head }, k) => (<Fragment key={it.id || k}>
               {quote && head && <tr className="doc-kind"><td colSpan={3}>{head === "choice" ? tx("Choose one") : tx("Optional extra")}</td></tr>}
               <tr className={quote && (isChoice(it) || isOptional(it)) && !it.selected ? "doc-off" : undefined}><td><b>{quote && (isChoice(it) || isOptional(it)) && <span className="doc-mark">{isChoice(it) ? (it.selected ? "◉ " : "○ ") : it.selected ? "☑ " : "☐ "}</span>}{it.name || tx("Item")}</b>{clean(it.description) && <div className="sub" style={{ fontSize: 12, whiteSpace: "pre-line" }}>{clean(it.description)}</div>}</td>
-                <td className="right" style={{ whiteSpace: "nowrap" }}>{n(it.qty)} × {money(it.price, i.currency)}</td><td className="right"><b>{money(n(it.qty) * n(it.price), i.currency)}</b></td></tr>
+                <td className="right" style={{ whiteSpace: "nowrap" }}>{n(it.qty)} × {money(it.price, i.currency)}</td><td className="right">{opt[it.id] ? <><s className="sub" style={{ fontSize: 13 }}>{money(opt[it.id].before, i.currency)}</s><br /><b className="doc-save">{money(opt[it.id].after, i.currency)}</b></> : <b>{money(n(it.qty) * n(it.price), i.currency)}</b>}</td></tr>
             </Fragment>))}
-            <tr><td colSpan={2} className="right">{tx("Subtotal")}</td><td className="right">{money(t.subtotal, i.currency)}</td></tr>
-            {t.discount > 0 && <tr><td colSpan={2} className="right">{tx("Discount")}</td><td className="right">− {money(t.discount, i.currency)}</td></tr>}
+            {from == null && <tr><td colSpan={2} className="right">{tx("Subtotal")}</td><td className="right">{money(t.subtotal, i.currency)}</td></tr>}
+            {n(d.discount) > 0 && <tr className="doc-save-row"><td colSpan={2} className="right">{pct ? tx("Discount ({pct}%)", { pct }) : tx("Discount")}{from != null && <><br /><span className="sub" style={{ fontSize: 12 }}>{pct ? tx("Comes off whatever you choose") : tx("Comes off the package you choose")}</span></>}</td><td className="right">− {from == null ? money(t.discount, i.currency) : pct ? `${pct}%` : money(n(d.discount), i.currency)}</td></tr>}
             {t.tax > 0 && <tr><td colSpan={2} className="right">{tx("Tax ({rate}%)", { rate: i.tax_rate })}</td><td className="right">{money(t.tax, i.currency)}</td></tr>}
-            <tr><td colSpan={2} className="right"><b>{tx("Total")}</b></td><td className="right"><b style={{ fontSize: 18 }}>{money(t.total, i.currency)}</b></td></tr>
+            <tr><td colSpan={2} className="right"><b>{tx("Total")}</b></td><td className="right"><b style={{ fontSize: 18 }}>{from != null ? tx("From {amount}", { amount: money(from, i.currency) }) : money(t.total, i.currency)}</b></td></tr>
+            {from == null && t.discount > 0 && <tr className="doc-save-row"><td colSpan={2} className="right">{tx("You save")}</td><td className="right"><b>{money(t.discount, i.currency)}</b></td></tr>}
             {n(i.amount_paid) > 0 && !paid && <>
               <tr><td colSpan={2} className="right">{tx("Paid so far")}</td><td className="right">− {money(i.amount_paid, i.currency)}</td></tr>
               <tr><td colSpan={2} className="right"><b>{tx("Balance due")}</b></td><td className="right"><b>{money(balance, i.currency)}</b></td></tr></>}

@@ -1778,5 +1778,21 @@
   "Optional extras: add any you like": "Options supplémentaires : ajoutez celles que vous voulez",
   "Storage": "Stockage",
   "{used} of {limit}": "{used} sur {limit}",
-  "Gallery storage": "Stockage des galeries"
+  "Gallery storage": "Stockage des galeries",
+  "Discount ({pct}%)": "Remise ({pct} %)",
+  "Comes off whatever you choose": "S'applique à ce que vous choisissez",
+  "Comes off the package you choose": "S'applique à la formule que vous choisissez",
+  "From {amount}": "À partir de {amount}",
+  "You save": "Vous économisez",
+  "Added to your choice": "Ajoutée à votre choix",
+  "{pct}% discount included": "Remise de {pct} % incluse",
+  "{amount} discount included": "Remise de {amount} incluse",
+  "See subscriptions": "Voir les abonnements",
+  "Log {amount} {name} payment": "Enregistrer le paiement {name} de {amount}",
+  "{name} is already in your subscriptions. Logged the {amount} payment; next renewal {date}.": "{name} est déjà dans vos abonnements. Paiement de {amount} enregistré ; prochain renouvellement le {date}.",
+  "Add {name} ({amount} {per}) and log payment": "Ajouter {name} ({amount} {per}) et enregistrer le paiement",
+  "Add {name} ({amount} {per})": "Ajouter {name} ({amount} {per})",
+  "Added {name} to your subscriptions and logged today's {amount} under Software and subscriptions.": "{name} ajouté à vos abonnements et paiement de {amount} d'aujourd'hui enregistré dans Logiciels et abonnements.",
+  "Added {name} to your subscriptions.": "{name} ajouté à vos abonnements.",
+  "We'll remind you before it renews on {date}.": "Nous vous préviendrons avant le renouvellement le {date}."
 }

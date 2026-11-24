@@ -16,7 +16,7 @@ import ClientPicker from "./ClientPicker";
 import { studioBase } from "../lib/links";
 import { invoicePdf } from "../lib/invoicePdf";
 import ItemsEditor from "./ItemsEditor";
-import { copyItems, counts, isChoice, isOptional, hasOptions, keepItem, layout, picUrl, unpick } from "../lib/items";
+import { copyItems, counts, isChoice, isOptional, hasOptions, keepItem, layout, picUrl, totalsOf, unpick } from "../lib/items";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -24,11 +24,7 @@ const REMIND = [[-7, "7 days before"], [0, "On due date"], [3, "3 days after"], 
 export const METHODS = [["transfer", "Bank transfer", "pay_transfer"], ["paystack", "Paystack", "pay_paystack"], ["flutterwave", "Flutterwave", "pay_flutterwave"], ["stripe", "Card (Stripe)", "pay_stripe"], ["paypal", "PayPal", "pay_paypal"]];
 
 export function totals(d) {
-  const subtotal = (d.items || []).filter(counts).reduce((s, it) => s + n(it.qty) * n(it.price), 0);
-  const discount = d.discount_type === "percent" ? subtotal * n(d.discount) / 100 : n(d.discount);
-  const taxed = Math.max(0, subtotal - discount);
-  const tax = taxed * n(d.tax_rate) / 100;
-  return { subtotal, discount, tax, total: Math.round((taxed + tax) * 100) / 100 };
+  return totalsOf(d, d.items);
 }
 
 // Turn a stored invoice into an editable draft (older invoices only had a label and amount)

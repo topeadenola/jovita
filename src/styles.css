@@ -1485,6 +1485,10 @@ body{transition:background-color .2s}
 .doc-table tr.doc-kind td{padding:12px 0 4px;border-top:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5E5069}
 .doc-table tr.doc-off{opacity:.55}
 .doc-mark{font-weight:400}
+.doc-save,.doc-table tr.doc-save-row td{color:var(--success,#1F7A4D)}
+.doc-table tr.doc-save-row td .sub{color:#4C6B5A}
+.portal-price{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}.portal-price s{font-size:13px;color:var(--muted);font-weight:400}.portal-price b{color:var(--success,#1F7A4D)}
+.portal-discount{margin:-6px 0 0;font-size:14px;font-weight:700;color:var(--success,#1F7A4D)}
 .portal-pic{width:100%;aspect-ratio:16/7;object-fit:cover;border-radius:14px;display:block}
 .portal-items li{flex-wrap:wrap}
 .portal-kind{flex-basis:100%;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:-4px}

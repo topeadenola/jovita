@@ -11,12 +11,15 @@ import { tx } from "../lib/i18n";
 import { LangSwitch } from "../components/Lang";
 import { PROVIDERS, bankText } from "../lib/payments";
 import { payFlutterwave, payPaystack, renderPayPal } from "../lib/checkout";
-import { applyPicks, counts, hasOptions, isChoice, isOptional, layout, openGroups, picUrl, unpick } from "../lib/items";
+import { applyPicks, counts, discountPct, fromTotal, hasDiscount, hasOptions, isChoice, isOptional, layout, openGroups, optionPrices, picUrl, unpick } from "../lib/items";
 
 // A quote's items. With options, the client picks one from each "Choose one" group and ticks any extras they want.
 function QuoteItems({ q, items, onPick }) {
   const lay = layout(items);
-  const line = (it) => <><div><b>{it.name}</b>{it.description && <p>{tidyBullets(it.description)}</p>}</div><span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span></>;
+  const opt = optionPrices(q, items);
+  const line = (it) => <><div><b>{it.name}</b>{it.description && <p>{tidyBullets(it.description)}</p>}</div>{opt[it.id]
+    ? <span className="num portal-price"><s>{money(opt[it.id].before, q.currency)}</s><b>{money(opt[it.id].after, q.currency)}</b></span>
+    : <span className="num">{money(Number(it.qty || 1) * Number(it.price || 0), q.currency)}</span>}</>;
   return (
     <>
       {lay.top.map((p) => <img key={p.id} className="portal-pic" src={picUrl(p.path)} alt="" />)}
@@ -185,7 +188,8 @@ export default function Portal() {
           {quotes.map((q) => (
             <section className="card quote-box" key={q.id}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}><h2 className="h-m">{tx("Your quote")}</h2>{q.review_at ? <Pill c="p-warning">{tx("Changes asked")}</Pill> : <Pill c="p-info">{tx("Waiting for you")}</Pill>}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{money(live[q.id] ?? q.amount, q.currency)}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span className="sub">{tx("Quote #{number} · valid until {date}", { number: q.number, date: fdate(q.due_date) })}</span><span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{fromTotal(q, itemsOf(q)) != null ? tx("From {amount}", { amount: money(fromTotal(q, itemsOf(q)), q.currency) }) : money(live[q.id] ?? q.amount, q.currency)}</span></div>
+              {hasDiscount(q) && <p className="portal-discount">{discountPct(q) ? tx("{pct}% discount included", { pct: discountPct(q) }) : tx("{amount} discount included", { amount: money(Number(q.discount), q.currency) })}</p>}
               {Array.isArray(q.items) && <QuoteItems q={q} items={itemsOf(q)} onPick={(it, on) => pick(q, it, on)} />}
               {q.notes && <p className="sub" style={{ whiteSpace: "pre-line", fontSize: 14 }}>{q.notes}</p>}
               {q.review_at && <p className="sub" style={{ fontSize: 13 }}>{tx("You asked {name} to review the pricing. You can still accept this quote, or wait for an updated one.", { name: s.name })}</p>}

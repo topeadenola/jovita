@@ -1,6 +1,6 @@
 import { saveFile } from "./saveFile";
 // Download an invoice or quote as a real PDF (sharp text, not a screenshot), laid out like the preview.
-import { counts, isChoice, isOptional, layout } from "./items";
+import { counts, discountPct, fromTotal, isChoice, isOptional, layout, optionPrices } from "./items";
 // Fonts: Figtree for text, Bricolage Grotesque for headings and amounts (it has ₦ and ₵; Figtree doesn't).
 import { tx } from "./i18n";
 import { fdate, money } from "./format";
@@ -82,6 +82,11 @@ export async function invoicePdf(doc) {
     y += 13;
   };
   head();
+  // Quotes: each option shows its price after the discount; "From …" until the client chooses
+  const opt = quote ? optionPrices(doc, doc.items) : {};
+  const from = quote ? fromTotal(doc, doc.items) : null;
+  const pct = discountPct(doc);
+  const GREEN = [31, 122, 77];
   // Invoices: only what counts towards the total. Quotes: every option, so the client can see what to choose.
   const rows = quote ? layout(doc.items).lines.filter(({ it }) => it.name || it.description || Number(it.price)) : (doc.items || []).filter(counts).map((it) => ({ it }));
   rows.forEach(({ it, head: kind }) => {
@@ -96,7 +101,7 @@ export async function invoicePdf(doc) {
     const desc = it.description ? pdf.splitTextToSize(String(it.description).split("\n").filter((l) => !/^\s*[-•]\s*$/.test(l)).join("\n").trim(), cQty - M - 50) : [];
     font("Figtree", "bold", PLUM, 10.5);
     const name = pdf.splitTextToSize(it.name || tx("Item"), cQty - M - 50);
-    const h = name.length * 5 + desc.length * 4.2 + 5;
+    const h = Math.max(name.length * 5 + desc.length * 4.2, opt[it.id] ? 8 : 0) + 5;
     if (y + h > H - 22) { pdf.addPage(); y = M; head(); }
     if (pick) {
       pdf.setDrawColor(...MUTED); pdf.setLineWidth(0.35);
@@ -105,23 +110,40 @@ export async function invoicePdf(doc) {
     }
     pdf.text(name, X, y);
     font("Bricolage", "normal", MUTED, 10); pdf.text(`${Number(it.qty) || 0} × ${$(it.price)}`, cQty, y, { align: "right" });
-    font("Bricolage", "bold", PLUM, 10.5); pdf.text($((Number(it.qty) || 0) * (Number(it.price) || 0)), cAmt - 4, y, { align: "right" });
+    if (opt[it.id]) {
+      const was = $(opt[it.id].before);
+      font("Bricolage", "normal", MUTED, 9.5); pdf.text(was, cAmt - 4, y, { align: "right" });
+      const w = pdf.getTextWidth(was); pdf.setDrawColor(...MUTED); pdf.setLineWidth(0.3); pdf.line(cAmt - 4 - w, y - 1.2, cAmt - 4, y - 1.2);
+      font("Bricolage", "bold", GREEN, 10.5); pdf.text($(opt[it.id].after), cAmt - 4, y + 5, { align: "right" });
+    } else { font("Bricolage", "bold", PLUM, 10.5); pdf.text($((Number(it.qty) || 0) * (Number(it.price) || 0)), cAmt - 4, y, { align: "right" }); }
     if (desc.length) { font("Figtree", "normal", MUTED, 9); pdf.text(desc, X, y + name.length * 5); }
     y += h; pdf.setDrawColor(...LINE); pdf.line(M, y - 3, R, y - 3); y += 2;
   });
 
   // Totals
-  const line = (label, value, strong) => {
+  const line = (label, value, strong, color) => {
     room(9);
-    font("Figtree", strong ? "bold" : "normal", strong ? PLUM : MUTED, strong ? 11 : 10); pdf.text(label, cQty, y, { align: "right" });
-    font("Bricolage", strong ? "bold" : "normal", PLUM, strong ? 13 : 10.5); pdf.text(value, cAmt - 4, y, { align: "right" });
+    font("Figtree", strong ? "bold" : "normal", color || (strong ? PLUM : MUTED), strong ? 11 : 10); pdf.text(label, cQty, y, { align: "right" });
+    font("Bricolage", strong ? "bold" : "normal", color || PLUM, strong ? 13 : 10.5); pdf.text(value, cAmt - 4, y, { align: "right" });
     y += strong ? 8 : 6;
   };
   y += 2;
-  line(tx("Subtotal"), $(doc.subtotal));
-  if (doc.discount > 0) line(tx("Discount"), "− " + $(doc.discount));
-  if (doc.tax > 0) line(tx("Tax ({rate}%)", { rate: doc.tax_rate }), $(doc.tax));
-  line(tx("Total"), $(doc.total), true);
+  const dLabel = pct ? tx("Discount ({pct}%)", { pct }) : tx("Discount");
+  if (from != null) {
+    // Nothing chosen yet: no ₦0 subtotal; show the discount and the lowest total it can come to
+    if (Number(doc.discount) > 0) {
+      line(dLabel, "− " + (pct ? `${pct}%` : $(doc.discount)), false, GREEN);
+      font("Figtree", "normal", MUTED, 8.5); pdf.text(pct ? tx("Comes off whatever you choose") : tx("Comes off the package you choose"), cQty, y - 2, { align: "right" }); y += 3;
+    }
+    if (doc.tax > 0) line(tx("Tax ({rate}%)", { rate: doc.tax_rate }), tx("Added to your choice"));
+    line(tx("Total"), tx("From {amount}", { amount: $(from) }), true);
+  } else {
+    line(tx("Subtotal"), $(doc.subtotal));
+    if (doc.discount > 0) line(dLabel, "− " + $(doc.discount), false, GREEN);
+    if (doc.tax > 0) line(tx("Tax ({rate}%)", { rate: doc.tax_rate }), $(doc.tax));
+    line(tx("Total"), $(doc.total), true);
+    if (doc.discount > 0) line(tx("You save"), $(doc.discount), false, GREEN);
+  }
   if (Number(doc.amount_paid) > 0 && !quote) {
     line(tx("Paid so far"), "− " + $(doc.amount_paid));
     room(14);

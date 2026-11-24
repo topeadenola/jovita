@@ -65,3 +65,39 @@ export function layout(items) {
   });
   return { top: list.filter((it) => isPic(it) && it.pos !== "bottom" && it.path), lines, bottom: list.filter((it) => isPic(it) && it.pos === "bottom" && it.path) };
 }
+
+// ---- Discounts the client can see ----
+const num = (v) => Number(v) || 0;
+// Same maths as the editor's totals(), for any set of items
+export function totalsOf(d, items) {
+  const subtotal = (items || []).filter(counts).reduce((s, it) => s + num(it.qty) * num(it.price), 0);
+  const discount = d.discount_type === "percent" ? subtotal * num(d.discount) / 100 : num(d.discount);
+  const taxed = Math.max(0, subtotal - discount);
+  const tax = taxed * num(d.tax_rate) / 100;
+  return { subtotal, discount, tax, total: Math.round((taxed + tax) * 100) / 100 };
+}
+export const hasDiscount = (d) => num(d?.discount) > 0;
+export const discountPct = (d) => (d?.discount_type === "percent" && num(d.discount) > 0 ? num(d.discount) : 0);
+// On a quote, each option's price before and after the discount, so the client can see the saving on the option itself.
+// A percent comes off every option and extra; a fixed amount comes off the package they choose.
+export function optionPrices(d, items) {
+  const out = {};
+  if (!hasDiscount(d)) return out;
+  const pct = discountPct(d);
+  (items || []).forEach((it) => {
+    if (!isChoice(it) && !isOptional(it)) return;
+    const before = num(it.qty) * num(it.price);
+    const after = pct ? before * (1 - pct / 100) : isChoice(it) ? Math.max(0, before - num(d.discount)) : before;
+    if (after < before) out[it.id] = { before, after: Math.round(after * 100) / 100 };
+  });
+  return out;
+}
+// A quote whose packages aren't chosen yet: the lowest total it can come to, discount included ("From …")
+export function fromTotal(d, items) {
+  const open = openGroups(items);
+  if (!open.length) return null;
+  const cheapest = {};
+  (items || []).forEach((it) => { if (isChoice(it) && open.includes(it.group)) { const p = num(it.qty) * num(it.price); if (!cheapest[it.group] || p < cheapest[it.group].p) cheapest[it.group] = { id: it.id, p }; } });
+  const picked = (items || []).map((it) => isChoice(it) && open.includes(it.group) ? { ...it, selected: it.id === cheapest[it.group].id } : it);
+  return totalsOf(d, picked).total;
+}

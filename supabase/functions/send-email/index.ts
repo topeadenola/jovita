@@ -187,14 +187,14 @@ async function quoteAccepted(token: string, invoiceId: string) {
   if (c?.email) {
     await brevo(TEMPLATES.invoice, { email: c.email, name: c.name }, {
       studio_name: studio.name || "Your photographer", studio_logo: logo, client_first_name: firstName(c.name), invoice_number: inv.number,
-      amount: money(inv.amount, inv.currency), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
+      amount: amountText(inv, "invoice"), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
     }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, (inbox || ownerEmail) ? { email: inbox || ownerEmail, name: studio.name } : undefined,
       studio.copy_me && ownerEmail ? { email: ownerEmail } : undefined);
     sent.push("client");
     for (const x of await others(get, [...(inv.people || []), ...(p.people || [])], p.client_id, c.email))
       await brevo(TEMPLATES.invoice, { email: x.email, name: x.name }, {
         studio_name: studio.name || "Your photographer", studio_logo: logo, client_first_name: firstName(x.name), invoice_number: inv.number,
-        amount: money(inv.amount, inv.currency), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
+        amount: amountText(inv, "invoice"), due_date: day(inv.due_date) || "on receipt", project_name: p.title || inv.label || "Your session", link,
       }, { email: FROM.email, name: `${studio.name || "Your photographer"} via Jovita` }, (inbox || ownerEmail) ? { email: inbox || ownerEmail, name: studio.name } : undefined).catch(() => {});
   }
   if (owner?.email) {
@@ -207,7 +207,14 @@ async function quoteAccepted(token: string, invoiceId: string) {
   return { ok: true, sent };
 }
 
-// A quote with packages to choose from: "from <cheapest>" (what's always included plus the cheapest option in each group)
+// The discount, as the client should read it: "20% off" or "₦200,000 off" (null when there's none)
+function offText(inv: any): string | null {
+  const d = Number(inv.discount) || 0;
+  if (d <= 0) return null;
+  return inv.discount_type === "percent" ? `${d}% off` : `${money(d, inv.currency)} off`;
+}
+// A quote with packages to choose from: "from <cheapest>" (what's always included plus the cheapest option in each group),
+// after the discount and tax, so it matches what the client will pay
 function quoteFrom(inv: any): string | null {
   const items = Array.isArray(inv.items) ? inv.items : [];
   if (!items.some((it: any) => it?.type === "choice" || it?.type === "optional")) return null;
@@ -216,7 +223,17 @@ function quoteFrom(inv: any): string | null {
   const groups: Record<string, number> = {};
   items.filter((it: any) => it?.type === "choice").forEach((it: any) => { const g = String(it.group); groups[g] = Math.min(groups[g] ?? Infinity, line(it)); });
   Object.values(groups).forEach((v) => { total += v; });
-  return `from ${money(total, inv.currency)}`;
+  const disc = inv.discount_type === "percent" ? total * (Number(inv.discount) || 0) / 100 : Number(inv.discount) || 0;
+  const taxed = Math.max(0, total - disc);
+  const final = Math.round((taxed + taxed * (Number(inv.tax_rate) || 0) / 100) * 100) / 100;
+  const off = offText(inv);
+  return `from ${money(final, inv.currency)}${off ? ` (${off})` : ""}`;
+}
+// What the email shows as the amount: the price after the discount, with the saving named
+function amountText(inv: any, kind: string): string {
+  if (kind === "quote") { const f = quoteFrom(inv); if (f) return f; }
+  const off = (kind === "quote" || kind === "invoice") ? offText(inv) : null;
+  return `${money(inv.amount, inv.currency)}${off ? ` (${off})` : ""}`;
 }
 
 const esc = (s: string) => String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
@@ -357,7 +374,7 @@ Deno.serve(async (req) => {
       const daysLeft = due ? Math.round((due.getTime() - Date.now()) / 864e5) : null;
       const due_text = daysLeft == null ? "due soon" : daysLeft > 1 ? `due in ${daysLeft} days` : daysLeft === 1 ? "due tomorrow" : daysLeft === 0 ? "due today" : `${-daysLeft} day${daysLeft === -1 ? "" : "s"} overdue`;
       const params = {
-        ...studioParams, client_first_name: firstName(c.name), invoice_number: inv.number, amount: (kind === "quote" && quoteFrom(inv)) || money(inv.amount, inv.currency),
+        ...studioParams, client_first_name: firstName(c.name), invoice_number: inv.number, amount: amountText(inv, kind),
         due_date: day(inv.due_date) || "on receipt", due_text, project_name: p?.title || inv.label || "Your session", link,
         paid_at: day(inv.paid_at || new Date().toISOString()), method: inv.payment_method || "—",
         balance: money(inv.status === "paid" ? 0 : Math.max(0, Number(inv.amount) - Number(inv.amount_paid || 0)), inv.currency),

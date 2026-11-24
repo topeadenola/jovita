@@ -1778,5 +1778,21 @@
   "Optional extras: add any you like": "Ziada za hiari: ongeza unazotaka",
   "Storage": "Hifadhi",
   "{used} of {limit}": "{used} kati ya {limit}",
-  "Gallery storage": "Hifadhi ya matunzio"
+  "Gallery storage": "Hifadhi ya matunzio",
+  "Discount ({pct}%)": "Punguzo ({pct}%)",
+  "Comes off whatever you choose": "Inapunguzwa kwenye chochote utakachochagua",
+  "Comes off the package you choose": "Inapunguzwa kwenye kifurushi utakachochagua",
+  "From {amount}": "Kuanzia {amount}",
+  "You save": "Unaokoa",
+  "Added to your choice": "Inaongezwa kwenye chaguo lako",
+  "{pct}% discount included": "Punguzo la {pct}% limejumuishwa",
+  "{amount} discount included": "Punguzo la {amount} limejumuishwa",
+  "See subscriptions": "Angalia usajili",
+  "Log {amount} {name} payment": "Rekodi malipo ya {name} ya {amount}",
+  "{name} is already in your subscriptions. Logged the {amount} payment; next renewal {date}.": "{name} tayari iko kwenye usajili wako. Malipo ya {amount} yamerekodiwa; usasishaji ujao {date}.",
+  "Add {name} ({amount} {per}) and log payment": "Ongeza {name} ({amount} {per}) na rekodi malipo",
+  "Add {name} ({amount} {per})": "Ongeza {name} ({amount} {per})",
+  "Added {name} to your subscriptions and logged today's {amount} under Software and subscriptions.": "{name} imeongezwa kwenye usajili wako na malipo ya leo ya {amount} yamerekodiwa chini ya Programu na usajili.",
+  "Added {name} to your subscriptions.": "{name} imeongezwa kwenye usajili wako.",
+  "We'll remind you before it renews on {date}.": "Tutakukumbusha kabla haijasasishwa tarehe {date}."
 }
