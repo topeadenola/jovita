@@ -97,6 +97,7 @@ export default function AskJovita({ onClose }) {
     markPaid: (i) => invoiceAction(i, "markpaid"),
     sendInvoice: (i) => invoiceAction(i, "send"),
     updateInvoice: (id, patch) => data.update("invoices", id, patch),
+    update: (table, id, patch) => data.update(table, id, patch),
   };
   const say = (m) => setLog((l) => [...l, { who: "jo", at: Date.now(), ...m }]);
   // After a refresh, bring back the buttons that weren't tapped yet

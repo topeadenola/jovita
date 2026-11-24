@@ -1,11 +1,11 @@
 // Ask Jovita can do things, not just answer. Rules only (no AI service).
 // Creating drafts (a client, a project, a draft invoice, a draft gallery) happens straight away because it's easy to undo.
 // Anything touching money or a client's inbox (mark paid, send) asks you to confirm first.
-import { addDays, first, invState, money, PROJECT_TYPES } from "./format";
+import { addDays, fdate, first, invState, money, PROJECT_TYPES } from "./format";
 import { tx } from "./i18n";
 import { copyItems, counts, keepItem } from "./items";
 import { totals } from "../components/InvoiceEditor";
-import { EXPENSE_CATEGORIES } from "./accounting";
+import { EXPENSE_CATEGORIES, nextRenewalAfter } from "./accounting";
 
 const has = (q, words) => words.some((w) => q.includes(w));
 const STOP = new Set(["a", "an", "the", "my", "me", "her", "him", "them", "new", "client", "customer", "she", "he", "they", "who", "is", "was", "for", "with", "of", "worth", "at", "and", "please", "pls", "invoice", "project", "gallery", "today", "tomorrow", "now", "it", "this", "that", "as", "to", "on", "in", "about", "amount", "called", "named", "shoot", "session", "wedding", "newborn", "portrait", "birthday", "maternity", "family", "event", "lead", "contact"]);
@@ -330,6 +330,45 @@ export function fromBrain(actions = [], ctx) {
         await ctx.ui.insert("expenses", row);
         return { text: tx("Saved: {amount} for {what}, under {category}.", { amount: money(row.amount, cur), what: row.vendor, category: tx(cat) }), buttons: [{ label: tx("See expenses"), run: () => { ctx.ui.nav(PAGES.expenses); return null; } }] };
       } });
+    } else if (tool === "add_subscription" && a.name && Number(a.amount) >= 0) {
+      // A tool they pay for: track it in Subscriptions, and log the payment if they just paid
+      const { subscriptions = [], expenses = [] } = ctx.data;
+      const name = String(a.name).trim().slice(0, 80);
+      const key = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const amount = Number(a.amount) || 0;
+      const cur = /^[A-Z]{3}$/.test(a.currency || "") ? a.currency : "USD";
+      const cycle = a.cycle === "yearly" ? "yearly" : "monthly";
+      const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "");
+      const paid = isDay(a.paid_on) ? a.paid_on : null;
+      const existing = subscriptions.find((x) => x.active && (key(x.name) === key(name) || key(x.name).startsWith(key(name)) || key(name).startsWith(key(x.name))));
+      const per = cycle === "yearly" ? tx("a year") : tx("a month");
+      // An expense they already logged for this payment (same app and amount, within a few days, not yet linked)
+      const near = (d) => paid && Math.abs(new Date(d) - new Date(paid)) <= 4 * 864e5;
+      const dupe = paid && expenses.find((e) => !e.subscription_id && key(e.vendor).includes(key(name).slice(0, 5)) && Number(e.amount) === amount && e.currency === cur && near(e.spent_on));
+      const logPayment = async (sub) => {
+        if (dupe) await ctx.ui.update("expenses", dupe.id, { subscription_id: sub.id, category: "Software and subscriptions" });
+        else await ctx.ui.insert("expenses", { vendor: sub.name, category: "Software and subscriptions", amount, currency: cur, spent_on: paid, note: cycle === "yearly" ? tx("Yearly subscription") : tx("Monthly subscription"), subscription_id: sub.id });
+      };
+      const seeSubs = [{ label: tx("See subscriptions"), run: () => { ctx.ui.nav(PAGES.expenses); return null; } }];
+      if (existing && paid) {
+        buttons.push({ label: tx("Log {amount} {name} payment", { amount: money(amount, cur), name: existing.name }), primary: true, run: async () => {
+          await logPayment(existing);
+          const next = nextRenewalAfter({ ...existing, next_renewal: paid > existing.next_renewal ? paid : existing.next_renewal });
+          await ctx.ui.update("subscriptions", existing.id, { next_renewal: next });
+          return { text: tx("{name} is already in your subscriptions. Logged the {amount} payment; next renewal {date}.", { name: existing.name, amount: money(amount, cur), date: fdate(next) }), buttons: seeSubs };
+        } });
+      } else if (!existing) {
+        const next = paid ? nextRenewalAfter({ cycle, next_renewal: paid }) : isDay(a.next_renewal) ? a.next_renewal : nextRenewalAfter({ cycle, next_renewal: new Date().toISOString().slice(0, 10) });
+        const row = { name, amount, currency: cur, cycle, next_renewal: next, active: true, website: a.website ? String(a.website).trim().slice(0, 120) : null };
+        buttons.push({ label: paid ? tx("Add {name} ({amount} {per}) and log payment", { name, amount: money(amount, cur), per }) : tx("Add {name} ({amount} {per})", { name, amount: money(amount, cur), per }), primary: true, run: async () => {
+          let sub;
+          try { sub = await ctx.ui.insert("subscriptions", row); } catch (e) { if (!/website/.test(e.message || "")) throw e; delete row.website; sub = await ctx.ui.insert("subscriptions", row); }
+          if (paid) await logPayment(sub);
+          return { text: (paid ? tx("Added {name} to your subscriptions and logged today's {amount} under Software and subscriptions.", { name, amount: money(amount, cur) }) : tx("Added {name} to your subscriptions.", { name })) + " " + tx("We'll remind you before it renews on {date}.", { date: fdate(next) }), buttons: seeSubs };
+        } });
+      } else {
+        buttons.push({ label: tx("See subscriptions"), run: () => { ctx.ui.nav(PAGES.expenses); return null; } });
+      }
     } else if (tool === "open_page" && PAGES[a.page]) {
       buttons.push({ label: tx("Open {page}", { page: tx(PAGE_NAMES[a.page]) }), run: () => { ctx.ui.nav(PAGES[a.page]); return null; } });
     }
